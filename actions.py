@@ -15,8 +15,13 @@ from creature_helpers import (
 
 
 class Action(ABC):
-    def __init__(self):
+    """全アクション共通: JSON の params を self.params にマージして保持する。"""
+
+    DEFAULT_PARAMS: dict = {}
+
+    def __init__(self, **params):
         self.completed = False
+        self.params = {**self.DEFAULT_PARAMS, **params}
 
     @abstractmethod
     def execute(self, creature) -> bool:
@@ -30,13 +35,17 @@ class Action(ABC):
 
 
 class WanderAction(Action):
-    def __init__(self, angle_range: int = 30, speed_multiplier: float = 0.85):
-        super().__init__()
-        self.angle_range = angle_range
-        self.speed_multiplier = speed_multiplier
+    DEFAULT_PARAMS = {
+        "angle_range": 30,
+        "speed_multiplier": 0.85,
+    }
 
     def execute(self, creature) -> bool:
-        wander_step(creature, self.angle_range, self.speed_multiplier)
+        wander_step(
+            creature,
+            self.params["angle_range"],
+            self.params["speed_multiplier"],
+        )
         return False
 
     def calculate_utility(self, creature) -> float:
@@ -44,17 +53,22 @@ class WanderAction(Action):
 
 
 class ManaWanderAction(Action):
-    """生産者専用: 徘徊しつつ World.mana から満腹度を回復する。"""
+    """徘徊しつつ World.mana から満腹度を回復する（mind に登録した生物のみ）。"""
 
     SATIETY_CAP_RATIO = 0.95
 
-    def __init__(self, angle_range: int = 30, speed_multiplier: float = 0.85):
-        super().__init__()
-        self.angle_range = angle_range
-        self.speed_multiplier = speed_multiplier
+    DEFAULT_PARAMS = {
+        "angle_range": 30,
+        "speed_multiplier": 0.85,
+        "mana_absorption_rate": 0.8,
+    }
 
     def execute(self, creature) -> bool:
-        wander_step(creature, self.angle_range, self.speed_multiplier)
+        wander_step(
+            creature,
+            self.params["angle_range"],
+            self.params["speed_multiplier"],
+        )
         self._absorb_mana(creature)
         return False
 
@@ -65,7 +79,8 @@ class ManaWanderAction(Action):
         if creature.satiety >= cap:
             return
 
-        rate = float(creature.traits.get("mana_absorption_rate", 0.8))
+        # Amoeba: params.mana_absorption_rate（traits には置かない）
+        rate = float(self.params["mana_absorption_rate"])
         room = cap - creature.satiety
         absorbed = min(rate, room, creature.world.mana)
         if absorbed <= 0:
@@ -75,8 +90,6 @@ class ManaWanderAction(Action):
         creature.satiety += absorbed
 
     def calculate_utility(self, creature) -> float:
-        if not creature.traits.get("is_producer", False):
-            return 0.0
         hunger = hunger_ratio(creature)
         return 0.75 + hunger * 0.25
 
@@ -86,16 +99,16 @@ class ChaseAction(Action):
 
     HUNGER_THRESHOLD = 0.2
 
-    def __init__(
-        self,
-        target_type: str = "Amoeba",
-        speed_multiplier: float = 1.25,
-        contact_padding: float = 8.0,
-    ):
-        super().__init__()
-        self.target_type = target_type
-        self.speed_multiplier = speed_multiplier
-        self.contact_padding = contact_padding
+    DEFAULT_PARAMS = {
+        "target_type": "Amoeba",
+        "speed_multiplier": 1.25,
+        "contact_padding": 8.0,
+        "bite_gain": 1.35,
+        "attack_power": 1.0,
+    }
+
+    def __init__(self, **params):
+        super().__init__(**params)
         self._target = None
 
     def execute(self, creature) -> bool:
@@ -106,9 +119,14 @@ class ChaseAction(Action):
         if target is None:
             return False
 
-        dist = move_toward(creature, target, self.speed_multiplier)
-        if dist <= contact_range(creature, target, self.contact_padding):
-            try_predate(creature, target)
+        dist = move_toward(creature, target, self.params["speed_multiplier"])
+        if dist <= contact_range(creature, target, self.params["contact_padding"]):
+            try_predate(
+                creature,
+                target,
+                attack_power=float(self.params["attack_power"]),
+                bite_gain=float(self.params["bite_gain"]),
+            )
             if target.alive or not has_edible_carcass(target):
                 self._target = None
 
@@ -116,7 +134,7 @@ class ChaseAction(Action):
 
     def calculate_utility(self, creature) -> float:
         prey = find_nearest_edible(
-            creature, self.target_type, exclude=creature
+            creature, self.params["target_type"], exclude=creature
         )
         if prey is None:
             return 0.0
@@ -129,9 +147,10 @@ class ChaseAction(Action):
         return min(1.0, hunger * (0.35 + closeness * 0.65))
 
     def _resolve_target(self, creature):
-        if is_trackable_target(creature, self._target, self.target_type):
+        target_type = self.params["target_type"]
+        if is_trackable_target(creature, self._target, target_type):
             return self._target
         self._target = find_nearest_edible(
-            creature, self.target_type, exclude=creature
+            creature, target_type, exclude=creature
         )
         return self._target

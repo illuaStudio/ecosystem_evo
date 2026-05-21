@@ -103,12 +103,12 @@ def move_toward(creature, target, speed_multiplier: float = 1.0) -> float:
     return distance_between(creature, target)
 
 
-def bite(predator, prey) -> float:
+def bite(predator, prey, attack_power: float = 1.0) -> float:
     """生きている獲物に噛みつきHPダメージを与える。与えたダメージ量を返す。"""
     if not prey.alive:
         return 0.0
 
-    damage = predator.traits.get("attack_power", 1.0) * 12.0
+    damage = float(attack_power) * 12.0
     prey.hp -= damage
 
     if prey.hp <= 0:
@@ -117,13 +117,13 @@ def bite(predator, prey) -> float:
     return damage
 
 
-def consume_carcass(predator, carcass) -> float:
+def consume_carcass(predator, carcass, bite_gain: float = 1.35) -> float:
     """死骸の残存バイオマスを消費して満腹度を回復。得られた Satiety 量を返す。"""
     if carcass.alive or carcass.remaining_biomass <= 0:
         return 0.0
 
     base_size = float(predator.traits.get("base_size", 9.0))
-    bite_gain = float(predator.traits.get("bite_gain", 1.35))
+    bite_gain = float(bite_gain)
     amount = min(
         carcass.remaining_biomass * 0.45,
         base_size * bite_gain * 1.6,
@@ -142,12 +142,17 @@ def consume_carcass(predator, carcass) -> float:
     return gained
 
 
-def try_predate(predator, target) -> None:
+def try_predate(
+    predator,
+    target,
+    attack_power: float = 1.0,
+    bite_gain: float = 1.35,
+) -> None:
     """接触時の捕食フロー: bite → 死骸化 → consume_carcass"""
     if target.alive:
-        bite(predator, target)
+        bite(predator, target, attack_power=attack_power)
     if not target.alive:
-        consume_carcass(predator, target)
+        consume_carcass(predator, target, bite_gain=bite_gain)
 
 
 def wander_step(creature, angle_range: float, speed_multiplier: float) -> None:

@@ -4,15 +4,10 @@
   "traits": {
     "base_size": 9.0,
     "base_speed": 1.8,
-    "move_speed": 1.8,
     "base_vision": 140,
     "max_hp": 60.0,
     "max_satiety": 45.0,
-    "metabolism_rate": 0.55,
-    "bite_gain": 0.0,
-    "attack_power": 0.0,
-    "mana_absorption_rate": 0.8,
-    "is_producer": true
+    "metabolism_rate": 0.55
   },
   "mind": {
     "type": "utility",
@@ -20,7 +15,11 @@
       {
         "name": "ManaWanderAction",
         "weight": 1.0,
-        "params": { "angle_range": 40, "speed_multiplier": 0.75 }
+        "params": {
+          "angle_range": 40,
+          "speed_multiplier": 0.75,
+          "mana_absorption_rate": 0.8
+        }
       }
     ]
   }

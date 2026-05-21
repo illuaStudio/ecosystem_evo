@@ -4,13 +4,10 @@
   "traits": {
     "base_size": 14.0,
     "base_speed": 3.0,
-    "move_speed": 3.0,
     "base_vision": 260,
     "max_hp": 120.0,
     "max_satiety": 100.0,
-    "metabolism_rate": 0.45,
-    "bite_gain": 1.35,
-    "attack_power": 1.2
+    "metabolism_rate": 0.45
   },
   "mind": {
     "type": "utility",
@@ -20,7 +17,9 @@
         "weight": 2.8,
         "params": {
           "target_type": "Amoeba",
-          "speed_multiplier": 1.3
+          "speed_multiplier": 1.3,
+          "bite_gain": 1.35,
+          "attack_power": 1.2
         }
       },
       {

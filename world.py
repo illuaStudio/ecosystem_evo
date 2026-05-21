@@ -23,7 +23,7 @@ class World:
         self.obstacles = []
         self.resources = []
 
-        # 世界全体のマナ総量（生産者が吸収、死骸の残存バイオマスから還元）
+        # 世界全体のマナ総量（ManaWanderAction が吸収、死骸の残存バイオマスから還元）
         # 動作確認: 死骸の緑→赤バーが捕食で急減、放置で緩やかに減少。
         # バー0で消滅し Mana が増える。画面上部の Mana 表示で確認。
         self.mana: float = 5000.0
