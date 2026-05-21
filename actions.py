@@ -86,11 +86,11 @@ class ManaWanderAction(Action):
         # Amoeba: params.mana_absorption_rate（traits には置かない）
         rate = float(self.params["mana_absorption_rate"])
         room = cap - creature.satiety
-        absorbed = min(rate, room, creature.world.mana)
+        want = min(rate, room)
+        absorbed = creature.world.consume_mana(want)
         if absorbed <= 0:
             return
 
-        creature.world.mana -= absorbed
         creature.satiety += absorbed
 
     def calculate_utility(self, creature) -> float:

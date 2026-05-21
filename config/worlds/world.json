@@ -1,0 +1,24 @@
+{
+    "name": "Grassland",
+    "display_name": "草原の生態系",
+    "world_width": 800,
+    "world_height": 600,
+    "background_color": [34, 60, 25],
+    
+    "mana": {
+      "initial": 4500.0,
+      "max": 12000.0,
+      "regen_rate": 0.8
+    },
+    
+    "initial_entities": {
+      "Amoeba": 25,
+      "Herbivore": 12,
+      "Predator": 6
+    },
+    
+    "environment": {
+      "temperature": 22.0,
+      "humidity": 65.0
+    }
+  }

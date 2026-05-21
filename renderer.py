@@ -69,7 +69,8 @@ class Renderer:
         
         mana_label = ""
         if hasattr(camera, "world") and camera.world:
-            mana_label = f"    Mana: {camera.world.mana:.0f}"
+            w = camera.world
+            mana_label = f"    Mana: {w.mana:.0f}/{w.max_mana:.0f}"
         self.screen.blit(self.font.render(
             f"生き物: {len(creatures):3d} 匹{mana_label}",
             True, (230, 245, 210)), (15, 55))

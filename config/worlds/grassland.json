@@ -1,9 +1,0 @@
-{
-  "name": "Grassland",
-  "display_name": "草原の生態系",
-  "world_width": 500,
-  "world_height": 500,
-  "background_color": [34, 60, 25],
-  "initial_amoeba": 0,
-  "initial_predator": 0
-}
