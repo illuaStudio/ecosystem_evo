@@ -1,5 +1,19 @@
 from abc import ABC, abstractmethod
 
+from actions import (
+    ChaseAction,
+    ManaWanderAction,
+    SplitAction,
+    WanderAction,
+)
+
+ACTION_BY_NAME = {
+    "WanderAction": WanderAction,
+    "ManaWanderAction": ManaWanderAction,
+    "ChaseAction": ChaseAction,
+    "SplitAction": SplitAction,
+}
+
 
 class Mind(ABC):
     @abstractmethod
@@ -22,18 +36,10 @@ class UtilityMind(Mind):
             params = action_def.get("params", {})
             weight = action_def.get("weight", 1.0)
 
-            # Actionインスタンス作成
-            if action_name == "WanderAction":
-                from actions import WanderAction
-                action = WanderAction(**params)
-            elif action_name == "ManaWanderAction":
-                from actions import ManaWanderAction
-                action = ManaWanderAction(**params)
-            elif action_name == "ChaseAction":
-                from actions import ChaseAction
-                action = ChaseAction(**params)
-            else:
+            action_cls = ACTION_BY_NAME.get(action_name)
+            if action_cls is None:
                 continue
+            action = action_cls(**params)
 
             utility = action.calculate_utility(creature)
             score = utility * weight
@@ -45,7 +51,6 @@ class UtilityMind(Mind):
                 best_action = action
 
         if best_action is None:
-            from actions import WanderAction
             best_action = WanderAction()
 
         # 同種の行動が選ばれたら進行中インスタンスを維持（追跡ターゲット等を保持）

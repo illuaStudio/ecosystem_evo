@@ -1,4 +1,6 @@
 # actions.py
+import math
+import random
 from abc import ABC, abstractmethod
 
 from creature_helpers import (
@@ -9,6 +11,7 @@ from creature_helpers import (
     hunger_ratio,
     is_trackable_target,
     move_toward,
+    satiety_ratio,
     try_predate,
     wander_step,
 )
@@ -154,3 +157,89 @@ class ChaseAction(Action):
             creature, target_type, exclude=creature
         )
         return self._target
+
+
+class ReproductionAction(Action):
+    """繁殖系アクションの基底。卵生・交配などはサブクラスで spawn 戦略を差し替える。"""
+
+    def _offspring_position(self, parent, distance: float) -> tuple[float, float]:
+        angle = random.uniform(0, 360)
+        x = parent.pos[0] + math.cos(math.radians(angle)) * distance
+        y = parent.pos[1] + math.sin(math.radians(angle)) * distance
+        if parent.world:
+            margin = 30
+            x = max(margin, min(parent.world.width - margin, x))
+            y = max(margin, min(parent.world.height - margin, y))
+        return x, y
+
+    def _register_offspring(self, parent, offspring) -> None:
+        if parent.world:
+            parent.world.add_creature(offspring)
+
+
+class SplitAction(ReproductionAction):
+    """無性分裂: 満腹・成熟・クールダウンを満たすと1子を隣接生成し親を縮小する。"""
+
+    DEFAULT_PARAMS = {
+        "satiety_threshold": 0.78,
+        "energy_cost": 0.42,
+        "size_reduction": 0.52,
+        "offspring_size_ratio": 0.45,
+        "offspring_satiety_ratio": 0.55,
+        "cooldown": 220,
+        "min_age": 280,
+        "separation_distance": 12.0,
+    }
+
+    def can_execute(self, creature) -> bool:
+        if not creature.alive or not creature.world:
+            return False
+        if creature.repro_cooldown > 0:
+            return False
+        if creature.age < int(self.params["min_age"]):
+            return False
+        return satiety_ratio(creature) >= float(self.params["satiety_threshold"])
+
+    def execute(self, creature) -> bool:
+        if not self.can_execute(creature):
+            return False
+
+        from creature_factory import CreatureFactory
+
+        p = self.params
+        parent_size = float(creature.traits["base_size"])
+        parent_satiety = creature.satiety
+
+        offspring_size = parent_size * float(p["offspring_size_ratio"])
+        offspring_satiety = parent_satiety * float(p["offspring_satiety_ratio"])
+
+        creature.satiety -= float(p["energy_cost"]) * creature.max_satiety
+        creature.satiety = max(0.0, creature.satiety)
+        creature.scale_size(float(p["size_reduction"]))
+
+        ox, oy = self._offspring_position(creature, float(p["separation_distance"]))
+        offspring = CreatureFactory.create_offspring(
+            creature,
+            ox,
+            oy,
+            base_size=offspring_size,
+            satiety=offspring_satiety,
+        )
+        self._register_offspring(creature, offspring)
+
+        creature.set_repro_cooldown(int(p["cooldown"]))
+        self.completed = True
+        return True
+
+    def calculate_utility(self, creature) -> float:
+        if not self.can_execute(creature):
+            return 0.0
+
+        sat = satiety_ratio(creature)
+        threshold = float(self.params["satiety_threshold"])
+        if sat < threshold:
+            return 0.0
+
+        headroom = max(1e-6, 1.0 - threshold)
+        excess = (sat - threshold) / headroom
+        return min(1.0, 0.55 + excess * 0.45)

@@ -29,12 +29,21 @@ class Creature(BaseEntity):
 
         self.world = None
         self.last_pos = self.pos.copy()
+        # 分裂・産卵・交配など繁殖系アクション共通のクールダウン（ティック）
+        self.repro_cooldown = 0
 
     def get_current_speed(self) -> float:
         return float(self.traits.get("base_speed", 1.0))
 
     def get_current_vision(self) -> float:
         return self.traits["base_vision"]
+
+    def scale_size(self, factor: float) -> None:
+        """traits.base_size を倍率で変更（分裂後の親縮小など）。"""
+        self.traits["base_size"] = float(self.traits["base_size"]) * factor
+
+    def set_repro_cooldown(self, ticks: int) -> None:
+        self.repro_cooldown = max(0, int(ticks))
 
     def is_dead(self) -> bool:
         """生存中は HP 判定。死骸は残存バイオマスが尽きたら削除対象。"""
@@ -83,6 +92,8 @@ class Creature(BaseEntity):
             return
 
         self.age += 1
+        if self.repro_cooldown > 0:
+            self.repro_cooldown -= 1
         self.last_pos = self.pos.copy()
 
         self.satiety -= self.traits["metabolism_rate"]
@@ -104,4 +115,4 @@ class Creature(BaseEntity):
 
     def draw(self, screen, camera):
         CreatureRenderer.draw(self, screen, camera)
-
+

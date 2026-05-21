@@ -19,21 +19,23 @@ TRAIT_DEFAULTS = {
     "metabolism_rate": 0.5,
 }
 
-# Amoeba JSON 例（traits は最小、mana_absorption_rate は Action.params 側）:
+# Amoeba JSON 例（traits は最小、mana_absorption_rate / 分裂は Action.params 側）:
 # {
-#   "traits": {
-#     "base_size": 9.0, "base_speed": 1.8, "base_vision": 140,
-#     "max_hp": 60.0, "max_satiety": 45.0, "metabolism_rate": 0.55
-#   },
+#   "traits": { "base_size": 9.0, "base_speed": 1.8, ... },
 #   "mind": {
-#     "actions": [{
-#       "name": "ManaWanderAction",
-#       "params": {
-#         "angle_range": 40,
-#         "speed_multiplier": 0.75,
-#         "mana_absorption_rate": 0.8
+#     "actions": [
+#       { "name": "ManaWanderAction", "weight": 1.0, "params": { ... } },
+#       { "name": "SplitAction", "weight": 0.65,
+#         "params": {
+#           "satiety_threshold": 0.78,  // 満腹度割合がこれ以上で分裂候補
+#           "energy_cost": 0.42,        // 分裂時に親が失う satiety（max_satiety 比）
+#           "size_reduction": 0.52,    // 親 base_size への乗算（0.52 = 約48%縮小）
+#           "offspring_size_ratio": 0.45,
+#           "offspring_satiety_ratio": 0.55,
+#           "cooldown": 220, "min_age": 280, "separation_distance": 12.0
+#         }
 #       }
-#     }]
+#     ]
 #   }
 # }
 
