@@ -1,6 +1,8 @@
 # creature_renderer.py
 import pygame
 
+from creature_helpers import energy_ratio
+
 
 class CreatureRenderer:
     """生物描画クラス（見えやすく強化）"""
@@ -31,7 +33,7 @@ class CreatureRenderer:
 
         # エネルギーバー
         bar_w = int(size * 3.0)
-        fill_ratio = max(0.0, min(1.0, creature.energy / creature.traits.get("max_energy", 200)))
+        fill_ratio = energy_ratio(creature)
         bar_x = sx - bar_w // 2
         bar_y = sy - size - 22
 

@@ -1,6 +1,7 @@
 # input_handler.py
 import pygame
-import math
+
+from creature_helpers import distance_to_point
 
 class InputHandler:
     """入力処理をまとめたクラス"""
@@ -41,7 +42,7 @@ class InputHandler:
         self.engine.selected_creature = None
 
         for c in self.engine.world.creatures:
-            dist = math.hypot(c.pos[0] - wx, c.pos[1] - wy)
+            dist = distance_to_point(c, wx, wy)
             if dist < c.traits.get("base_size", 10) + 25:
                 self.engine.selected_creature = c
                 break
