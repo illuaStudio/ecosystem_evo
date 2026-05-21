@@ -1,0 +1,21 @@
+{
+  "name": "Amoeba",
+  "color": [180, 100, 220],
+  "traits": {
+    "base_speed": 1.8,
+    "base_vision": 140,
+    "base_size": 9.0,
+    "max_energy": 280,
+    "energy_consume_base": 0.038
+  },
+  "mind": {
+    "type": "utility",
+    "actions": [
+      {
+        "name": "WanderAction",
+        "weight": 1.0,
+        "params": { "angle_range": 40, "speed_multiplier": 0.75 }
+      }
+    ]
+  }
+}

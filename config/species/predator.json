@@ -1,0 +1,29 @@
+{
+  "name": "Predator",
+  "color": [220, 60, 60],
+  "traits": {
+    "base_speed": 3.0,
+    "base_vision": 260,
+    "base_size": 14.0,
+    "max_energy": 100,
+    "energy_consume_base": 0.072
+  },
+  "mind": {
+    "type": "utility",
+    "actions": [
+      {
+        "name": "ChaseAction",
+        "weight": 2.8,
+        "params": {
+          "target_type": "Amoeba",
+          "speed_multiplier": 1.3
+        }
+      },
+      {
+        "name": "WanderAction",
+        "weight": 0.6,
+        "params": { "angle_range": 30, "speed_multiplier": 0.85 }
+      }
+    ]
+  }
+}

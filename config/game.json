@@ -1,0 +1,16 @@
+{
+  "game_title": "Ecosystem Evolution",
+  "version": "0.8.1",
+  
+  "fps": 60,
+  "simulation_speed": 1.0,
+  
+  "camera_width": 1100,
+  "camera_height": 750,
+  
+  "max_creatures": 250,
+  
+  "ui_font_size": 24,
+  "fullscreen": false,
+  "debug_mode": false
+}

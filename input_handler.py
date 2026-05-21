@@ -1,0 +1,64 @@
+# input_handler.py
+import pygame
+import math
+
+class InputHandler:
+    """入力処理をまとめたクラス"""
+    
+    def __init__(self, engine):
+        self.engine = engine
+
+    def handle_events(self) -> bool:
+        """全イベントを処理（メインループから呼ばれる）"""
+        for event in pygame.event.get():
+            if not self._process_event(event):
+                return False
+        return True
+
+    def _process_event(self, event) -> bool:
+        """1イベントずつ処理"""
+
+        if event.type == pygame.QUIT:
+            return False
+
+        # カメラドラッグ操作
+        self.engine.camera.handle_event(event)
+
+        # 右クリック選択
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 3:
+            self._handle_right_click(event)
+
+        # キー入力
+        if event.type == pygame.KEYDOWN:
+            self._handle_keydown(event)
+
+        return True
+
+    def _handle_right_click(self, event):
+        """右クリックで生物を選択"""
+        wx = event.pos[0] + self.engine.camera.x
+        wy = event.pos[1] + self.engine.camera.y
+        self.engine.selected_creature = None
+
+        for c in self.engine.world.creatures:
+            dist = math.hypot(c.pos[0] - wx, c.pos[1] - wy)
+            if dist < c.traits.get("base_size", 10) + 25:
+                self.engine.selected_creature = c
+                break
+
+    def _handle_keydown(self, event):
+        """キー操作"""
+        if event.key == pygame.K_r:
+            self.engine.reset_simulation()
+        elif event.key == pygame.K_SPACE:
+            self.engine.paused = not self.engine.paused
+        elif event.key == pygame.K_a:
+            c = self.engine.creature_factory.create("Amoeba")
+            self.engine.world.add_creature(c)
+        elif event.key == pygame.K_p:
+            c = self.engine.creature_factory.create("Predator")
+            self.engine.world.add_creature(c)
+        elif event.key == pygame.K_d:
+            self.engine.show_debug = not getattr(self.engine, 'show_debug', False)
+        elif event.key == pygame.K_ESCAPE:
+            return False
