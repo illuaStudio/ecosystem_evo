@@ -4,11 +4,12 @@ from abc import ABC, abstractmethod
 from creature_helpers import (
     closeness_ratio,
     contact_range,
-    feed_on,
-    find_nearest_of_species,
+    find_nearest_edible,
+    has_edible_carcass,
     hunger_ratio,
     is_trackable_target,
     move_toward,
+    try_predate,
     wander_step,
 )
 
@@ -43,7 +44,7 @@ class WanderAction(Action):
 
 
 class ChaseAction(Action):
-    """視界内の指定種族を追跡し、接触時に捕食する。"""
+    """視界内の指定種族を追跡し、接触時に bite → consume_carcass で捕食する。"""
 
     HUNGER_THRESHOLD = 0.2
 
@@ -69,13 +70,14 @@ class ChaseAction(Action):
 
         dist = move_toward(creature, target, self.speed_multiplier)
         if dist <= contact_range(creature, target, self.contact_padding):
-            feed_on(creature, target)
-            self._target = None
+            try_predate(creature, target)
+            if target.alive or not has_edible_carcass(target):
+                self._target = None
 
         return False
 
     def calculate_utility(self, creature) -> float:
-        prey = find_nearest_of_species(
+        prey = find_nearest_edible(
             creature, self.target_type, exclude=creature
         )
         if prey is None:
@@ -91,7 +93,7 @@ class ChaseAction(Action):
     def _resolve_target(self, creature):
         if is_trackable_target(creature, self._target, self.target_type):
             return self._target
-        self._target = find_nearest_of_species(
+        self._target = find_nearest_edible(
             creature, self.target_type, exclude=creature
         )
         return self._target

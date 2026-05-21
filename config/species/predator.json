@@ -2,11 +2,15 @@
   "name": "Predator",
   "color": [220, 60, 60],
   "traits": {
-    "base_speed": 3.0,
-    "base_vision": 260,
     "base_size": 14.0,
-    "max_energy": 100,
-    "energy_consume_base": 0.072
+    "base_speed": 3.0,
+    "move_speed": 3.0,
+    "base_vision": 260,
+    "max_hp": 120.0,
+    "max_satiety": 100.0,
+    "metabolism_rate": 0.45,
+    "bite_gain": 1.35,
+    "attack_power": 1.2
   },
   "mind": {
     "type": "utility",

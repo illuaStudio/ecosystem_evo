@@ -35,13 +35,17 @@ class Renderer:
             self.screen.blit(self.font.render("【選択中の個体】", True, (255, 220, 100)), (15, y))
             y += 35
 
+            status = "死骸" if not sc.alive else "生存"
             texts = [
-                f"種: {sc.species.name}",
-                f"エネルギー: {sc.energy:.1f}/{sc.traits.get('max_energy', 200)}",
+                f"種: {sc.species.name} ({status})",
+                f"HP: {sc.hp:.1f}/{sc.max_hp:.0f}",
+                f"満腹度: {sc.satiety:.1f}/{sc.max_satiety:.0f}",
                 f"年齢: {sc.age}",
                 f"速度: {sc.get_current_speed():.2f}",
                 f"現在のAction: {action_name}",
             ]
+            if not sc.alive and sc.carcass_units > 0:
+                texts.insert(3, f"死骸残量: {sc.carcass_units:.1f}")
 
             for text in texts:
                 self.screen.blit(self.small_font.render(text, True, (255, 255, 255)), (15, y))
