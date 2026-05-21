@@ -1,6 +1,7 @@
 # renderer.py
 import pygame
 from config import config
+from creature_helpers import format_life_stage_line
 
 
 class Renderer:
@@ -40,10 +41,15 @@ class Renderer:
                 f"種: {sc.species.name} ({status})",
                 f"HP: {sc.hp:.1f}/{sc.max_hp:.0f}",
                 f"満腹度: {sc.satiety:.1f}/{sc.max_satiety:.0f}",
+                f"サイズ: {sc.get_current_size():.1f} / {sc.traits.get('max_size', sc.get_current_size()):.1f}",
                 f"年齢: {sc.age}",
                 f"速度: {sc.get_current_speed():.2f}",
                 f"現在のAction: {action_name}",
             ]
+            # 右クリック選択時: ライフステージ（life_cycle がある種）
+            life_line = format_life_stage_line(sc)
+            if life_line:
+                texts.insert(4, life_line)
             if not sc.alive:
                 texts.insert(
                     3,

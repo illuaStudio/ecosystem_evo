@@ -3,6 +3,8 @@ from config import config
 # 身体的・基礎特性のみ（アクション固有値は mind.actions[].params へ）
 ESSENTIAL_TRAIT_KEYS = frozenset({
     "base_size",
+    "max_size",
+    "growth_rate",
     "base_speed",
     "base_vision",
     "max_hp",
@@ -12,6 +14,8 @@ ESSENTIAL_TRAIT_KEYS = frozenset({
 
 TRAIT_DEFAULTS = {
     "base_size": 9.0,
+    "max_size": 9.0,
+    "growth_rate": 0.0,
     "base_speed": 1.0,
     "base_vision": 120.0,
     "max_hp": 100.0,
@@ -19,24 +23,19 @@ TRAIT_DEFAULTS = {
     "metabolism_rate": 0.5,
 }
 
-# Amoeba JSON 例（traits は最小、mana_absorption_rate / 分裂は Action.params 側）:
+
+def normalize_life_cycle(raw: dict) -> dict:
+    """JSON の life_cycle を整数化（未指定種は空 dict）。"""
+    if not raw:
+        return {}
+    return {k: int(v) for k, v in raw.items()}
+
+
+# Amoeba JSON 例（成長=traits、寿命=life_cycle、分裂調整=SplitAction.params）:
 # {
-#   "traits": { "base_size": 9.0, "base_speed": 1.8, ... },
-#   "mind": {
-#     "actions": [
-#       { "name": "ManaWanderAction", "weight": 1.0, "params": { ... } },
-#       { "name": "SplitAction", "weight": 0.65,
-#         "params": {
-#           "satiety_threshold": 0.78,  // 満腹度割合がこれ以上で分裂候補
-#           "energy_cost": 0.42,        // 分裂時に親が失う satiety（max_satiety 比）
-#           "size_reduction": 0.52,    // 親 base_size への乗算（0.52 = 約48%縮小）
-#           "offspring_size_ratio": 0.45,
-#           "offspring_satiety_ratio": 0.55,
-#           "cooldown": 220, "min_age": 280, "separation_distance": 12.0
-#         }
-#       }
-#     ]
-#   }
+#   "life_cycle": { "mature": 280, "elder": 1800, "death": 3500 },
+#   "traits": { "base_size": 9.0, "max_size": 18.0, "growth_rate": 0.008, ... },
+#   "mind": { "actions": [{ "name": "SplitAction", "params": { "min_reproduce_size": 8.5, ... } }] }
 # }
 
 
@@ -45,6 +44,9 @@ def normalize_traits(raw: dict) -> dict:
     traits = {k: raw[k] for k in ESSENTIAL_TRAIT_KEYS if k in raw}
     for key, default in TRAIT_DEFAULTS.items():
         traits.setdefault(key, default)
+    # max_size 未指定時は base_size と同じ（成長なし種用）
+    if "max_size" not in raw and "base_size" in raw:
+        traits["max_size"] = float(raw["base_size"])
     return traits
 
 
@@ -58,5 +60,6 @@ class Species:
         self.name = data["name"]
         self.color = tuple(data.get("color", [120, 200, 120]))
         self.traits = normalize_traits(data.get("traits", {}))
+        self.life_cycle = normalize_life_cycle(data.get("life_cycle", {}))
         self.mind_data = data.get("mind", {"type": "priority", "actions": []})
         self.description = data.get("description", "")

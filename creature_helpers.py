@@ -12,6 +12,64 @@ def distance_to_point(entity, x: float, y: float) -> float:
     return math.hypot(x - entity.pos[0], y - entity.pos[1])
 
 
+def current_size(creature) -> float:
+    """現在の表示・判定サイズ（traits.base_size）。"""
+    return float(creature.traits.get("base_size", 9.0))
+
+
+# ステージ名 → 次段階へ進む下限年齢キー（life_cycle のキーと対応）
+# 新ステージ追加時はこのリストに1行足すだけで get_life_stage が追従する
+LIFE_STAGE_PIPELINE = [
+    ("Juvenile", "mature"),
+    ("Adult", "elder"),
+    ("Elder", "death"),
+]
+
+
+def get_life_stage(age: int, life_cycle: dict) -> str:
+    """
+    life_cycle 方式のライフステージ判定（LIFE_STAGE_PIPELINE 参照）。
+
+    例: mature=280 → age<280 は Juvenile, elder=1800 → Adult, death=3500 → Elder
+    age >= death は Creature._check_natural_lifespan で死亡（表示用 Expired）
+
+    # 使用例
+    stage = get_life_stage(creature.age, creature.life_cycle)
+    """
+    if not life_cycle:
+        return "Adult"
+
+    for stage_name, next_key in LIFE_STAGE_PIPELINE:
+        limit = life_cycle.get(next_key)
+        if limit is None:
+            continue
+        if age < int(limit):
+            return stage_name
+    return "Expired"
+
+
+def format_life_stage_line(creature) -> str | None:
+    """
+    選択個体 UI 用の1行テキスト（life_cycle がある種のみ表示）。
+    例: Adult (Age: 1243 / 3500) / Juvenile → Mature in 87 ticks
+    """
+    life_cycle = creature.life_cycle
+    if not life_cycle:
+        return None
+
+    stage = get_life_stage(creature.age, life_cycle)
+    death = int(life_cycle.get("death", 0))
+
+    if stage == "Juvenile":
+        mature_at = int(life_cycle.get("mature", 0))
+        ticks = max(0, mature_at - creature.age)
+        return f"ライフステージ: {stage} → Mature in {ticks} ticks"
+
+    if death > 0:
+        return f"ライフステージ: {stage} (Age: {creature.age} / {death})"
+    return f"ライフステージ: {stage} (Age: {creature.age})"
+
+
 def satiety_ratio(creature) -> float:
     """満腹度の割合（0〜1）"""
     if creature.max_satiety <= 0:

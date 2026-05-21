@@ -3,6 +3,11 @@ import random
 
 from entity import BaseEntity
 from creature_renderer import CreatureRenderer
+from creature_helpers import (
+    current_size,
+    get_life_stage,
+    satiety_ratio,
+)
 from species import Species
 from mind import UtilityMind
 
@@ -15,6 +20,7 @@ class Creature(BaseEntity):
 
         self.species = Species.create(species_name)
         self.traits = self.species.traits
+        self.life_cycle = dict(self.species.life_cycle)
 
         self.mind = UtilityMind(self.species.mind_data)
         self.current_action = None
@@ -37,6 +43,35 @@ class Creature(BaseEntity):
 
     def get_current_vision(self) -> float:
         return self.traits["base_vision"]
+
+    def get_current_size(self) -> float:
+        return current_size(self)
+
+    def get_life_stage(self) -> str:
+        return get_life_stage(self.age, self.life_cycle)
+
+    def _apply_growth(self) -> None:
+        """満腹度に応じて base_size を max_size まで自動成長（Action とは独立）。"""
+        max_size = float(self.traits.get("max_size", self.traits["base_size"]))
+        size = current_size(self)
+        if size >= max_size:
+            return
+
+        growth_rate = float(self.traits.get("growth_rate", 0.0))
+        if growth_rate <= 0:
+            return
+
+        delta = growth_rate * satiety_ratio(self)
+        self.traits["base_size"] = min(max_size, size + delta)
+
+    def _check_natural_lifespan(self) -> bool:
+        """life_cycle.death 到達で自然死。True なら update を打ち切る。"""
+        death_age = self.life_cycle.get("death")
+        if death_age is None or self.age < int(death_age):
+            return False
+        self.hp = 0
+        self.become_corpse()
+        return True
 
     def scale_size(self, factor: float) -> None:
         """traits.base_size を倍率で変更（分裂後の親縮小など）。"""
@@ -95,6 +130,11 @@ class Creature(BaseEntity):
         if self.repro_cooldown > 0:
             self.repro_cooldown -= 1
         self.last_pos = self.pos.copy()
+
+        if self._check_natural_lifespan():
+            return
+
+        self._apply_growth()
 
         self.satiety -= self.traits["metabolism_rate"]
 

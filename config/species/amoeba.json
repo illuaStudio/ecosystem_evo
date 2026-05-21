@@ -1,8 +1,15 @@
 {
   "name": "Amoeba",
   "color": [180, 100, 220],
+  "life_cycle": {
+    "mature": 280,
+    "elder": 1800,
+    "death": 3500
+  },
   "traits": {
     "base_size": 9.0,
+    "max_size": 18.0,
+    "growth_rate": 0.008,
     "base_speed": 1.8,
     "base_vision": 140,
     "max_hp": 60.0,
@@ -23,17 +30,17 @@
       },
       {
         "name": "SplitAction",
-        "weight": 0.65,
-        "description": "満腹かつ成熟したら無性分裂。params は actions.SplitAction.DEFAULT_PARAMS を上書き",
+        "weight": 0.9,
+        "description": "成熟後に無性分裂。min_reproduce_size で小型個体の連続分裂を防止",
         "params": {
-          "satiety_threshold": 0.78,
-          "energy_cost": 0.42,
-          "size_reduction": 0.52,
-          "offspring_size_ratio": 0.45,
-          "offspring_satiety_ratio": 0.55,
-          "cooldown": 220,
-          "min_age": 280,
-          "separation_distance": 12.0
+          "satiety_threshold": 0.75,
+          "energy_cost": 0.39,
+          "min_reproduce_size": 8.5,
+          "size_reduction": 0.75,
+          "offspring_size_ratio": 0.48,
+          "offspring_satiety_ratio": 0.60,
+          "cooldown": 160,
+          "separation_distance": 13.0
         }
       }
     ]

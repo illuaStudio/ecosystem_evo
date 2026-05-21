@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 from creature_helpers import (
     closeness_ratio,
     contact_range,
+    current_size,
     find_nearest_edible,
     has_edible_carcass,
     hunger_ratio,
@@ -178,17 +179,17 @@ class ReproductionAction(Action):
 
 
 class SplitAction(ReproductionAction):
-    """無性分裂: 満腹・成熟・クールダウンを満たすと1子を隣接生成し親を縮小する。"""
+    """無性分裂: 満腹・成熟・十分なサイズ・クールダウンを満たすと1子を隣接生成。"""
 
     DEFAULT_PARAMS = {
-        "satiety_threshold": 0.78,
-        "energy_cost": 0.42,
-        "size_reduction": 0.52,
-        "offspring_size_ratio": 0.45,
-        "offspring_satiety_ratio": 0.55,
-        "cooldown": 220,
-        "min_age": 280,
-        "separation_distance": 12.0,
+        "satiety_threshold": 0.75,
+        "energy_cost": 0.39,
+        "min_reproduce_size": 8.5,
+        "size_reduction": 0.75,
+        "offspring_size_ratio": 0.48,
+        "offspring_satiety_ratio": 0.60,
+        "cooldown": 160,
+        "separation_distance": 13.0,
     }
 
     def can_execute(self, creature) -> bool:
@@ -196,8 +197,14 @@ class SplitAction(ReproductionAction):
             return False
         if creature.repro_cooldown > 0:
             return False
-        if creature.age < int(self.params["min_age"]):
+
+        mature_age = creature.life_cycle.get("mature")
+        if mature_age is None or creature.age < int(mature_age):
             return False
+
+        if current_size(creature) < float(self.params["min_reproduce_size"]):
+            return False
+
         return satiety_ratio(creature) >= float(self.params["satiety_threshold"])
 
     def execute(self, creature) -> bool:
