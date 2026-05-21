@@ -10,13 +10,15 @@
     "max_satiety": 45.0,
     "metabolism_rate": 0.55,
     "bite_gain": 0.0,
-    "attack_power": 0.0
+    "attack_power": 0.0,
+    "mana_absorption_rate": 0.8,
+    "is_producer": true
   },
   "mind": {
     "type": "utility",
     "actions": [
       {
-        "name": "WanderAction",
+        "name": "ManaWanderAction",
         "weight": 1.0,
         "params": { "angle_range": 40, "speed_multiplier": 0.75 }
       }

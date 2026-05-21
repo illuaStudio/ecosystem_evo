@@ -129,10 +129,22 @@ def consume_carcass(predator, carcass) -> float:
         predator.traits.get("attack_power", 1.0) * 8.0,
     )
     carcass.carcass_units -= taken
+    if carcass.carcass_units <= 0:
+        carcass.carcass_units = 0.0
+        release_mana_from_carcass(carcass)
 
     gain = taken * predator.traits.get("bite_gain", 1.35)
     predator.satiety = min(predator.max_satiety, predator.satiety + gain)
     return gain
+
+
+def release_mana_from_carcass(creature) -> None:
+    """死骸が完全に消失したとき、サイズに比例してマナを還元。"""
+    world = getattr(creature, "world", None)
+    if world is None:
+        return
+    size = float(creature.traits.get("base_size", 9.0))
+    world.mana += size * 12.0 + creature.max_hp * 0.35
 
 
 def try_predate(predator, target) -> None:

@@ -43,6 +43,44 @@ class WanderAction(Action):
         return 0.6
 
 
+class ManaWanderAction(Action):
+    """生産者専用: 徘徊しつつ World.mana から満腹度を回復する。"""
+
+    SATIETY_CAP_RATIO = 0.95
+
+    def __init__(self, angle_range: int = 30, speed_multiplier: float = 0.85):
+        super().__init__()
+        self.angle_range = angle_range
+        self.speed_multiplier = speed_multiplier
+
+    def execute(self, creature) -> bool:
+        wander_step(creature, self.angle_range, self.speed_multiplier)
+        self._absorb_mana(creature)
+        return False
+
+    def _absorb_mana(self, creature) -> None:
+        if not creature.world:
+            return
+        cap = creature.max_satiety * self.SATIETY_CAP_RATIO
+        if creature.satiety >= cap:
+            return
+
+        rate = float(creature.traits.get("mana_absorption_rate", 0.8))
+        room = cap - creature.satiety
+        absorbed = min(rate, room, creature.world.mana)
+        if absorbed <= 0:
+            return
+
+        creature.world.mana -= absorbed
+        creature.satiety += absorbed
+
+    def calculate_utility(self, creature) -> float:
+        if not creature.traits.get("is_producer", False):
+            return 0.0
+        hunger = hunger_ratio(creature)
+        return 0.75 + hunger * 0.25
+
+
 class ChaseAction(Action):
     """視界内の指定種族を追跡し、接触時に bite → consume_carcass で捕食する。"""
 

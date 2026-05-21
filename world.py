@@ -23,6 +23,12 @@ class World:
         self.obstacles = []
         self.resources = []
 
+        # 世界全体のマナ総量（生産者が吸収、死骸消化で還元）
+        # 動作確認: debug_mode 有効 → 画面上部に Mana 表示。アメーバ選択で
+        # Action=ManaWanderAction・満腹度上昇と Mana 減少を確認。捕食者が死骸を
+        # 食い尽くすと Mana が増える（サイズ比例で還元）。
+        self.mana: float = 5000.0
+
         # 初期生物生成
         factory = CreatureFactory()
         

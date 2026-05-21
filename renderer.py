@@ -57,17 +57,21 @@ class Renderer:
             f"{config.game['game_title']} v{config.game['version']}   {status}", 
             True, (200, 255, 200)), (15, 10))
         
+        mana_label = ""
+        if hasattr(camera, "world") and camera.world:
+            mana_label = f"    Mana: {camera.world.mana:.0f}"
         self.screen.blit(self.font.render(
-            f"生き物: {len(creatures):3d} 匹", 
+            f"生き物: {len(creatures):3d} 匹{mana_label}",
             True, (230, 245, 210)), (15, 55))
         
         self.screen.blit(self.small_font.render(
             "Space:停止/再開  R:リセット  A:アメーバ追加  P:捕食者追加  右クリック:選択", 
             True, (160, 200, 255)), (15, 85))
 
-        # デバッグ情報
         if show_debug:
             debug_text = self.small_font.render(
-                f"Debug Mode | FPS: {int(60)} | World: {len(creatures)}", 
-                True, (255, 255, 100))
+                f"Debug Mode | 生物: {len(creatures)}",
+                True,
+                (255, 255, 100),
+            )
             self.screen.blit(debug_text, (15, 110))
