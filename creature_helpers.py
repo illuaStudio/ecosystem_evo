@@ -40,7 +40,7 @@ def closeness_ratio(creature, other) -> float:
 
 
 def has_edible_carcass(target) -> bool:
-    return not target.alive and getattr(target, "carcass_units", 0) > 0
+    return not target.alive and getattr(target, "remaining_biomass", 0) > 0
 
 
 def is_living_prey(target, species_name: str) -> bool:
@@ -112,39 +112,34 @@ def bite(predator, prey) -> float:
     prey.hp -= damage
 
     if prey.hp <= 0:
-        prey.hp = 0
-        prey.alive = False
-        prey.carcass_units = prey.max_hp
+        prey.become_corpse()
 
     return damage
 
 
 def consume_carcass(predator, carcass) -> float:
-    """死骸から満腹度を回復。得られた Satiety 量を返す。"""
-    if carcass.alive or carcass.carcass_units <= 0:
+    """死骸の残存バイオマスを消費して満腹度を回復。得られた Satiety 量を返す。"""
+    if carcass.alive or carcass.remaining_biomass <= 0:
         return 0.0
 
-    taken = min(
-        carcass.carcass_units,
-        predator.traits.get("attack_power", 1.0) * 8.0,
+    base_size = float(predator.traits.get("base_size", 9.0))
+    bite_gain = float(predator.traits.get("bite_gain", 1.35))
+    amount = min(
+        carcass.remaining_biomass * 0.45,
+        base_size * bite_gain * 1.6,
     )
-    carcass.carcass_units -= taken
-    if carcass.carcass_units <= 0:
-        carcass.carcass_units = 0.0
-        release_mana_from_carcass(carcass)
+    carcass.remaining_biomass -= amount * 0.9
 
-    gain = taken * predator.traits.get("bite_gain", 1.35)
-    predator.satiety = min(predator.max_satiety, predator.satiety + gain)
-    return gain
+    gained = amount * bite_gain
+    predator.satiety = min(predator.max_satiety, predator.satiety + gained)
 
+    if carcass.remaining_biomass <= 8.0:
+        world = carcass.world
+        if world:
+            world.return_mana_from_decomposition(carcass.remaining_biomass * 0.8)
+        carcass.remaining_biomass = 0.0
 
-def release_mana_from_carcass(creature) -> None:
-    """死骸が完全に消失したとき、サイズに比例してマナを還元。"""
-    world = getattr(creature, "world", None)
-    if world is None:
-        return
-    size = float(creature.traits.get("base_size", 9.0))
-    world.mana += size * 12.0 + creature.max_hp * 0.35
+    return gained
 
 
 def try_predate(predator, target) -> None:

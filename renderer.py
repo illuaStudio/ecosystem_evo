@@ -44,8 +44,12 @@ class Renderer:
                 f"速度: {sc.get_current_speed():.2f}",
                 f"現在のAction: {action_name}",
             ]
-            if not sc.alive and sc.carcass_units > 0:
-                texts.insert(3, f"死骸残量: {sc.carcass_units:.1f}")
+            if not sc.alive:
+                texts.insert(
+                    3,
+                    f"バイオマス: {sc.remaining_biomass:.1f}/{sc.initial_biomass:.1f} "
+                    f"({sc.biomass_ratio() * 100:.0f}%)",
+                )
 
             for text in texts:
                 self.screen.blit(self.small_font.render(text, True, (255, 255, 255)), (15, y))

@@ -36,10 +36,13 @@ class CreatureRenderer:
         bar_x = sx - bar_w // 2
 
         if is_carcass:
-            fill = 0.0 if creature.max_hp <= 0 else creature.carcass_units / creature.max_hp
-            bar_y = sy - size - 18
-            pygame.draw.rect(screen, (40, 40, 40), (bar_x, bar_y, bar_w, 6))
-            pygame.draw.rect(screen, (160, 120, 80), (bar_x, bar_y, int(bar_w * fill), 6))
+            biomass = creature.biomass_ratio() if hasattr(creature, "biomass_ratio") else 0.0
+            bar_y = sy - size - 22
+            bar_color = CreatureRenderer._biomass_bar_color(biomass)
+            pygame.draw.rect(screen, (40, 40, 40), (bar_x, bar_y, bar_w, 7))
+            pygame.draw.rect(
+                screen, bar_color, (bar_x, bar_y, int(bar_w * biomass), 7)
+            )
         else:
             bar_y_sat = sy - size - 24
             bar_y_hp = sy - size - 14
@@ -63,3 +66,13 @@ class CreatureRenderer:
             font = pygame.font.SysFont("msgothic", 12)
             text = font.render("P", True, (255, 60, 60))
             screen.blit(text, (sx - 5, sy - size - 35))
+
+    @staticmethod
+    def _biomass_bar_color(ratio: float) -> tuple:
+        """残存バイオマス 1.0→緑, 0.5→黄, 0.0→赤"""
+        ratio = max(0.0, min(1.0, ratio))
+        if ratio > 0.5:
+            t = (ratio - 0.5) * 2.0
+            return (int(255 * (1.0 - t)), 255, 0)
+        t = ratio * 2.0
+        return (255, int(255 * t), 0)

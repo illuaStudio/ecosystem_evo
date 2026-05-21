@@ -23,10 +23,9 @@ class World:
         self.obstacles = []
         self.resources = []
 
-        # 世界全体のマナ総量（生産者が吸収、死骸消化で還元）
-        # 動作確認: debug_mode 有効 → 画面上部に Mana 表示。アメーバ選択で
-        # Action=ManaWanderAction・満腹度上昇と Mana 減少を確認。捕食者が死骸を
-        # 食い尽くすと Mana が増える（サイズ比例で還元）。
+        # 世界全体のマナ総量（生産者が吸収、死骸の残存バイオマスから還元）
+        # 動作確認: 死骸の緑→赤バーが捕食で急減、放置で緩やかに減少。
+        # バー0で消滅し Mana が増える。画面上部の Mana 表示で確認。
         self.mana: float = 5000.0
 
         # 初期生物生成
@@ -46,6 +45,11 @@ class World:
     def remove_creature(self, creature):
         if creature in self.creatures:
             self.creatures.remove(creature)
+
+    def return_mana_from_decomposition(self, amount: float) -> None:
+        """死骸の自然分解・捕食残りからのマナ還元。"""
+        if amount > 0:
+            self.mana += amount
 
     def update(self):
         """全生物更新"""
