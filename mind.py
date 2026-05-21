@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-import random
 
 
 class Mind(ABC):
@@ -15,13 +14,6 @@ class UtilityMind(Mind):
         self.action_defs = mind_data.get("actions", [])
 
     def decide_next_action(self, creature):
-        # print(f"\n[Mind] {creature.species.name} (Age:{creature.age} Energy:{creature.energy:.1f}/{creature.traits.get('max_energy')})")
-
-        # 現在のActionが継続中かチェック
-        if creature.current_action and not creature.current_action.is_completed():
-            print(f"  → 継続中: {creature.current_action.__class__.__name__}")
-            return creature.current_action
-
         best_action = None
         best_score = -1.0
 
@@ -53,5 +45,13 @@ class UtilityMind(Mind):
             from actions import WanderAction
             best_action = WanderAction()
 
-        # print(f"  ★ 最終選択: {best_action.__class__.__name__} (Score: {best_score:.3f})")
+        # 同種の行動が選ばれたら進行中インスタンスを維持（追跡ターゲット等を保持）
+        current = creature.current_action
+        if (
+            current is not None
+            and not current.is_completed()
+            and type(current) is type(best_action)
+        ):
+            return current
+
         return best_action

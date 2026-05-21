@@ -42,10 +42,8 @@ class Creature(BaseEntity):
         self.energy -= self.traits["energy_consume_base"]
         self.last_pos = self.pos.copy()
 
-        # Action管理
-        if self.current_action is None or self.current_action.is_completed():
-            self.current_action = self.mind.decide_next_action(self)
-
+        # 毎フレーム utility を再評価（Wander は完了しないため、完了待ちだと行動が固定される）
+        self.current_action = self.mind.decide_next_action(self)
         self.current_action.execute(self)
 
         # 境界制限

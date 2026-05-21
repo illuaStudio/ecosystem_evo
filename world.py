@@ -26,10 +26,10 @@ class World:
         # 初期生物生成
         factory = CreatureFactory()
         
-        for _ in range(world_data.get("initial_amoeba", 40)):
+        for _ in range(world_data.get("initial_amoeba", 0)):
             self.add_creature(factory.create("Amoeba", world=self))
         
-        for _ in range(world_data.get("initial_predator", 10)):
+        for _ in range(world_data.get("initial_predator", 0)):
             self.add_creature(factory.create("Predator", world=self))
 
     def add_creature(self, creature):
