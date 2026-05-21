@@ -43,10 +43,6 @@ class Renderer:
                 f"現在のAction: {action_name}",
             ]
 
-            if action_name == "IdleAction" and hasattr(sc.current_action, "timer"):
-                idle = sc.current_action
-                texts.append(f"待機中: {idle.timer}/{idle.duration}")
-
             for text in texts:
                 self.screen.blit(self.small_font.render(text, True, (255, 255, 255)), (15, y))
                 y += 24

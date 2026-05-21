@@ -34,9 +34,6 @@ class UtilityMind(Mind):
             if action_name == "WanderAction":
                 from actions import WanderAction
                 action = WanderAction(**params)
-            elif action_name == "IdleAction":
-                from actions import IdleAction
-                action = IdleAction(**params)
             elif action_name == "ChaseAction":
                 from actions import ChaseAction
                 action = ChaseAction(**params)

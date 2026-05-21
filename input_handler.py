@@ -53,10 +53,10 @@ class InputHandler:
         elif event.key == pygame.K_SPACE:
             self.engine.paused = not self.engine.paused
         elif event.key == pygame.K_a:
-            c = self.engine.creature_factory.create("Amoeba")
+            c = self.engine.creature_factory.create("Amoeba", world=self.engine.world)
             self.engine.world.add_creature(c)
         elif event.key == pygame.K_p:
-            c = self.engine.creature_factory.create("Predator")
+            c = self.engine.creature_factory.create("Predator", world=self.engine.world)
             self.engine.world.add_creature(c)
         elif event.key == pygame.K_d:
             self.engine.show_debug = not getattr(self.engine, 'show_debug', False)

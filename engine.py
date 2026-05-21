@@ -4,6 +4,7 @@ from world import World
 from camera import Camera
 from renderer import Renderer
 from input_handler import InputHandler
+from creature_factory import CreatureFactory
 from config import config
 
 
@@ -22,7 +23,8 @@ class SimulationEngine:
 
         self.clock = pygame.time.Clock()
         self.camera = Camera()
-        
+        self.creature_factory = CreatureFactory()
+
         self.world = None
         self.paused = False
         self.selected_creature = None
