@@ -194,7 +194,11 @@ def consume_carcass(predator, carcass, bite_gain: float = 1.35) -> float:
     if carcass.remaining_biomass <= 8.0:
         world = carcass.world
         if world:
-            world.return_mana_from_decomposition(carcass.remaining_biomass * 0.8)
+            world.return_mana_from_decomposition(
+                carcass.remaining_biomass * 0.8,
+                carcass.pos[0],
+                carcass.pos[1],
+            )
         carcass.remaining_biomass = 0.0
 
     return gained
@@ -238,10 +242,14 @@ def get_mana_gradient_direction(
         tx = max(0, min(creature.world.width, tx))
         ty = max(0, min(creature.world.height, ty))
 
-        mana_mult = creature.world.get_mana_regen_multiplier(tx, ty)
+        mana_value = (
+            creature.world.get_mana_density(tx, ty)
+            if hasattr(creature.world, "get_mana_density")
+            else creature.world.get_mana_regen_multiplier(tx, ty)
+        )
 
-        if mana_mult > best_mana:
-            best_mana = mana_mult
+        if mana_value > best_mana:
+            best_mana = mana_value
             best_angle = angle
 
     return best_angle

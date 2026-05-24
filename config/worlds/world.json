@@ -6,13 +6,13 @@
   "background_color": [34, 60, 25],
 
   "mana": {
-    "initial": 12000000.0,
-    "max": 12000000.0,
-    "regen_rate": 2000.0
+    "initial": 120000.0,
+    "max": 120000.0,
+    "regen_rate": 20.0
   },
 
   "initial_entities": {
-    "Amoeba": 250,
+    "Amoeba": 25,
     "Predator": 0
   },
 

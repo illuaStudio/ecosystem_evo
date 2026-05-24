@@ -62,5 +62,8 @@ class InputHandler:
             self.engine.world.add_creature(c)
         elif event.key == pygame.K_d:
             self.engine.show_debug = not getattr(self.engine, 'show_debug', False)
+        elif event.key == pygame.K_m:
+            mode = getattr(self.engine, "map_view_mode", "biome")
+            self.engine.map_view_mode = "mana" if mode == "biome" else "biome"
         elif event.key == pygame.K_ESCAPE:
             return False

@@ -101,7 +101,9 @@ class ManaGradientWanderAction(Action):
         rate = float(self.params["mana_absorption_rate"])
         room = cap - creature.satiety
         want = min(rate, room)
-        absorbed = creature.world.consume_mana(want)
+        absorbed = creature.world.consume_mana(
+            want, creature.pos[0], creature.pos[1]
+        )
         if absorbed <= 0:
             return
 

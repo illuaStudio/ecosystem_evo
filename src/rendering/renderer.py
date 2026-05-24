@@ -21,12 +21,12 @@ class Renderer:
         self._biome_surface_world_id = None
         self._ui_panel = None
 
-    def draw(self, creatures, camera, selected_creature, paused, show_debug=False):
+    def draw(self, creatures, camera, selected_creature, paused, show_debug=False, map_view_mode="biome"):
         # 毎フレーム必ず全画面クリア（未描画領域に UI が残るのを防ぐ）
         self.screen.fill(self.UI_MARGIN_COLOR)
 
         world = getattr(camera, "world", None)
-        self._draw_background(world, camera)
+        self._draw_background(world, camera, map_view_mode)
 
         for c in creatures:
             if hasattr(c, "draw"):
@@ -66,6 +66,10 @@ class Renderer:
                 texts.append(
                     f"バイオーム: {biome.get('display_name', biome.get('name', '?'))}"
                 )
+                if hasattr(world, "get_mana_density"):
+                    density = world.get_mana_density(sc.pos[0], sc.pos[1])
+                    cap = getattr(world, "mana_density_cap", 2500.0)
+                    texts.append(f"マナ残量: {density:.0f}/{cap:.0f}")
 
             for text in texts:
                 self.screen.blit(self.small_font.render(text, True, (255, 255, 255)), (15, y))
@@ -85,7 +89,11 @@ class Renderer:
         if world:
             w = world
             mult = getattr(w, "avg_mana_regen_multiplier", 1.0)
-            mana_label = f"    Mana: {w.mana:.0f}/{w.max_mana:.0f}  (回復×{mult:.2f})"
+            view_name = "マナ密度" if map_view_mode == "mana" else "バイオーム"
+            mana_label = (
+                f"    Mana: {w.mana:.0f}/{w.max_mana:.0f}  (回復×{mult:.2f})"
+                f"    表示: {view_name}"
+            )
         self.screen.blit(
             self.font.render(f"生き物: {len(creatures):3d} 匹{mana_label}", True, (230, 245, 210)),
             (15, 55),
@@ -93,7 +101,7 @@ class Renderer:
 
         self.screen.blit(
             self.small_font.render(
-                "Space:停止/再開  R:リセット  A:アメーバ追加  P:捕食者追加  右クリック:選択",
+                "Space:停止/再開  R:リセット  M:表示切替  A:アメーバ追加  P:捕食者追加  右クリック:選択",
                 True,
                 (160, 200, 255),
             ),
@@ -128,11 +136,13 @@ class Renderer:
 
         self.screen.blit(panel, (0, 0))
 
-    def _draw_background(self, world, camera) -> None:
+    def _draw_background(self, world, camera, map_view_mode="biome") -> None:
         if world is None:
             return
 
-        if world.biome_color_grid:
+        if map_view_mode == "mana" and getattr(world, "mana_density", None):
+            self._draw_mana_density_tiles(world, camera)
+        elif world.biome_color_grid:
             self._draw_biome_tiles(world, camera)
         else:
             self._draw_world_rect(world, camera, world.background_color)
@@ -184,6 +194,46 @@ class Renderer:
 
         dest = pygame.Rect(src.x - cam_x, src.y - cam_y, src.width, src.height)
         self.screen.blit(self._biome_surface, dest, src)
+
+    @staticmethod
+    def _mana_density_to_color(density: float, cap: float) -> tuple[int, int, int]:
+        """マナ残量をヒートマップ色（低=暗紫、高=明るいシアン）に変換。"""
+        if cap <= 0:
+            return (30, 20, 50)
+        t = max(0.0, min(1.0, density / cap))
+        r = int(28 + t * 80)
+        g = int(18 + t * 200)
+        b = int(48 + t * 207)
+        return (r, g, b)
+
+    def _draw_mana_density_tiles(self, world, camera) -> None:
+        """可視範囲のマナ密度セルをヒートマップ表示（毎フレーム更新）。"""
+        cell = world.mana_cell_size
+        cap = world.mana_density_cap
+        cam_x = int(camera.x)
+        cam_y = int(camera.y)
+        sw, sh = self.screen.get_width(), self.screen.get_height()
+
+        start_col = max(0, cam_x // cell)
+        end_col = min(world._mana_cols, (cam_x + sw + cell - 1) // cell + 1)
+        start_row = max(0, cam_y // cell)
+        end_row = min(world._mana_rows, (cam_y + sh + cell - 1) // cell + 1)
+
+        screen_rect = self.screen.get_rect()
+        for row in range(start_row, end_row):
+            wy = row * cell
+            screen_y = wy - cam_y
+            rh = min(cell, world.height - wy)
+            for col in range(start_col, end_col):
+                wx = col * cell
+                screen_x = wx - cam_x
+                rw = min(cell, world.width - wx)
+                density = world.mana_density[row][col]
+                color = self._mana_density_to_color(density, cap)
+                rect = pygame.Rect(screen_x, screen_y, rw, rh)
+                visible = rect.clip(screen_rect)
+                if visible.width > 0 and visible.height > 0:
+                    pygame.draw.rect(self.screen, color, visible)
 
     def invalidate_biome_cache(self) -> None:
         """ワールドリセット時に呼ぶ（SimulationEngine.reset_simulation から）。"""

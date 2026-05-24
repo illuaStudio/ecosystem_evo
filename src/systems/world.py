@@ -1,6 +1,7 @@
 # world.py
 import json
 import math
+import random
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
@@ -40,6 +41,8 @@ class World:
         world = World("Grassland")
         biome = world.get_biome_at(120, 80)
         mult = world.get_mana_regen_multiplier(120, 80)
+        density = world.get_mana_density(120, 80)
+        world.consume_mana(0.75, 120, 80)
     """
 
     def __init__(self, world_name: str = "Grassland"):
@@ -85,10 +88,7 @@ class World:
         self.background_color = tuple(world_data.get("background_color", [34, 60, 25]))
 
         mana_cfg = world_data.get("mana", {})
-        self.mana = float(mana_cfg.get("initial", 5000.0))
-        self.max_mana = float(mana_cfg.get("max", self.mana))
         self.mana_regen_rate = float(mana_cfg.get("regen_rate", 0.0))
-        self.mana = min(self.mana, self.max_mana)
 
         env = world_data.get("environment", {})
         self.temperature = float(env.get("temperature", 20.0))
@@ -99,6 +99,7 @@ class World:
         self.resources = []
 
         self._init_biomes(world_data.get("world", {}))
+        self._init_mana_density(mana_cfg)
         self._spawn_initial_entities(world_data)
 
     def _init_biomes(self, world_cfg: Dict) -> None:
@@ -156,6 +157,82 @@ class World:
                 count += 1
         return total / count if count else 1.0
 
+    def _init_mana_density(self, mana_cfg: Dict) -> None:
+        """座標ごとのマナ残量マップ（2D）を初期化する。"""
+        self.mana_cell_size = int(
+            mana_cfg.get("cell_size", getattr(self, "biome_cell_size", 16))
+        )
+        self.mana_density_cap = float(mana_cfg.get("density_max", 2500.0))
+        initial_min = float(mana_cfg.get("density_initial_min", 800.0))
+        initial_max = float(mana_cfg.get("density_initial_max", 1500.0))
+
+        cell = max(4, self.mana_cell_size)
+        self._mana_cols = math.ceil(self.width / cell)
+        self._mana_rows = math.ceil(self.height / cell)
+
+        seed = self.biome_noise.seed if self.biome_noise else 42
+        rng = random.Random(seed)
+
+        self.mana_density: List[List[float]] = []
+        for row in range(self._mana_rows):
+            row_data: List[float] = []
+            cy = row * cell + cell * 0.5
+            for col in range(self._mana_cols):
+                cx = col * cell + cell * 0.5
+                mult = self.get_mana_regen_multiplier(cx, cy)
+                base = rng.uniform(initial_min, initial_max)
+                row_data.append(min(self.mana_density_cap, base * (0.85 + 0.15 * mult)))
+            self.mana_density.append(row_data)
+
+        self.mana = self._compute_total_mana()
+        self.max_mana = self._mana_cols * self._mana_rows * self.mana_density_cap
+
+    def _pos_to_mana_cell(self, x: float, y: float) -> Tuple[int, int]:
+        cell = self.mana_cell_size
+        col = int(x // cell)
+        row = int(y // cell)
+        col = max(0, min(self._mana_cols - 1, col))
+        row = max(0, min(self._mana_rows - 1, row))
+        return col, row
+
+    def _compute_total_mana(self) -> float:
+        if not self.mana_density:
+            return 0.0
+        return sum(sum(row) for row in self.mana_density)
+
+    def get_mana_density(self, x: float, y: float) -> float:
+        """座標におけるマナ残量（セル単位）。"""
+        if not self.mana_density:
+            return 0.0
+        col, row = self._pos_to_mana_cell(x, y)
+        return self.mana_density[row][col]
+
+    def _regenerate_mana_density(self) -> None:
+        """バイオーム倍率に基づき、マナ密度マップ全体を回復させる。"""
+        if self.mana_regen_rate <= 0 or not self.mana_density:
+            return
+
+        cell_count = self._mana_cols * self._mana_rows
+        base_per_cell = self.mana_regen_rate / cell_count
+        cell = self.mana_cell_size
+        cap = self.mana_density_cap
+        regen_total = 0.0
+
+        for row in range(self._mana_rows):
+            cy = row * cell + cell * 0.5
+            for col in range(self._mana_cols):
+                current = self.mana_density[row][col]
+                if current >= cap:
+                    continue
+                cx = col * cell + cell * 0.5
+                mult = self.get_mana_regen_multiplier(cx, cy)
+                delta = base_per_cell * mult
+                new_value = min(cap, current + delta)
+                regen_total += new_value - current
+                self.mana_density[row][col] = new_value
+
+        self.mana += regen_total
+
     def get_biome_at(self, x: float, y: float) -> Dict:
         """座標のバイオーム定義 dict を返す（name, color, mana_regen_multiplier 等）。"""
         if not self.biomes or self.biome_noise is None or self._rich_biome is None:
@@ -208,24 +285,55 @@ class World:
         if creature in self.creatures:
             self.creatures.remove(creature)
 
-    def return_mana_from_decomposition(self, amount: float) -> None:
-        if amount > 0:
-            self.mana = min(self.max_mana, self.mana + amount)
+    def return_mana_from_decomposition(
+        self, amount: float, x: float = None, y: float = None
+    ) -> None:
+        if amount <= 0 or not self.mana_density:
+            return
+        if x is None:
+            x = self.width * 0.5
+        if y is None:
+            y = self.height * 0.5
 
-    def consume_mana(self, amount: float) -> float:
-        if amount <= 0 or self.mana <= 0:
+        col, row = self._pos_to_mana_cell(x, y)
+        current = self.mana_density[row][col]
+        added = min(amount, self.mana_density_cap - current)
+        if added <= 0:
+            return
+        self.mana_density[row][col] = current + added
+        self.mana += added
+
+    def consume_mana(
+        self, amount: float, x: float = None, y: float = None
+    ) -> float:
+        """指定位置のマナを消費する。x/y 省略時は世界中心から吸収（後方互換）。"""
+        if amount <= 0:
+            return 0.0
+
+        if self.mana_density:
+            if x is None:
+                x = self.width * 0.5
+            if y is None:
+                y = self.height * 0.5
+
+            col, row = self._pos_to_mana_cell(x, y)
+            available = self.mana_density[row][col]
+            if available <= 0:
+                return 0.0
+            taken = min(amount, available)
+            self.mana_density[row][col] -= taken
+            self.mana -= taken
+            return taken
+
+        # フォールバック: 旧来の共有プール
+        if self.mana <= 0:
             return 0.0
         taken = min(amount, self.mana)
         self.mana -= taken
         return taken
 
     def update(self) -> None:
-        if self.mana_regen_rate > 0 and self.mana < self.max_mana:
-            mult = getattr(self, "avg_mana_regen_multiplier", 1.0)
-            self.mana = min(
-                self.max_mana,
-                self.mana + self.mana_regen_rate * mult,
-            )
+        self._regenerate_mana_density()
 
         for creature in self.creatures[:]:
             creature.update()

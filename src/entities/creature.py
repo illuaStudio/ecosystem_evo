@@ -114,12 +114,16 @@ class Creature(BaseEntity):
         self.remaining_biomass -= decompose_amount
 
         if self.world:
-            self.world.return_mana_from_decomposition(decompose_amount * 0.65)
+            self.world.return_mana_from_decomposition(
+                decompose_amount * 0.65, self.pos[0], self.pos[1]
+            )
 
         if self.remaining_biomass <= 0:
             self.remaining_biomass = 0.0
             if self.world:
-                self.world.return_mana_from_decomposition(15.0)
+                self.world.return_mana_from_decomposition(
+                    15.0, self.pos[0], self.pos[1]
+                )
 
     def update(self):
         if not self.alive:

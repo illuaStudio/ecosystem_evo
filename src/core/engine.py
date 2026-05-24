@@ -30,6 +30,7 @@ class SimulationEngine:
         self.paused = False
         self.selected_creature = None
         self.show_debug = config.game.get("debug_mode", False)
+        self.map_view_mode = "biome"  # "biome" | "mana"
 
         # レンダラーとインプットハンドラ
         font_size = config.game.get("ui_font_size", 24)
@@ -79,7 +80,8 @@ class SimulationEngine:
             self.camera,
             self.selected_creature,
             self.paused,
-            self.show_debug
+            self.show_debug,
+            self.map_view_mode,
         )
 
     def run(self):
