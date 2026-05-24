@@ -4,28 +4,42 @@ import math
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
+from biome_noise import make_noise_sampler
 from config import config
 from creature_factory import CreatureFactory
+
+
+def _parse_color(value) -> Tuple[int, int, int]:
+    """'#RRGGBB' または [r,g,b] を pygame 用 RGB タプルに変換。"""
+    if isinstance(value, str):
+        s = value.strip().lstrip("#")
+        if len(s) == 6:
+            return (int(s[0:2], 16), int(s[2:4], 16), int(s[4:6], 16))
+    if isinstance(value, (list, tuple)) and len(value) >= 3:
+        return (int(value[0]), int(value[1]), int(value[2]))
+    return (34, 60, 25)
 
 
 class World:
     """ゲーム世界全体を管理。設定は config/worlds/*.json から読み込む。
 
-    Grassland.json の例:
-        {
-          "name": "Grassland",
-          "display_name": "草原の生態系",
-          "world_width": 800,
-          "world_height": 600,
-          "background_color": [34, 60, 25],
-          "mana": { "initial": 4500.0, "max": 12000.0, "regen_rate": 0.8 },
-          "initial_entities": { "Amoeba": 25, "Predator": 6 },
-          "environment": { "temperature": 22.0, "humidity": 65.0 }
+    world.json のバイオーム例（world セクション）:
+        "world": {
+          "biome_map_cell_size": 16,
+          "biomes": [
+            { "name": "rich", "color": "#2E8B57", "mana_regen_multiplier": 1.4 },
+            { "name": "poor", "color": "#8F9E6E", "mana_regen_multiplier": 0.6 }
+          ],
+          "biome_noise": {
+            "scale": 0.018, "octaves": 4, "persistence": 0.55,
+            "lacunarity": 2.2, "threshold": 0.5, "seed": 42
+          }
         }
 
     初期化:
-        world = World("Grassland")           # config から name で取得
-        world = World.from_json(path_or_dict)  # ファイルまたは dict から直接
+        world = World("Grassland")
+        biome = world.get_biome_at(120, 80)
+        mult = world.get_mana_regen_multiplier(120, 80)
     """
 
     def __init__(self, world_name: str = "Grassland"):
@@ -41,11 +55,11 @@ class World:
 
     @staticmethod
     def _load_world_file(world_name: str) -> Optional[Dict]:
-        """config キャッシュに無い場合のフォールバック読み込み"""
         worlds_dir = config.base_path / "worlds"
         for candidate in (
             worlds_dir / f"{world_name}.json",
             worlds_dir / f"{world_name.lower()}.json",
+            worlds_dir / "world.json",
         ):
             if candidate.exists():
                 with open(candidate, encoding="utf-8") as f:
@@ -54,7 +68,6 @@ class World:
 
     @classmethod
     def from_json(cls, source: Union[str, Path, Dict]) -> "World":
-        """JSON ファイルパスまたは辞書から World を構築する。"""
         if isinstance(source, dict):
             world = cls.__new__(cls)
             world._init_from_data(source)
@@ -86,10 +99,102 @@ class World:
         self.obstacles = []
         self.resources = []
 
+        self._init_biomes(world_data.get("world", {}))
         self._spawn_initial_entities(world_data)
 
+    def _init_biomes(self, world_cfg: Dict) -> None:
+        """ノイズマップとバイオーム定義を構築（Renderer 用グリッドも生成）。"""
+        self.biomes: List[Dict] = list(world_cfg.get("biomes", []))
+        self.biome_by_name: Dict[str, Dict] = {b["name"]: b for b in self.biomes if "name" in b}
+        self.biome_noise_cfg: Dict = dict(world_cfg.get("biome_noise", {}))
+        self.biome_cell_size = int(world_cfg.get("biome_map_cell_size", 16))
+
+        self._noise_sample = None
+        self._rich_biome: Optional[Dict] = None
+        self._poor_biome: Optional[Dict] = None
+        self.biome_color_grid: List[List[Tuple[int, int, int]]] = []
+
+        self.avg_mana_regen_multiplier = 1.0
+        if len(self.biomes) < 2:
+            return
+
+        noise_cfg = self.biome_noise_cfg
+        seed = int(noise_cfg.get("seed", hash(self.name) & 0xFFFF))
+        self._noise_sample = make_noise_sampler(
+            scale=float(noise_cfg.get("scale", 0.018)),
+            octaves=int(noise_cfg.get("octaves", 4)),
+            persistence=float(noise_cfg.get("persistence", 0.55)),
+            lacunarity=float(noise_cfg.get("lacunarity", 2.2)),
+            seed=seed,
+        )
+        self._noise_threshold = float(noise_cfg.get("threshold", 0.5))
+
+        self._rich_biome = self.biome_by_name.get("rich", self.biomes[0])
+        self._poor_biome = self.biome_by_name.get("poor", self.biomes[-1])
+        self._build_biome_color_grid()
+        self.avg_mana_regen_multiplier = self._compute_average_mana_multiplier()
+
+    def _build_biome_color_grid(self) -> None:
+        """描画用: セル単位でバイオーム色を事前計算。"""
+        cell = max(4, self.biome_cell_size)
+        cols = math.ceil(self.width / cell)
+        rows = math.ceil(self.height / cell)
+        self.biome_color_grid = []
+
+        for row in range(rows):
+            row_colors = []
+            cy = row * cell + cell * 0.5
+            for col in range(cols):
+                cx = col * cell + cell * 0.5
+                biome = self.get_biome_at(cx, cy)
+                row_colors.append(_parse_color(biome.get("color", self.background_color)))
+            self.biome_color_grid.append(row_colors)
+
+    def _compute_average_mana_multiplier(self) -> float:
+        """全セルのバイオーム倍率の平均（共有マナ池の自然回復用）。"""
+        if not self.biome_color_grid:
+            return 1.0
+        cell = self.biome_cell_size
+        total = 0.0
+        count = 0
+        for row in range(len(self.biome_color_grid)):
+            for col in range(len(self.biome_color_grid[row])):
+                cx = col * cell + cell * 0.5
+                cy = row * cell + cell * 0.5
+                total += self.get_mana_regen_multiplier(cx, cy)
+                count += 1
+        return total / count if count else 1.0
+
+    def _sample_noise_normalized(self, x: float, y: float) -> float:
+        if self._noise_sample is None:
+            return 0.5
+        return self._noise_sample(float(x), float(y))
+
+    def get_biome_at(self, x: float, y: float) -> Dict:
+        """座標のバイオーム定義 dict を返す（name, color, mana_regen_multiplier 等）。"""
+        if not self.biomes or self._rich_biome is None:
+            return {
+                "name": "default",
+                "display_name": "通常",
+                "color": self.background_color,
+                "mana_regen_multiplier": 1.0,
+            }
+
+        value = self._sample_noise_normalized(x, y)
+        if value >= self._noise_threshold:
+            return self._rich_biome
+        return self._poor_biome
+
+    def get_biome_color_at(self, x: float, y: float) -> Tuple[int, int, int]:
+        """座標の地面色（RGB）。"""
+        biome = self.get_biome_at(x, y)
+        return _parse_color(biome.get("color", self.background_color))
+
+    def get_mana_regen_multiplier(self, x: float, y: float) -> float:
+        """座標におけるマナ自然回復の倍率。"""
+        return float(self.get_biome_at(x, y).get("mana_regen_multiplier", 1.0))
+
     def _spawn_initial_entities(self, world_data: Dict) -> None:
-        """initial_entities に従って生物を配置（旧 initial_amoeba 等も互換）。"""
         initial = dict(world_data.get("initial_entities", {}))
 
         if not initial:
@@ -110,7 +215,6 @@ class World:
                 self.add_creature(factory.create(species_name, world=self))
 
     def add_creature(self, creature) -> None:
-        """生物を世界に追加"""
         creature.world = self
         self.creatures.append(creature)
 
@@ -119,12 +223,10 @@ class World:
             self.creatures.remove(creature)
 
     def return_mana_from_decomposition(self, amount: float) -> None:
-        """死骸の自然分解・捕食残りからのマナ還元（上限 max_mana）。"""
         if amount > 0:
             self.mana = min(self.max_mana, self.mana + amount)
 
     def consume_mana(self, amount: float) -> float:
-        """マナ吸収などで消費。実際に減らせた量を返す。"""
         if amount <= 0 or self.mana <= 0:
             return 0.0
         taken = min(amount, self.mana)
@@ -132,9 +234,12 @@ class World:
         return taken
 
     def update(self) -> None:
-        """全生物更新とマナの自然回復"""
         if self.mana_regen_rate > 0 and self.mana < self.max_mana:
-            self.mana = min(self.max_mana, self.mana + self.mana_regen_rate)
+            mult = getattr(self, "avg_mana_regen_multiplier", 1.0)
+            self.mana = min(
+                self.max_mana,
+                self.mana + self.mana_regen_rate * mult,
+            )
 
         for creature in self.creatures[:]:
             creature.update()
@@ -148,7 +253,6 @@ class World:
         max_dist: float = 9999.0,
         exclude=None,
     ):
-        """最も近い対象を探す"""
         best = None
         min_dist = float("inf")
 

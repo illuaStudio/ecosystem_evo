@@ -47,6 +47,7 @@ class SimulationEngine:
         """シミュレーション初期化"""
         self.world = World(world_name)
         self.selected_creature = None
+        self.renderer.invalidate_biome_cache()
 
         # カメラにWorld情報を渡す（重要）
         self.camera.set_world(self.world)

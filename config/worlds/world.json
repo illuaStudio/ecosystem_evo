@@ -1,24 +1,49 @@
 {
-    "name": "Grassland",
-    "display_name": "草原の生態系",
-    "world_width": 800,
-    "world_height": 600,
-    "background_color": [34, 60, 25],
-    
-    "mana": {
-      "initial": 4500.0,
-      "max": 12000.0,
-      "regen_rate": 0.8
-    },
-    
-    "initial_entities": {
-      "Amoeba": 25,
-      "Herbivore": 12,
-      "Predator": 6
-    },
-    
-    "environment": {
-      "temperature": 22.0,
-      "humidity": 65.0
+  "name": "Grassland",
+  "display_name": "草原の生態系",
+  "world_width": 2000,
+  "world_height": 2000,
+  "background_color": [34, 60, 25],
+
+  "mana": {
+    "initial": 4500.0,
+    "max": 12000.0,
+    "regen_rate": 0.8
+  },
+
+  "initial_entities": {
+    "Amoeba": 25,
+    "Predator": 6
+  },
+
+  "environment": {
+    "temperature": 22.0,
+    "humidity": 65.0
+  },
+
+  "world": {
+    "biome_map_cell_size": 16,
+    "biomes": [
+      {
+        "name": "rich",
+        "display_name": "豊かなエリア",
+        "color": "#2E8B57",
+        "mana_regen_multiplier": 1.4
+      },
+      {
+        "name": "poor",
+        "display_name": "貧しいエリア",
+        "color": "#8F9E6E",
+        "mana_regen_multiplier": 0.6
+      }
+    ],
+    "biome_noise": {
+      "scale": 0.018,
+      "octaves": 4,
+      "persistence": 0.55,
+      "lacunarity": 2.2,
+      "threshold": 0.5,
+      "seed": 42
     }
   }
+}
