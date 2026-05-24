@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from actions import (
+from src.ai.actions import (
     ChaseAction,
     ManaWanderAction,
     SplitAction,
@@ -23,7 +23,7 @@ class Mind(ABC):
 
 class UtilityMind(Mind):
     """Utility AI方式 + 詳細デバッグ"""
-    
+
     def __init__(self, mind_data: dict):
         self.action_defs = mind_data.get("actions", [])
 

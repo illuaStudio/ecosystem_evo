@@ -3,7 +3,7 @@ import math
 import random
 from abc import ABC, abstractmethod
 
-from creature_helpers import (
+from src.utils.creature_helpers import (
     closeness_ratio,
     contact_range,
     current_size,
@@ -211,7 +211,7 @@ class SplitAction(ReproductionAction):
         if not self.can_execute(creature):
             return False
 
-        from creature_factory import CreatureFactory
+        from src.entities.creature_factory import CreatureFactory
 
         p = self.params
         parent_size = float(creature.traits["base_size"])

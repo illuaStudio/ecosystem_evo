@@ -4,9 +4,9 @@ import math
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
-from biome_noise import BiomeNoise
-from config import config
-from creature_factory import CreatureFactory
+from src.config import config
+from src.entities.creature_factory import CreatureFactory
+from src.systems.biome_noise import BiomeNoise
 
 
 def _parse_color(value) -> Tuple[int, int, int]:

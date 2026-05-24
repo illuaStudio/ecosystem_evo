@@ -1,7 +1,7 @@
 # creature_renderer.py
 import pygame
 
-from creature_helpers import hp_ratio, satiety_ratio
+from src.utils.creature_helpers import hp_ratio, satiety_ratio
 
 
 class CreatureRenderer:

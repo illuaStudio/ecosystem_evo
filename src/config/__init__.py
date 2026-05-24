@@ -3,11 +3,13 @@ import json
 from pathlib import Path
 from typing import Dict, Optional
 
+# JSON データはプロジェクトルートの config/ に置く
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+
 
 class Config:
     def __init__(self):
-        # このファイルと同じディレクトリ (config/) がデータルート
-        self.base_path = Path(__file__).resolve().parent
+        self.base_path = _PROJECT_ROOT / "config"
 
         self.game = self._load("game.json")
         self.worlds = self._load_all("worlds")

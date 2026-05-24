@@ -1,16 +1,17 @@
 # engine.py
 import pygame
-from world import World
-from camera import Camera
-from renderer import Renderer
-from input_handler import InputHandler
-from creature_factory import CreatureFactory
-from config import config
+
+from src.config import config
+from src.core.camera import Camera
+from src.core.input_handler import InputHandler
+from src.entities.creature_factory import CreatureFactory
+from src.rendering.renderer import Renderer
+from src.systems.world import World
 
 
 class SimulationEngine:
     """メインエンジン"""
-    
+
     def __init__(self):
         # 画面サイズ（config.gameから取得）
         self.screen = pygame.display.set_mode((
@@ -38,7 +39,7 @@ class SimulationEngine:
             pygame.font.SysFont("msgothic", font_size - 6),
             pygame.font.SysFont("msgothic", font_size + 8)
         )
-        
+
         self.input_handler = InputHandler(self)
 
         self.reset_simulation()

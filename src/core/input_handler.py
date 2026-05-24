@@ -1,11 +1,12 @@
 # input_handler.py
 import pygame
 
-from creature_helpers import distance_to_point
+from src.utils.creature_helpers import distance_to_point
+
 
 class InputHandler:
     """入力処理をまとめたクラス"""
-    
+
     def __init__(self, engine):
         self.engine = engine
 

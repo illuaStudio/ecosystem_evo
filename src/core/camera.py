@@ -1,15 +1,17 @@
 # camera.py
 import pygame
-from config import config
+
+from src.config import config
+
 
 class Camera:
     """カメラ（視点）管理クラス"""
-    
+
     def __init__(self):
         # 初期画面サイズ
         self.screen_w = config.game["camera_width"]
         self.screen_h = config.game["camera_height"]
-        
+
         self.world = None
         self.x = 0
         self.y = 0

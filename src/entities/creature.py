@@ -1,15 +1,15 @@
 # creature.py
 import random
 
-from entity import BaseEntity
-from creature_renderer import CreatureRenderer
-from creature_helpers import (
+from src.ai.mind import UtilityMind
+from src.entities.entity import BaseEntity
+from src.entities.species import Species
+from src.rendering.creature_renderer import CreatureRenderer
+from src.utils.creature_helpers import (
     current_size,
     get_life_stage,
     satiety_ratio,
 )
-from species import Species
-from mind import UtilityMind
 
 
 class Creature(BaseEntity):
@@ -155,4 +155,3 @@ class Creature(BaseEntity):
 
     def draw(self, screen, camera):
         CreatureRenderer.draw(self, screen, camera)
-

@@ -1,8 +1,8 @@
 # renderer.py
 import pygame
 
-from config import config
-from creature_helpers import format_life_stage_line
+from src.config import config
+from src.utils.creature_helpers import format_life_stage_line
 
 
 class Renderer:

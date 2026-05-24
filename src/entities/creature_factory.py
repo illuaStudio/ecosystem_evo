@@ -1,6 +1,7 @@
 # creature_factory.py
 import random
-from creature import Creature
+
+from src.entities.creature import Creature
 
 
 class CreatureFactory:

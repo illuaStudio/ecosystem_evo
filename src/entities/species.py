@@ -1,4 +1,4 @@
-from config import config
+from src.config import config
 
 # 身体的・基礎特性のみ（アクション固有値は mind.actions[].params へ）
 ESSENTIAL_TRAIT_KEYS = frozenset({
