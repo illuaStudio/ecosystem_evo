@@ -38,7 +38,7 @@
       }
     ],
     "biome_noise": {
-      "scale": 0.018,
+      "scale": 0.003,
       "octaves": 4,
       "persistence": 0.55,
       "lacunarity": 2.2,
