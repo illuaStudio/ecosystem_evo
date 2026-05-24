@@ -4,7 +4,7 @@ import math
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
-from biome_noise import make_noise_sampler
+from biome_noise import BiomeNoise
 from config import config
 from creature_factory import CreatureFactory
 
@@ -109,7 +109,7 @@ class World:
         self.biome_noise_cfg: Dict = dict(world_cfg.get("biome_noise", {}))
         self.biome_cell_size = int(world_cfg.get("biome_map_cell_size", 16))
 
-        self._noise_sample = None
+        self.biome_noise: Optional[BiomeNoise] = None
         self._rich_biome: Optional[Dict] = None
         self._poor_biome: Optional[Dict] = None
         self.biome_color_grid: List[List[Tuple[int, int, int]]] = []
@@ -118,16 +118,11 @@ class World:
         if len(self.biomes) < 2:
             return
 
-        noise_cfg = self.biome_noise_cfg
-        seed = int(noise_cfg.get("seed", hash(self.name) & 0xFFFF))
-        self._noise_sample = make_noise_sampler(
-            scale=float(noise_cfg.get("scale", 0.018)),
-            octaves=int(noise_cfg.get("octaves", 4)),
-            persistence=float(noise_cfg.get("persistence", 0.55)),
-            lacunarity=float(noise_cfg.get("lacunarity", 2.2)),
-            seed=seed,
+        default_seed = hash(self.name) & 0xFFFF
+        self.biome_noise = BiomeNoise.from_config(
+            self.biome_noise_cfg,
+            default_seed=default_seed,
         )
-        self._noise_threshold = float(noise_cfg.get("threshold", 0.5))
 
         self._rich_biome = self.biome_by_name.get("rich", self.biomes[0])
         self._poor_biome = self.biome_by_name.get("poor", self.biomes[-1])
@@ -165,14 +160,9 @@ class World:
                 count += 1
         return total / count if count else 1.0
 
-    def _sample_noise_normalized(self, x: float, y: float) -> float:
-        if self._noise_sample is None:
-            return 0.5
-        return self._noise_sample(float(x), float(y))
-
     def get_biome_at(self, x: float, y: float) -> Dict:
         """座標のバイオーム定義 dict を返す（name, color, mana_regen_multiplier 等）。"""
-        if not self.biomes or self._rich_biome is None:
+        if not self.biomes or self.biome_noise is None or self._rich_biome is None:
             return {
                 "name": "default",
                 "display_name": "通常",
@@ -180,8 +170,8 @@ class World:
                 "mana_regen_multiplier": 1.0,
             }
 
-        value = self._sample_noise_normalized(x, y)
-        if value >= self._noise_threshold:
+        biome_type = self.biome_noise.get_biome_type(x, y)
+        if biome_type == "rich":
             return self._rich_biome
         return self._poor_biome
 
