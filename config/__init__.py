@@ -38,6 +38,10 @@ class Config:
                 print(f"警告: {json_file.name} に 'name' キーがありません")
         return data
 
+    def reload_worlds(self) -> None:
+        """config/worlds/*.json をディスクから再読み込み（R リセット時など）。"""
+        self.worlds = self._load_all("worlds")
+
     def get_world(self, name: str = "Grassland") -> Optional[Dict]:
         if name in self.worlds:
             return self.worlds[name]

@@ -43,9 +43,8 @@ class World:
     """
 
     def __init__(self, world_name: str = "Grassland"):
-        world_data = config.get_world(world_name)
-        if not world_data:
-            world_data = self._load_world_file(world_name)
+        # config.get_world は reload_worlds() 後の最新 JSON を参照する
+        world_data = config.get_world(world_name) or self._load_world_file(world_name)
         if not world_data:
             raise ValueError(
                 f"ワールド '{world_name}' が見つかりません。"
@@ -106,7 +105,6 @@ class World:
         """ノイズマップとバイオーム定義を構築（Renderer 用グリッドも生成）。"""
         self.biomes: List[Dict] = list(world_cfg.get("biomes", []))
         self.biome_by_name: Dict[str, Dict] = {b["name"]: b for b in self.biomes if "name" in b}
-        self.biome_noise_cfg: Dict = dict(world_cfg.get("biome_noise", {}))
         self.biome_cell_size = int(world_cfg.get("biome_map_cell_size", 16))
 
         self.biome_noise: Optional[BiomeNoise] = None
@@ -118,11 +116,9 @@ class World:
         if len(self.biomes) < 2:
             return
 
-        default_seed = hash(self.name) & 0xFFFF
-        self.biome_noise = BiomeNoise.from_config(
-            self.biome_noise_cfg,
-            default_seed=default_seed,
-        )
+        if "biome_noise" not in world_cfg:
+            raise ValueError("world.biome_noise が world.json に定義されていません")
+        self.biome_noise = BiomeNoise.from_config(world_cfg["biome_noise"])
 
         self._rich_biome = self.biome_by_name.get("rich", self.biomes[0])
         self._poor_biome = self.biome_by_name.get("poor", self.biomes[-1])

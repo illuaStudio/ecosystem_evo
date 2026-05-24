@@ -45,6 +45,7 @@ class SimulationEngine:
 
     def reset_simulation(self, world_name: str = "Grassland"):
         """シミュレーション初期化"""
+        config.reload_worlds()
         self.world = World(world_name)
         self.selected_creature = None
         self.renderer.invalidate_biome_cache()
@@ -53,6 +54,12 @@ class SimulationEngine:
         self.camera.set_world(self.world)
 
         print(f"ワールド「{self.world.display_name}」をロードしました: {len(self.world.creatures)}匹")
+        if self.world.biome_noise:
+            bn = self.world.biome_noise
+            print(
+                f"  biome_noise: scale={bn.scale}, octaves={bn.octaves}, "
+                f"threshold={bn.threshold}, seed={bn.seed}"
+            )
 
     def handle_events(self) -> bool:
         """入力処理をInputHandlerに委譲"""

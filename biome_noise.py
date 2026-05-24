@@ -1,8 +1,18 @@
 """Perlin ノイズによるバイオーム判定（rich / poor）。"""
 import math
-from typing import Literal
+from typing import Any, Dict, Literal
 
 BiomeType = Literal["rich", "poor"]
+
+# JSON にキーが無い場合のみ使う最小限のフォールバック
+_FALLBACKS: Dict[str, Any] = {
+    "scale": 0.01,
+    "octaves": 1,
+    "persistence": 0.5,
+    "lacunarity": 2.0,
+    "threshold": 0.5,
+    "seed": 0,
+}
 
 try:
     from noise import pnoise2 as _perlin_noise2d
@@ -64,17 +74,20 @@ def _fallback_fractal_noise2d(
 
 
 class BiomeNoise:
-    """Perlin ノイズでワールド座標のバイオーム（rich / poor）を決定する。"""
+    """Perlin ノイズでワールド座標のバイオーム（rich / poor）を決定する。
+
+    通常は BiomeNoise.from_config(world_json["world"]["biome_noise"]) で生成する。
+    """
 
     def __init__(
         self,
         *,
-        scale: float = 0.018,
-        octaves: int = 4,
-        persistence: float = 0.55,
-        lacunarity: float = 2.2,
-        threshold: float = 0.5,
-        seed: int = 0,
+        scale: float,
+        octaves: int,
+        persistence: float,
+        lacunarity: float,
+        threshold: float,
+        seed: int,
     ):
         self.scale = float(scale)
         self.octaves = int(octaves)
@@ -119,13 +132,21 @@ class BiomeNoise:
         return "poor"
 
     @classmethod
-    def from_config(cls, cfg: dict, *, default_seed: int = 0) -> "BiomeNoise":
-        """world.json の biome_noise セクションから生成。"""
+    def from_config(cls, cfg: Dict[str, Any]) -> "BiomeNoise":
+        """world.json の world.biome_noise をそのまま読み込む（JSON の値を最優先）。"""
+        if not cfg:
+            raise ValueError("world.biome_noise が空です")
+
+        def _pick(key: str):
+            if key in cfg:
+                return cfg[key]
+            return _FALLBACKS[key]
+
         return cls(
-            scale=float(cfg.get("scale", 0.018)),
-            octaves=int(cfg.get("octaves", 4)),
-            persistence=float(cfg.get("persistence", 0.55)),
-            lacunarity=float(cfg.get("lacunarity", 2.2)),
-            threshold=float(cfg.get("threshold", 0.5)),
-            seed=int(cfg.get("seed", default_seed)),
+            scale=float(_pick("scale")),
+            octaves=int(_pick("octaves")),
+            persistence=float(_pick("persistence")),
+            lacunarity=float(_pick("lacunarity")),
+            threshold=float(_pick("threshold")),
+            seed=int(_pick("seed")),
         )
