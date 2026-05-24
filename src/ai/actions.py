@@ -8,6 +8,7 @@ from src.utils.creature_helpers import (
     contact_range,
     current_size,
     find_nearest_edible,
+    get_mana_gradient_direction,
     has_edible_carcass,
     hunger_ratio,
     is_trackable_target,
@@ -56,18 +57,31 @@ class WanderAction(Action):
         return 0.6
 
 
-class ManaWanderAction(Action):
-    """徘徊しつつ World.mana から満腹度を回復する（mind に登録した生物のみ）。"""
+class ManaGradientWanderAction(Action):
+    """マナの濃い方向へ移動傾向を強めた徘徊行動。
+    アメーバがマナ豊富なバイオーム（rich）に集まる挙動を実現する。"""
 
     SATIETY_CAP_RATIO = 0.95
 
     DEFAULT_PARAMS = {
-        "angle_range": 30,
-        "speed_multiplier": 0.85,
-        "mana_absorption_rate": 0.8,
+        "angle_range": 45,
+        "speed_multiplier": 0.9,
+        "mana_absorption_rate": 0.75,
+        "gradient_strength": 0.65,
+        "sampling_distance": 60,
+        "sampling_angle_step": 45,
     }
 
     def execute(self, creature) -> bool:
+        gradient_dir = get_mana_gradient_direction(
+            creature,
+            self.params["sampling_distance"],
+            self.params["sampling_angle_step"],
+        )
+        strength = float(self.params["gradient_strength"])
+        diff = ((gradient_dir - creature.wander_angle + 180) % 360) - 180
+        creature.wander_angle = (creature.wander_angle + diff * strength) % 360
+
         wander_step(
             creature,
             self.params["angle_range"],

@@ -218,3 +218,30 @@ def wander_step(creature, angle_range: float, speed_multiplier: float) -> None:
     move = creature.get_current_speed() * speed_multiplier
     creature.pos[0] += math.cos(math.radians(creature.wander_angle)) * move
     creature.pos[1] += math.sin(math.radians(creature.wander_angle)) * move
+
+
+def get_mana_gradient_direction(
+    creature, sampling_distance: float = 60.0, angle_step: int = 45
+) -> float:
+    """マナ濃度が最も高い方向（度数法 0~360）を返す。"""
+    if not creature.world or not creature.world.biome_noise:
+        return creature.wander_angle
+
+    best_angle = creature.wander_angle
+    best_mana = -1.0
+
+    for angle in range(0, 360, angle_step):
+        rad = math.radians(angle)
+        tx = creature.pos[0] + math.cos(rad) * sampling_distance
+        ty = creature.pos[1] + math.sin(rad) * sampling_distance
+
+        tx = max(0, min(creature.world.width, tx))
+        ty = max(0, min(creature.world.height, ty))
+
+        mana_mult = creature.world.get_mana_regen_multiplier(tx, ty)
+
+        if mana_mult > best_mana:
+            best_mana = mana_mult
+            best_angle = angle
+
+    return best_angle

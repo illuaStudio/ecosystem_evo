@@ -2,14 +2,15 @@ from abc import ABC, abstractmethod
 
 from src.ai.actions import (
     ChaseAction,
-    ManaWanderAction,
+    ManaGradientWanderAction,
     SplitAction,
     WanderAction,
 )
 
 ACTION_BY_NAME = {
     "WanderAction": WanderAction,
-    "ManaWanderAction": ManaWanderAction,
+    "ManaGradientWanderAction": ManaGradientWanderAction,
+    "ManaWanderAction": ManaGradientWanderAction,
     "ChaseAction": ChaseAction,
     "SplitAction": SplitAction,
 }
