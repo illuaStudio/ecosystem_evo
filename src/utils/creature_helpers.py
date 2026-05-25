@@ -254,6 +254,64 @@ def get_mana_gradient_direction(
     return best_angle
 
 
+def count_same_species_near(
+    creature,
+    x: float,
+    y: float,
+    radius: float,
+    *,
+    exclude_self: bool = True,
+) -> int:
+    """指定座標の半径内にいる同種（生存）の個体数。"""
+    if not creature.world or radius <= 0:
+        return 0
+
+    species_name = creature.species.name
+    count = 0
+    for other in creature.world.creatures:
+        if exclude_self and other is creature:
+            continue
+        if not getattr(other, "alive", True):
+            continue
+        if other.species.name != species_name:
+            continue
+        ox, oy = entity_xy(other)
+        if math.hypot(ox - x, oy - y) <= radius:
+            count += 1
+    return count
+
+
+def same_species_repulsion_angle(creature, radius: float) -> float | None:
+    """近傍同種から離れる方向（度数）。近傍がなければ None。"""
+    if not creature.world or radius <= 0:
+        return None
+
+    cx, cy = entity_xy(creature)
+    species_name = creature.species.name
+    push_x = 0.0
+    push_y = 0.0
+
+    for other in creature.world.creatures:
+        if other is creature or not getattr(other, "alive", True):
+            continue
+        if other.species.name != species_name:
+            continue
+        ox, oy = entity_xy(other)
+        dx = cx - ox
+        dy = cy - oy
+        dist = math.hypot(dx, dy)
+        if dist <= 1e-6 or dist > radius:
+            continue
+        weight = (radius - dist) / radius
+        push_x += (dx / dist) * weight
+        push_y += (dy / dist) * weight
+
+    magnitude = math.hypot(push_x, push_y)
+    if magnitude <= 1e-6:
+        return None
+    return math.degrees(math.atan2(push_y, push_x)) % 360
+
+
 def get_local_mana_gradient_direction(
     creature,
     radius: float = 35.0,

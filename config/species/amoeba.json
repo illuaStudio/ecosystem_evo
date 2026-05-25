@@ -2,16 +2,16 @@
   "name": "Amoeba",
   "color": [180, 100, 220],
   "life_cycle": {
-    "mature": 280,
-    "elder": 1800,
-    "death": 3500
+    "mature": 2800,
+    "elder": 18000,
+    "death": 35000
   },
   "traits": {
     "base_size": 9.0,
     "max_size": 18.0,
-    "growth_rate": 0.008,
-    "base_speed": 1.8,
-    "base_vision": 140,
+    "growth_rate": 0.0008,
+    "base_speed": 0.51,
+    "base_vision": 70,
     "max_hp": 60.0,
     "max_satiety": 45.0,
     "metabolism_rate": 0.55
@@ -24,8 +24,14 @@
         "weight": 1.0,
         "params": {
           "angle_range": 40,
-          "speed_multiplier": 0.75,
-          "mana_absorption_rate": 0.8
+          "speed_multiplier": 0.50,
+          "mana_absorption_rate": 0.8,
+          "depletion_rate_threshold": 0.06,
+          "no_absorb_escape_ticks": 3,
+          "crowd_radius": 50.0,
+          "crowd_escape_neighbors": 5,
+          "crowd_sample_penalty": 15.0,
+          "crowd_repulsion_strength": 0.2
         }
       },
       {
@@ -39,8 +45,8 @@
           "size_reduction": 0.75,
           "offspring_size_ratio": 0.48,
           "offspring_satiety_ratio": 0.60,
-          "cooldown": 160,
-          "separation_distance": 13.0
+          "cooldown": 1600,
+          "separation_distance": 0.05
         }
       }
     ]

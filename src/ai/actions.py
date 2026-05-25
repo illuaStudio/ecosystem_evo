@@ -72,6 +72,12 @@ class ManaGradientWanderAction(Action):
         "local_gradient_samples": 8,
         "escape_radius": 96.0,
         "depleted_ratio": 0.12,
+        "depletion_rate_threshold": 0.08,
+        "no_absorb_escape_ticks": 4,
+        "crowd_radius": 42.0,
+        "crowd_escape_neighbors": 3,
+        "crowd_sample_penalty": 28.0,
+        "crowd_repulsion_strength": 0.35,
     }
 
     def execute(self, creature) -> bool:

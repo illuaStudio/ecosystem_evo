@@ -69,6 +69,10 @@ class Creature(BaseEntity):
                     params.get("mana_absorption_rate", params.get("consumption_rate", 0.1))
                 ),
             )
+            self.mana_steer_snap_x: float | None = None
+            self.mana_steer_snap_y: float | None = None
+            self.mana_steer_snap_density: float | None = None
+            self.mana_no_absorb_ticks = 0
             return
 
     @property

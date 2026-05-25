@@ -4,6 +4,10 @@ import random
 from typing import Any, List, Optional
 
 from src.components.mana_affinity import ManaAffinity
+from src.utils.creature_helpers import (
+    count_same_species_near,
+    same_species_repulsion_angle,
+)
 
 SATIETY_CAP_RATIO = 0.95
 
@@ -28,8 +32,11 @@ class ManaSystem:
             action = getattr(entity, "current_action", None)
             if not isinstance(action, ManaGradientWanderAction):
                 continue
-            rate = float(action.params.get("mana_absorption_rate", affinity.consumption_rate))
-            self.absorb_mana(entity, world, affinity, rate)
+            rate = float(
+                action.params.get("mana_absorption_rate", affinity.consumption_rate)
+            )
+            absorbed = self.absorb_mana(entity, world, affinity, rate)
+            self._record_absorb_result(entity, world, absorbed, action.params)
 
     def apply_gradient_steering(
         self,
@@ -41,16 +48,13 @@ class ManaSystem:
         if world is None or not getattr(entity, "alive", True):
             return
 
-        cap = getattr(world, "mana_density_cap", 2500.0)
-        position = entity.position
-        local_density = world.get_mana_density(position.x, position.y)
-        depleted = local_density < cap * float(params["depleted_ratio"])
+        escape = self.should_escape(entity, world, params)
 
         strength = float(params["gradient_strength"])
         angle_range = float(params["angle_range"])
         speed_multiplier = float(params["speed_multiplier"])
 
-        if depleted:
+        if escape:
             strength = min(1.0, strength * 1.5)
             angle_range *= 0.35
             speed_multiplier = min(1.4, speed_multiplier * 1.25)
@@ -58,7 +62,19 @@ class ManaSystem:
         gradient_dir = self.get_local_gradient_direction(entity, world, params)
         wander_angle = getattr(entity, "wander_angle", 0.0)
         diff = ((gradient_dir - wander_angle + 180) % 360) - 180
-        entity.wander_angle = (wander_angle + diff * strength) % 360
+        wander_angle = (wander_angle + diff * strength) % 360
+
+        repulsion = same_species_repulsion_angle(
+            entity, float(params.get("crowd_radius", 42.0))
+        )
+        if repulsion is not None:
+            blend = float(params.get("crowd_repulsion_strength", 0.35))
+            if escape:
+                blend = min(0.85, blend * 1.4)
+            rep_diff = ((repulsion - wander_angle + 180) % 360) - 180
+            wander_angle = (wander_angle + rep_diff * blend) % 360
+
+        entity.wander_angle = wander_angle
 
         from src.systems.movement_system import MovementSystem
 
@@ -93,6 +109,84 @@ class ManaSystem:
         return absorbed
 
     @staticmethod
+    def should_escape(entity: Any, world: Any, params: dict) -> bool:
+        """絶対枯渇・減少率・吸収失敗・密集のいずれかで退避モード。"""
+        cap = getattr(world, "mana_density_cap", 2500.0)
+        position = entity.position
+        local_density = world.get_mana_density(position.x, position.y)
+        if local_density < cap * float(params.get("depleted_ratio", 0.12)):
+            return True
+
+        rate_threshold = float(params.get("depletion_rate_threshold", 0.08))
+        if ManaSystem.local_depletion_rate(entity, world) >= rate_threshold:
+            return True
+
+        no_absorb_limit = int(params.get("no_absorb_escape_ticks", 4))
+        if getattr(entity, "mana_no_absorb_ticks", 0) >= no_absorb_limit:
+            return True
+
+        crowd_radius = float(params.get("crowd_radius", 42.0))
+        escape_neighbors = int(params.get("crowd_escape_neighbors", 3))
+        neighbors = count_same_species_near(
+            entity,
+            position.x,
+            position.y,
+            crowd_radius,
+            exclude_self=True,
+        )
+        return neighbors >= escape_neighbors
+
+    @staticmethod
+    def local_depletion_rate(entity: Any, world: Any) -> float:
+        """同一セル付近に留まっているときのマナ密度の相対減少率（0〜1）。"""
+        position = entity.position
+        snap_x = getattr(entity, "mana_steer_snap_x", None)
+        snap_y = getattr(entity, "mana_steer_snap_y", None)
+        snap_density = getattr(entity, "mana_steer_snap_density", None)
+        if snap_x is None or snap_y is None or snap_density is None:
+            return 0.0
+
+        cell = float(getattr(world, "mana_cell_size", 16))
+        if math.hypot(position.x - snap_x, position.y - snap_y) > cell * 1.5:
+            return 0.0
+
+        current = world.get_mana_density(position.x, position.y)
+        if snap_density <= 1e-6:
+            return 0.0
+        return max(0.0, (snap_density - current) / snap_density)
+
+    @staticmethod
+    def _record_absorb_result(
+        entity: Any, world: Any, absorbed: float, params: dict
+    ) -> None:
+        """吸収結果と位置のマナ密度を記録（次ティックの退避判定用）。"""
+        sat_cap = entity.max_satiety * SATIETY_CAP_RATIO
+        hungry = entity.satiety < sat_cap
+
+        if absorbed > 0:
+            entity.mana_no_absorb_ticks = 0
+        elif hungry:
+            entity.mana_no_absorb_ticks = getattr(entity, "mana_no_absorb_ticks", 0) + 1
+
+        position = entity.position
+        entity.mana_steer_snap_x = position.x
+        entity.mana_steer_snap_y = position.y
+        entity.mana_steer_snap_density = world.get_mana_density(
+            position.x, position.y
+        )
+
+    @staticmethod
+    def _crowd_penalty_at(
+        entity: Any, world: Any, x: float, y: float, params: dict
+    ) -> float:
+        radius = float(params.get("crowd_radius", 42.0))
+        per_neighbor = float(params.get("crowd_sample_penalty", 28.0))
+        count = count_same_species_near(
+            entity, x, y, radius, exclude_self=True
+        )
+        return count * per_neighbor
+
+    @staticmethod
     def get_local_gradient_direction(
         entity: Any,
         world: Any,
@@ -113,7 +207,9 @@ class ManaSystem:
         cap = getattr(world, "mana_density_cap", 2500.0)
         position = entity.position
         current_density = world.get_mana_density(position.x, position.y)
-        depleted = current_density < cap * float(params["depleted_ratio"])
+        escape = ManaSystem.should_escape(entity, world, params) or (
+            current_density < cap * float(params.get("depleted_ratio", 0.12))
+        )
 
         radius = float(params.get("local_gradient_radius", 35.0))
         samples = int(params.get("local_gradient_samples", 8))
@@ -122,7 +218,7 @@ class ManaSystem:
         best_score = float("-inf")
         best_angle = wander_angle
 
-        if depleted:
+        if escape:
             search_radii = [radius, escape_radius, escape_radius * 1.5]
             sample_count = max(samples, 12)
         else:
@@ -143,12 +239,25 @@ class ManaSystem:
                 sample_density = world.get_mana_density(tx, ty)
                 gradient = sample_density - current_density
                 angle_diff = min(abs((angle - wander_angle + 180) % 360 - 180), 90)
+                crowd_penalty = ManaSystem._crowd_penalty_at(
+                    entity, world, tx, ty, params
+                )
 
-                if depleted:
+                if escape:
                     dist_penalty = search_radius * 0.0015
-                    score = sample_density * 2.0 - angle_diff * 0.08 - dist_penalty
+                    score = (
+                        sample_density * 2.0
+                        - angle_diff * 0.08
+                        - dist_penalty
+                        - crowd_penalty
+                    )
                 else:
-                    score = gradient * 1.2 + sample_density * 0.05 - angle_diff * 0.12
+                    score = (
+                        gradient * 1.2
+                        + sample_density * 0.05
+                        - angle_diff * 0.12
+                        - crowd_penalty * 0.65
+                    )
 
                 if score > best_score:
                     best_score = score
