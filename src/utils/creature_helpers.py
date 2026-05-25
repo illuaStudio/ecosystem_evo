@@ -31,7 +31,7 @@ def get_life_stage(age: int, life_cycle: dict) -> str:
     life_cycle 方式のライフステージ判定（LIFE_STAGE_PIPELINE 参照）。
 
     例: mature=280 → age<280 は Juvenile, elder=1800 → Adult, death=3500 → Elder
-    age >= death は Creature._check_natural_lifespan で死亡（表示用 Expired）
+    age >= death は LifeCycleManager で自然死（表示用 Expired）
 
     # 使用例
     stage = get_life_stage(creature.age, creature.life_cycle)
