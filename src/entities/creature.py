@@ -2,6 +2,10 @@
 import random
 
 from src.ai.mind import UtilityMind
+from src.components.energy import Energy
+from src.components.mana_affinity import ManaAffinity
+from src.components.position import Position
+from src.components.velocity import Velocity
 from src.entities.entity import BaseEntity
 from src.entities.species import Species
 from src.rendering.creature_renderer import CreatureRenderer
@@ -35,8 +39,32 @@ class Creature(BaseEntity):
 
         self.world = None
         self.last_pos = self.pos.copy()
+
+        self.position = Position(float(x), float(y))
+        self.velocity = Velocity()
+        self.energy = Energy()
+        self.mana_affinity: ManaAffinity | None = None
+        self._init_mana_affinity_from_species()
+
         # 分裂・産卵・交配など繁殖系アクション共通のクールダウン（ティック）
         self.repro_cooldown = 0
+
+    def _init_mana_affinity_from_species(self) -> None:
+        """種の mind 定義からマナ親和性コンポーネントを構築する。"""
+        for action_def in self.species.mind_data.get("actions", []):
+            if action_def.get("name") not in (
+                "ManaWanderAction",
+                "ManaGradientWanderAction",
+            ):
+                continue
+            params = action_def.get("params", {})
+            self.mana_affinity = ManaAffinity(
+                affinity=float(params.get("affinity", 1.0)),
+                consumption_rate=float(
+                    params.get("mana_absorption_rate", params.get("consumption_rate", 0.1))
+                ),
+            )
+            return
 
     def get_current_speed(self) -> float:
         return float(self.traits.get("base_speed", 1.0))
@@ -133,7 +161,9 @@ class Creature(BaseEntity):
         self.age += 1
         if self.repro_cooldown > 0:
             self.repro_cooldown -= 1
-        self.last_pos = self.pos.copy()
+        self.last_pos = [self.position.x, self.position.y]
+        self.pos[0] = self.position.x
+        self.pos[1] = self.position.y
 
         if self._check_natural_lifespan():
             return
@@ -152,10 +182,6 @@ class Creature(BaseEntity):
 
         self.current_action = self.mind.decide_next_action(self)
         self.current_action.execute(self)
-
-        if self.world:
-            self.pos[0] = max(30, min(self.world.width - 30, self.pos[0]))
-            self.pos[1] = max(30, min(self.world.height - 30, self.pos[1]))
 
     def draw(self, screen, camera):
         CreatureRenderer.draw(self, screen, camera)

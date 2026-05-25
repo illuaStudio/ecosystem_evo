@@ -149,16 +149,9 @@ def contact_range(creature, other, padding: float = 8.0) -> float:
 
 def move_toward(creature, target, speed_multiplier: float = 1.0) -> float:
     """ターゲット方向へ移動し、移動後の距離を返す。"""
-    dx = target.pos[0] - creature.pos[0]
-    dy = target.pos[1] - creature.pos[1]
-    dist = math.hypot(dx, dy)
-    if dist == 0:
-        return 0.0
+    from src.systems.movement_system import MovementSystem
 
-    step = creature.get_current_speed() * speed_multiplier
-    creature.pos[0] += (dx / dist) * step
-    creature.pos[1] += (dy / dist) * step
-    return distance_between(creature, target)
+    return MovementSystem.move_toward(creature, target, speed_multiplier)
 
 
 def bite(predator, prey, attack_power: float = 1.0) -> float:
@@ -218,10 +211,9 @@ def try_predate(
 
 
 def wander_step(creature, angle_range: float, speed_multiplier: float) -> None:
-    creature.wander_angle += random.uniform(-angle_range, angle_range)
-    move = creature.get_current_speed() * speed_multiplier
-    creature.pos[0] += math.cos(math.radians(creature.wander_angle)) * move
-    creature.pos[1] += math.sin(math.radians(creature.wander_angle)) * move
+    from src.systems.movement_system import MovementSystem
+
+    MovementSystem.wander_step(creature, angle_range, speed_multiplier)
 
 
 def get_mana_gradient_direction(
@@ -262,65 +254,16 @@ def get_local_mana_gradient_direction(
     escape_radius: float = 96.0,
     depleted_ratio: float = 0.12,
 ) -> float:
-    """
-    局所的なマナ密度勾配を計算して移動方向を返す。
-    遠くの一点を目指すのではなく、周囲の濃度変化を見て少しずつ移動する。
-    現在地が枯渇している場合は探索半径を広げ、近傍で最も濃い方向へ向かう。
+    """後方互換ラッパー → ManaSystem.get_local_gradient_direction"""
+    from src.systems.mana_system import ManaSystem
 
-    - radius: 通常時のサンプリング半径
-    - samples: サンプリング数（8推奨）
-    - escape_radius: 枯渇時に使う広域探索半径
-    - depleted_ratio: セル上限に対する枯渇判定（これ未満なら脱出モード）
-    """
-    if (
-        not creature.world
-        or not hasattr(creature.world, "mana_density")
-        or not creature.world.mana_density
-    ):
+    if not creature.world:
         return getattr(creature, "wander_angle", random.uniform(0, 360))
 
-    world = creature.world
-    wander_angle = getattr(creature, "wander_angle", 0.0)
-    cap = getattr(world, "mana_density_cap", 2500.0)
-    current_density = world.get_mana_density(creature.pos[0], creature.pos[1])
-    depleted = current_density < cap * depleted_ratio
-
-    best_score = float("-inf")
-    best_angle = wander_angle
-
-    # 枯渇時は複数距離を見て、まだマナが残るセルへ向かう
-    if depleted:
-        search_radii = [radius, escape_radius, escape_radius * 1.5]
-        sample_count = max(samples, 12)
-    else:
-        search_radii = [radius]
-        sample_count = samples
-
-    for search_radius in search_radii:
-        for i in range(sample_count):
-            # 進行方向を中心に扇状サンプリング（慣性）
-            angle = (wander_angle + (i * 360.0 / sample_count) - 180.0) % 360.0
-            rad = math.radians(angle)
-
-            tx = creature.pos[0] + math.cos(rad) * search_radius
-            ty = creature.pos[1] + math.sin(rad) * search_radius
-
-            tx = max(0, min(world.width, tx))
-            ty = max(0, min(world.height, ty))
-
-            sample_density = world.get_mana_density(tx, ty)
-            gradient = sample_density - current_density
-            angle_diff = min(abs((angle - wander_angle + 180) % 360 - 180), 90)
-
-            if depleted:
-                # 勾配が平坦でも絶対密度の高い方向を選ぶ（黒いエリアからの脱出）
-                dist_penalty = search_radius * 0.0015
-                score = sample_density * 2.0 - angle_diff * 0.08 - dist_penalty
-            else:
-                score = gradient * 1.2 + sample_density * 0.05 - angle_diff * 0.12
-
-            if score > best_score:
-                best_score = score
-                best_angle = angle
-
-    return best_angle
+    params = {
+        "local_gradient_radius": radius,
+        "local_gradient_samples": samples,
+        "escape_radius": escape_radius,
+        "depleted_ratio": depleted_ratio,
+    }
+    return ManaSystem.get_local_gradient_direction(creature, creature.world, params)

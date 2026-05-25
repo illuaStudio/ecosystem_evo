@@ -8,6 +8,8 @@ from typing import Dict, List, Optional, Tuple, Union
 from src.config import config
 from src.entities.creature_factory import CreatureFactory
 from src.systems.biome_noise import BiomeNoise
+from src.systems.mana_system import ManaSystem
+from src.systems.movement_system import MovementSystem
 
 
 def _parse_color(value) -> Tuple[int, int, int]:
@@ -97,6 +99,9 @@ class World:
         self.creatures: List = []
         self.obstacles = []
         self.resources = []
+
+        self.movement_system = MovementSystem()
+        self.mana_system = ManaSystem()
 
         self._init_biomes(world_data.get("world", {}))
         self._init_mana_density(mana_cfg)
@@ -332,11 +337,16 @@ class World:
         self.mana -= taken
         return taken
 
-    def update(self) -> None:
+    def update(self, dt: float = 1.0) -> None:
         self._regenerate_mana_density()
 
         for creature in self.creatures[:]:
             creature.update()
+
+        self.movement_system.update(self.creatures, self, dt)
+        self.mana_system.update(self.creatures, self, dt)
+
+        for creature in self.creatures[:]:
             if creature.is_dead():
                 self.remove_creature(creature)
 

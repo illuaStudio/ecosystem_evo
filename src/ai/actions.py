@@ -8,7 +8,6 @@ from src.utils.creature_helpers import (
     contact_range,
     current_size,
     find_nearest_edible,
-    get_local_mana_gradient_direction,
     has_edible_carcass,
     hunger_ratio,
     is_trackable_target,
@@ -76,54 +75,12 @@ class ManaGradientWanderAction(Action):
 
     def execute(self, creature) -> bool:
         world = creature.world
-        cap = getattr(world, "mana_density_cap", 2500.0) if world else 2500.0
-        local_density = (
-            world.get_mana_density(creature.pos[0], creature.pos[1]) if world else 0.0
-        )
-        depleted = local_density < cap * float(self.params["depleted_ratio"])
+        if world is None or getattr(world, "mana_system", None) is None:
+            wander_step(creature, self.params["angle_range"], self.params["speed_multiplier"])
+            return False
 
-        strength = float(self.params["gradient_strength"])
-        angle_range = float(self.params["angle_range"])
-        speed_multiplier = float(self.params["speed_multiplier"])
-
-        # マナが枯渇している場所では方向転換を強め、ランダム徘徊を抑える
-        if depleted:
-            strength = min(1.0, strength * 1.5)
-            angle_range *= 0.35
-            speed_multiplier = min(1.4, speed_multiplier * 1.25)
-
-        gradient_dir = get_local_mana_gradient_direction(
-            creature,
-            radius=float(self.params["local_gradient_radius"]),
-            samples=int(self.params["local_gradient_samples"]),
-            escape_radius=float(self.params["escape_radius"]),
-            depleted_ratio=float(self.params["depleted_ratio"]),
-        )
-        diff = ((gradient_dir - creature.wander_angle + 180) % 360) - 180
-        creature.wander_angle = (creature.wander_angle + diff * strength) % 360
-
-        wander_step(creature, angle_range, speed_multiplier)
-        self._absorb_mana(creature)
+        world.mana_system.apply_gradient_steering(creature, world, self.params)
         return False
-
-    def _absorb_mana(self, creature) -> None:
-        if not creature.world:
-            return
-        cap = creature.max_satiety * self.SATIETY_CAP_RATIO
-        if creature.satiety >= cap:
-            return
-
-        # Amoeba: params.mana_absorption_rate（traits には置かない）
-        rate = float(self.params["mana_absorption_rate"])
-        room = cap - creature.satiety
-        want = min(rate, room)
-        absorbed = creature.world.consume_mana(
-            want, creature.pos[0], creature.pos[1]
-        )
-        if absorbed <= 0:
-            return
-
-        creature.satiety += absorbed
 
     def calculate_utility(self, creature) -> float:
         hunger = hunger_ratio(creature)
