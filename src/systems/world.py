@@ -142,6 +142,7 @@ class World:
         """生態シミュレーションを dt 分進める（1 = 旧来の 1 シミュ tick）。"""
         self.sim_dt = float(dt)
         self._regenerate_mana_density(dt)
+        self.nest_system.update(dt)
         for creature in self.creatures[:]:
             creature.update(dt)
         self.movement_system.update(self.creatures, self, dt)

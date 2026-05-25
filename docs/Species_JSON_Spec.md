@@ -203,11 +203,14 @@
 | single_colony | bool | 同種はワールドに巣を1つだけ（初期スポーン・P 追加も既存巣へ） | true |
 | join_radius | float | `single_colony: false` 時の合流半径（px） | 200 |
 | deposit_radius | float | 持ち帰り判定半径（ReturnToNest と共有） | 30 |
-| max_storage | float | 巣の最大貯蔵バイオマス | 400 |
+| max_food | float | 巣の最大食料備蓄（旧 `max_storage` も可） | 400 |
+| food_leak_rate | float | 1 ティックあたりの余剰食料の漏洩率（腐敗） | 0.0015 |
+| food_to_mana_ratio | float | 漏洩食料のうちマナへ還流する比率 | 0.35 |
+| food_leak_reserve_ratio | float | この割合までは漏洩しない（底上げ備蓄） | 0.12 |
 | nest_x / nest_y | float | 巣が未作成時のスポーン原点（省略時はワールド中央） | 中央 |
 | spawn_spread | float | 巣からのスポーンばらつき半径（px） | 28 |
 
-**現状の Predator:** `single_colony: true` により巣は1つ。初期配置・**P** 追加はいずれも巣（または `nest_x`/`nest_y`）の近くから出現する。
+**C 案（現状）:** 持ち帰りは **食料（バイオマス）** として `stored_food` に蓄える。コロニーは `FeedAtNest` で満腹度に変換。余剰は `food_leak_rate` で巣タイルへ **マナ還流** し、アメーバの生態系と接続する。
 
 **観察のポイント:** 巣は茶色の円で表示。数字はコロニー人数。捕食者が死骸を運ぶと頭上ラベルが `↩` に変わる。
 
@@ -338,3 +341,4 @@ JSON の構造やパラメータを変更したときは、次をセットで更
 |------|------|
 | 2026-05-21 | 初版（Amoeba / Predator 実装に基づく共通仕様） |
 | 2026-05-25 | Predator コロニー（巣・Hunt/Return/Feed/NestPatrol） |
+| 2026-05-25 | 巣備蓄を食料＋マナ漏洩（C 案）に変更 |

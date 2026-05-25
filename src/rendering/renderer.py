@@ -81,7 +81,11 @@ class Renderer:
                 nest = world.nest_system.get_creature_nest(sc)
                 if nest is not None:
                     texts.append(
-                        f"巣 #{nest.id}: 貯蔵 {nest.stored_biomass:.0f}/{nest.max_storage:.0f}"
+                        f"巣 #{nest.id}: 食料 {nest.stored_food:.0f}/{nest.max_food:.0f}"
+                    )
+                    texts.append(
+                        f"  備蓄率 {nest.food_ratio * 100:.0f}%"
+                        "（余剰はマナへ漏洩）"
                     )
                     texts.append(
                         f"コロニー: {world.nest_system.member_count(nest.id, sc.species.name)} 匹"

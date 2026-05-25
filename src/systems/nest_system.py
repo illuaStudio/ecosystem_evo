@@ -20,14 +20,23 @@ class Nest:
     x: float
     y: float
     owner_species: str
-    stored_biomass: float = 0.0
-    max_storage: float = 400.0
+    stored_food: float = 0.0
+    max_food: float = 400.0
+
+    @property
+    def food_ratio(self) -> float:
+        if self.max_food <= 0:
+            return 0.0
+        return max(0.0, min(1.0, self.stored_food / self.max_food))
 
 
 class NestSystem:
     DEFAULT_JOIN_RADIUS = 200.0
     DEFAULT_DEPOSIT_RADIUS = 30.0
     DEFAULT_SPAWN_SPREAD = 28.0
+    DEFAULT_FOOD_LEAK_RATE = 0.0015
+    DEFAULT_FOOD_TO_MANA_RATIO = 0.35
+    DEFAULT_FOOD_LEAK_RESERVE_RATIO = 0.12
     WORLD_MARGIN = 30.0
 
     def __init__(self, world: "World") -> None:
@@ -41,14 +50,14 @@ class NestSystem:
         y: float,
         species_name: str,
         *,
-        max_storage: float = 400.0,
+        max_food: float = 400.0,
     ) -> Nest:
         nest = Nest(
             id=self._next_id,
             x=float(x),
             y=float(y),
             owner_species=species_name,
-            max_storage=float(max_storage),
+            max_food=float(max_food),
         )
         self._next_id += 1
         self.nests[nest.id] = nest
@@ -124,7 +133,7 @@ class NestSystem:
 
         cfg = colony_cfg or {}
         species_name = creature.species.name
-        max_storage = float(cfg.get("max_storage", 400.0))
+        max_food = float(cfg.get("max_food", cfg.get("max_storage", 400.0)))
         single_colony = cfg.get("single_colony", True)
 
         if single_colony:
@@ -143,9 +152,50 @@ class NestSystem:
             cx,
             cy,
             species_name,
-            max_storage=max_storage,
+            max_food=max_food,
         )
         colony.nest_id = nest.id
+
+    def update(self, dt: float = 1.0) -> None:
+        """備蓄食料の腐敗・漏洩 → 巣位置へマナ還流（エコロジー接続）。"""
+        from src.config import config
+
+        dt = float(dt)
+        for nest in self.nests.values():
+            if nest.stored_food <= 0:
+                continue
+            species_data = config.get_species(nest.owner_species) or {}
+            colony_cfg = species_data.get("colony", {})
+            self._leak_food_to_mana(nest, colony_cfg, dt)
+
+    def _leak_food_to_mana(self, nest: Nest, colony_cfg: dict, dt: float) -> None:
+        leak_rate = float(
+            colony_cfg.get("food_leak_rate", self.DEFAULT_FOOD_LEAK_RATE)
+        )
+        mana_ratio = float(
+            colony_cfg.get("food_to_mana_ratio", self.DEFAULT_FOOD_TO_MANA_RATIO)
+        )
+        reserve_ratio = float(
+            colony_cfg.get(
+                "food_leak_reserve_ratio", self.DEFAULT_FOOD_LEAK_RESERVE_RATIO
+            )
+        )
+        if leak_rate <= 0 or mana_ratio <= 0:
+            return
+
+        reserve = nest.max_food * reserve_ratio
+        leakable = max(0.0, nest.stored_food - reserve)
+        if leakable <= 0:
+            return
+
+        leak = min(leakable, leakable * leak_rate * dt)
+        if leak <= 0:
+            return
+
+        nest.stored_food -= leak
+        self.world.return_mana_from_decomposition(
+            leak * mana_ratio, nest.x, nest.y
+        )
 
     def distance_to_nest(self, creature) -> float:
         nest = self.get_creature_nest(creature)
@@ -163,7 +213,7 @@ class NestSystem:
         return self.distance_to_nest(creature) <= deposit_radius
 
     def deposit_carried(self, creature) -> float:
-        """運搬中の死骸を巣の貯蔵に移す。移したバイオマス量を返す。"""
+        """運搬中の死骸を巣の食料備蓄へ移す。移した食料量を返す。"""
         colony = getattr(creature, "colony", None)
         if colony is None or not colony.is_carrying:
             return 0.0
@@ -178,9 +228,9 @@ class NestSystem:
             colony.carried_carcass = None
             return 0.0
 
-        space = max(0.0, nest.max_storage - nest.stored_biomass)
+        space = max(0.0, nest.max_food - nest.stored_food)
         deposited = min(amount, space)
-        nest.stored_biomass += deposited
+        nest.stored_food += deposited
         colony.carried_carcass = None
         return deposited
 
@@ -189,23 +239,25 @@ class NestSystem:
         creature,
         *,
         bite_gain: float = 1.2,
-        max_take_ratio: float = 0.35,
+        max_take_ratio: float = 0.12,
     ) -> float:
-        """巣の貯蔵から満腹度を回復。消費した貯蔵量を返す。"""
+        """巣の食料備蓄から満腹度を回復。消費した食料量を返す。"""
         nest = self.get_creature_nest(creature)
-        if nest is None or nest.stored_biomass <= 0:
+        if nest is None or nest.stored_food <= 0:
             return 0.0
 
         hunger_room = max(0.0, creature.max_satiety - creature.satiety)
         if hunger_room <= 0:
             return 0.0
 
-        max_take = nest.stored_biomass * float(max_take_ratio)
-        take = min(nest.stored_biomass, max_take, hunger_room / float(bite_gain))
+        members = max(1, self.member_count(nest.id, creature.species.name))
+        per_member_ratio = float(max_take_ratio) / members
+        max_take = nest.stored_food * per_member_ratio
+        take = min(nest.stored_food, max_take, hunger_room / float(bite_gain))
         if take <= 0:
             return 0.0
 
-        nest.stored_biomass -= take
+        nest.stored_food -= take
         creature.satiety = min(creature.max_satiety, creature.satiety + take * bite_gain)
         return take
 

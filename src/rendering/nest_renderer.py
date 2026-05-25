@@ -18,7 +18,7 @@ class NestRenderer:
             ):
                 continue
 
-            fill = max(0.0, min(1.0, nest.stored_biomass / max(nest.max_storage, 1.0)))
+            fill = nest.food_ratio
             outer = (90, 45, 30)
             inner = (
                 int(180 + fill * 60),
@@ -30,8 +30,22 @@ class NestRenderer:
             pygame.draw.circle(screen, inner, (sx, sy), radius)
             pygame.draw.circle(screen, (255, 200, 120), (sx, sy), 5)
 
+            if fill > 0.05:
+                leak_glow = (
+                    int(40 + fill * 40),
+                    int(120 + fill * 80),
+                    int(180 + fill * 50),
+                )
+                pygame.draw.circle(
+                    screen, leak_glow, (sx, sy), radius + 8, 1
+                )
+
             members = nest_system.member_count(nest.id, nest.owner_species)
+            font = pygame.font.SysFont("msgothic", 11)
             if members > 0:
-                font = pygame.font.SysFont("msgothic", 11)
                 label = font.render(str(members), True, (255, 230, 200))
                 screen.blit(label, (sx - 4, sy - radius - 16))
+            if fill > 0.08:
+                food_pct = int(fill * 100)
+                food_label = font.render(f"食{food_pct}", True, (255, 210, 140))
+                screen.blit(food_label, (sx - 10, sy + radius + 4))

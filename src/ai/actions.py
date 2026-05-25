@@ -163,7 +163,7 @@ class ChaseAction(Action):
 class HuntAction(Action):
     """獲物を追跡し攻撃・殺害。死骸はその場で食べず拾って巣へ運ぶ。"""
 
-    HUNGER_THRESHOLD = 0.18
+    HUNGER_THRESHOLD = 0.28
 
     DEFAULT_PARAMS = {
         "target_type": "Amoeba",
@@ -284,12 +284,13 @@ class ReturnToNestAction(Action):
 class FeedAtNestAction(Action):
     """巣の貯蔵から食事する（コロニー共有の餌）。"""
 
-    HUNGER_THRESHOLD = 0.25
+    HUNGER_THRESHOLD = 0.38
 
     DEFAULT_PARAMS = {
-        "bite_gain": 1.2,
-        "max_take_ratio": 0.4,
+        "bite_gain": 1.15,
+        "max_take_ratio": 0.14,
         "feed_radius": 36.0,
+        "approach_speed_multiplier": 0.95,
     }
 
     def execute(self, creature) -> bool:
@@ -299,7 +300,19 @@ class FeedAtNestAction(Action):
             return False
 
         ns = creature.world.nest_system
-        if not ns.is_at_nest(creature, float(self.params["feed_radius"])):
+        nest = ns.get_creature_nest(creature)
+        if nest is None or nest.stored_food <= 8.0:
+            return False
+
+        feed_radius = float(self.params["feed_radius"])
+        if not ns.is_at_nest(creature, feed_radius):
+            # utility だけ高くて execute が空振り → 巣の外で固まるバグの対策
+            move_toward_point(
+                creature,
+                nest.x,
+                nest.y,
+                float(self.params.get("approach_speed_multiplier", 0.95)),
+            )
             return False
 
         ns.feed_creature(
@@ -319,7 +332,7 @@ class FeedAtNestAction(Action):
             return 0.0
 
         nest = creature.world.nest_system.get_creature_nest(creature)
-        if nest is None or nest.stored_biomass <= 8.0:
+        if nest is None or nest.stored_food <= 8.0:
             return 0.0
 
         if not creature.world.nest_system.is_at_nest(
@@ -332,7 +345,7 @@ class FeedAtNestAction(Action):
             closeness = max(0.0, min(1.0, 1.0 - dist / vision))
             return hunger * closeness * 0.45
 
-        fill = nest.stored_biomass / max(nest.max_storage, 1.0)
+        fill = nest.food_ratio
         return min(1.0, hunger * (0.5 + fill * 0.5))
 
 

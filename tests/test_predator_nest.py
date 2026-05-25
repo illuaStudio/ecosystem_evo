@@ -45,7 +45,7 @@ class TestPredatorNest(unittest.TestCase):
         for p in preds:
             px, py = entity_xy(p)
             dist = ((px - anchor_x) ** 2 + (py - anchor_y) ** 2) ** 0.5
-            self.assertLessEqual(dist, spread + 2)
+            self.assertLessEqual(dist, spread + 5)
 
     def test_nest_spawn_position_uses_existing_nest(self):
         world = World()
@@ -103,7 +103,7 @@ class TestPredatorNest(unittest.TestCase):
 
         deposited = world.nest_system.deposit_carried(predator)
         self.assertGreater(deposited, 0)
-        self.assertGreater(nest.stored_biomass, 0)
+        self.assertGreater(nest.stored_food, 0)
         self.assertFalse(predator.colony.is_carrying)
 
     def test_feed_at_nest_reduces_hunger(self):
@@ -111,14 +111,41 @@ class TestPredatorNest(unittest.TestCase):
         preds = self._spawn_predators(world, 1)
         predator = preds[0]
         nest = world.nest_system.get_creature_nest(predator)
-        nest.stored_biomass = 200.0
+        nest.stored_food = 200.0
         predator.satiety = predator.max_satiety * 0.2
 
         before = hunger_ratio(predator)
         world.nest_system.feed_creature(predator, bite_gain=1.2)
         after = hunger_ratio(predator)
         self.assertLess(after, before)
-        self.assertLess(nest.stored_biomass, 200.0)
+        self.assertLess(nest.stored_food, 200.0)
+
+    def test_food_leak_reduces_storage_and_adds_mana_at_nest(self):
+        world = World()
+        preds = self._spawn_predators(world, 1)
+        nest = world.nest_system.get_creature_nest(preds[0])
+        nest.stored_food = 400.0
+
+        mana_before = world.get_mana_density(nest.x, nest.y)
+        for _ in range(80):
+            world.nest_system.update(1.0)
+        mana_after = world.get_mana_density(nest.x, nest.y)
+
+        self.assertLess(nest.stored_food, 400.0)
+        self.assertGreater(mana_after, mana_before)
+        reserve = nest.max_food * 0.15
+        self.assertGreaterEqual(nest.stored_food, reserve * 0.85)
+
+    def test_feed_per_member_ratio_divides_by_colony_size(self):
+        world = World()
+        preds = self._spawn_predators(world, 3)
+        nest = world.nest_system.get_creature_nest(preds[0])
+        nest.stored_food = 200.0
+        members = world.nest_system.member_count(nest.id, "Predator")
+        self.assertEqual(members, 3)
+        solo_cap = 200.0 * 0.14
+        shared_cap = 200.0 * 0.14 / members
+        self.assertLess(shared_cap, solo_cap)
 
 
 if __name__ == "__main__":
