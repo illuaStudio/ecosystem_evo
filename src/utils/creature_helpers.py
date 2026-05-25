@@ -253,3 +253,74 @@ def get_mana_gradient_direction(
             best_angle = angle
 
     return best_angle
+
+
+def get_local_mana_gradient_direction(
+    creature,
+    radius: float = 35.0,
+    samples: int = 8,
+    escape_radius: float = 96.0,
+    depleted_ratio: float = 0.12,
+) -> float:
+    """
+    局所的なマナ密度勾配を計算して移動方向を返す。
+    遠くの一点を目指すのではなく、周囲の濃度変化を見て少しずつ移動する。
+    現在地が枯渇している場合は探索半径を広げ、近傍で最も濃い方向へ向かう。
+
+    - radius: 通常時のサンプリング半径
+    - samples: サンプリング数（8推奨）
+    - escape_radius: 枯渇時に使う広域探索半径
+    - depleted_ratio: セル上限に対する枯渇判定（これ未満なら脱出モード）
+    """
+    if (
+        not creature.world
+        or not hasattr(creature.world, "mana_density")
+        or not creature.world.mana_density
+    ):
+        return getattr(creature, "wander_angle", random.uniform(0, 360))
+
+    world = creature.world
+    wander_angle = getattr(creature, "wander_angle", 0.0)
+    cap = getattr(world, "mana_density_cap", 2500.0)
+    current_density = world.get_mana_density(creature.pos[0], creature.pos[1])
+    depleted = current_density < cap * depleted_ratio
+
+    best_score = float("-inf")
+    best_angle = wander_angle
+
+    # 枯渇時は複数距離を見て、まだマナが残るセルへ向かう
+    if depleted:
+        search_radii = [radius, escape_radius, escape_radius * 1.5]
+        sample_count = max(samples, 12)
+    else:
+        search_radii = [radius]
+        sample_count = samples
+
+    for search_radius in search_radii:
+        for i in range(sample_count):
+            # 進行方向を中心に扇状サンプリング（慣性）
+            angle = (wander_angle + (i * 360.0 / sample_count) - 180.0) % 360.0
+            rad = math.radians(angle)
+
+            tx = creature.pos[0] + math.cos(rad) * search_radius
+            ty = creature.pos[1] + math.sin(rad) * search_radius
+
+            tx = max(0, min(world.width, tx))
+            ty = max(0, min(world.height, ty))
+
+            sample_density = world.get_mana_density(tx, ty)
+            gradient = sample_density - current_density
+            angle_diff = min(abs((angle - wander_angle + 180) % 360 - 180), 90)
+
+            if depleted:
+                # 勾配が平坦でも絶対密度の高い方向を選ぶ（黒いエリアからの脱出）
+                dist_penalty = search_radius * 0.0015
+                score = sample_density * 2.0 - angle_diff * 0.08 - dist_penalty
+            else:
+                score = gradient * 1.2 + sample_density * 0.05 - angle_diff * 0.12
+
+            if score > best_score:
+                best_score = score
+                best_angle = angle
+
+    return best_angle
