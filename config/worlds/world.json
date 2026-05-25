@@ -1,8 +1,8 @@
 {
   "name": "Grassland",
   "display_name": "草原の生態系",
-  "world_width": 1000,
-  "world_height": 1000,
+  "world_width": 1500,
+  "world_height": 1500,
   "background_color": [34, 60, 25],
 
   "mana": {

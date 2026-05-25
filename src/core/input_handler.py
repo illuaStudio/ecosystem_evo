@@ -24,6 +24,9 @@ class InputHandler:
         if event.type == pygame.QUIT:
             return False
 
+        if event.type == pygame.VIDEORESIZE:
+            self.engine.resize_display(event.w, event.h)
+
         # カメラドラッグ操作
         self.engine.camera.handle_event(event)
 

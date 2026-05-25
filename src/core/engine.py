@@ -13,11 +13,12 @@ class SimulationEngine:
     """メインエンジン"""
 
     def __init__(self):
-        # 画面サイズ（config.gameから取得）
-        self.screen = pygame.display.set_mode((
-            config.game["camera_width"],
-            config.game["camera_height"]
-        ))
+        # 画面サイズ（config.gameから取得）。RESIZABLE で最大化・端ドラッグを有効化
+        self._window_flags = pygame.RESIZABLE
+        self.screen = pygame.display.set_mode(
+            (config.game["camera_width"], config.game["camera_height"]),
+            self._window_flags,
+        )
         pygame.display.set_caption(
             f"{config.game['game_title']} v{config.game['version']}"
         )
@@ -46,6 +47,15 @@ class SimulationEngine:
         self.input_handler = InputHandler(self)
 
         self.reset_simulation()
+
+    def resize_display(self, width: int, height: int) -> None:
+        """ウィンドウリサイズ・最大化時に描画面とカメラを更新する。"""
+        width = max(320, int(width))
+        height = max(240, int(height))
+        self.screen = pygame.display.set_mode((width, height), self._window_flags)
+        self.renderer.screen = self.screen
+        self.renderer._ui_panel = None
+        self.camera.set_screen_size(width, height)
 
     def reset_simulation(self, world_name: str = "Grassland"):
         """シミュレーション初期化"""
