@@ -74,6 +74,7 @@ class World:
 
         self.spawner = WorldSpawner(self)
         self.spawner.spawn_initial_entities(world_data)
+        self.sim_dt = 1.0
 
     # バイオーム（後方互換）
     biomes = property(lambda s: s.biome.biomes)
@@ -112,8 +113,8 @@ class World:
     def get_mana_density(self, x: float, y: float) -> float:
         return self.mana_layer.get_mana_density(x, y)
 
-    def _regenerate_mana_density(self) -> None:
-        self.mana_layer.regenerate()
+    def _regenerate_mana_density(self, dt: float = 1.0) -> None:
+        self.mana_layer.regenerate(dt)
 
     def return_mana_from_decomposition(
         self, amount: float, x: float = None, y: float = None
@@ -132,9 +133,11 @@ class World:
             self.creatures.remove(creature)
 
     def update(self, dt: float = 1.0) -> None:
-        self._regenerate_mana_density()
+        """生態シミュレーションを dt 分進める（1 = 旧来の 1 シミュ tick）。"""
+        self.sim_dt = float(dt)
+        self._regenerate_mana_density(dt)
         for creature in self.creatures[:]:
-            creature.update()
+            creature.update(dt)
         self.movement_system.update(self.creatures, self, dt)
         self.mana_system.update(self.creatures, self, dt)
         for creature in self.creatures[:]:

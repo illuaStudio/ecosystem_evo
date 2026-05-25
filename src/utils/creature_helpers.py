@@ -152,11 +152,27 @@ def contact_range(creature, other, padding: float = 8.0) -> float:
     )
 
 
-def move_toward(creature, target, speed_multiplier: float = 1.0) -> float:
+def _sim_dt(creature, dt: float | None = None) -> float:
+    if dt is not None:
+        return float(dt)
+    world = getattr(creature, "world", None)
+    if world is None:
+        return 1.0
+    return float(getattr(world, "sim_dt", 1.0))
+
+
+def move_toward(
+    creature,
+    target,
+    speed_multiplier: float = 1.0,
+    dt: float | None = None,
+) -> float:
     """ターゲット方向へ移動し、移動後の距離を返す。"""
     from src.systems.movement_system import MovementSystem
 
-    return MovementSystem.move_toward(creature, target, speed_multiplier)
+    return MovementSystem.move_toward(
+        creature, target, speed_multiplier, _sim_dt(creature, dt)
+    )
 
 
 def bite(predator, prey, attack_power: float = 1.0) -> float:
@@ -216,10 +232,17 @@ def try_predate(
         consume_carcass(predator, target, bite_gain=bite_gain)
 
 
-def wander_step(creature, angle_range: float, speed_multiplier: float) -> None:
+def wander_step(
+    creature,
+    angle_range: float,
+    speed_multiplier: float,
+    dt: float | None = None,
+) -> None:
     from src.systems.movement_system import MovementSystem
 
-    MovementSystem.wander_step(creature, angle_range, speed_multiplier)
+    MovementSystem.wander_step(
+        creature, angle_range, speed_multiplier, _sim_dt(creature, dt)
+    )
 
 
 def get_mana_gradient_direction(

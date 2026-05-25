@@ -129,20 +129,21 @@ class Creature(BaseEntity):
     def become_corpse(self) -> None:
         self.corpse.become_corpse()
 
-    def update(self) -> None:
+    def update(self, dt: float = 1.0) -> None:
+        dt = float(dt)
         if not self.alive:
-            self.corpse.update()
+            self.corpse.update(dt)
             return
 
-        self.age += 1
-        self.reproduction.update()
+        self.age += int(dt)
+        self.reproduction.update(dt)
 
         sync_legacy_pos(self, update_last=True)
 
         if self.life_cycle.update():
             return
 
-        if self.metabolism.update():
+        if self.metabolism.update(dt):
             self.become_corpse()
             return
 

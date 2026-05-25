@@ -10,17 +10,18 @@ class MetabolismComponent:
     def __init__(self, owner: Any) -> None:
         self.owner = owner
 
-    def update(self) -> bool:
+    def update(self, dt: float = 1.0) -> bool:
         """
-        1 ティック分の代謝を適用する。
+        dt 分の代謝を適用する。
         Returns:
             True なら HP が尽きて死骸化が必要（呼び出し側で become_corpse を実行）。
         """
-        self.apply_growth()
-        self._apply_metabolism()
+        dt = float(dt)
+        self.apply_growth(dt)
+        self._apply_metabolism(dt)
         return self.owner.hp <= 0
 
-    def apply_growth(self) -> None:
+    def apply_growth(self, dt: float = 1.0) -> None:
         """満腹度に応じて base_size を max_size まで自動成長（Action とは独立）。"""
         owner = self.owner
         traits = owner.traits
@@ -33,7 +34,7 @@ class MetabolismComponent:
         if growth_rate <= 0:
             return
 
-        delta = growth_rate * satiety_ratio(owner)
+        delta = growth_rate * satiety_ratio(owner) * float(dt)
         traits["base_size"] = min(max_size, size + delta)
 
     def scale_size(self, factor: float) -> None:
@@ -41,9 +42,9 @@ class MetabolismComponent:
         traits = self.owner.traits
         traits["base_size"] = float(traits["base_size"]) * factor
 
-    def _apply_metabolism(self) -> None:
+    def _apply_metabolism(self, dt: float = 1.0) -> None:
         owner = self.owner
-        owner.satiety -= owner.traits["metabolism_rate"]
+        owner.satiety -= owner.traits["metabolism_rate"] * float(dt)
 
         if owner.satiety < 0:
             owner.hp += owner.satiety * 0.12

@@ -9,9 +9,9 @@ class ReproductionComponent:
         self.owner = owner
         self.cooldown = 0
 
-    def update(self) -> None:
+    def update(self, dt: float = 1.0) -> None:
         if self.cooldown > 0:
-            self.cooldown -= 1
+            self.cooldown = max(0, self.cooldown - int(dt))
 
     def set_cooldown(self, ticks: int) -> None:
         self.cooldown = max(0, int(ticks))

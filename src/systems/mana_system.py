@@ -17,7 +17,6 @@ class ManaSystem:
 
     def update(self, entities: List[Any], world: Any, dt: float = 1.0) -> None:
         """マナ親和性を持つ生存個体のマナ吸収（行動種別に応じて）。"""
-        del dt
         if world is None:
             return
 
@@ -35,7 +34,7 @@ class ManaSystem:
             rate = float(
                 action.params.get("mana_absorption_rate", affinity.consumption_rate)
             )
-            absorbed = self.absorb_mana(entity, world, affinity, rate)
+            absorbed = self.absorb_mana(entity, world, affinity, rate, dt)
             self._record_absorb_result(entity, world, absorbed, action.params)
 
     def apply_gradient_steering(
@@ -78,7 +77,10 @@ class ManaSystem:
 
         from src.systems.movement_system import MovementSystem
 
-        MovementSystem.wander_step(entity, angle_range, speed_multiplier)
+        sim_dt = float(getattr(world, "sim_dt", 1.0))
+        MovementSystem.wander_step(
+            entity, angle_range, speed_multiplier, sim_dt
+        )
 
     def absorb_mana(
         self,
@@ -86,6 +88,7 @@ class ManaSystem:
         world: Any,
         affinity: ManaAffinity,
         rate: Optional[float] = None,
+        dt: float = 1.0,
     ) -> float:
         """現在位置のマナを消費して満腹度を回復。吸収量を返す。"""
         if world is None or not getattr(entity, "alive", True):
@@ -96,7 +99,10 @@ class ManaSystem:
             return 0.0
 
         consumption = rate if rate is not None else affinity.consumption_rate
-        want = min(float(consumption) * affinity.affinity, cap - entity.satiety)
+        want = min(
+            float(consumption) * affinity.affinity * float(dt),
+            cap - entity.satiety,
+        )
         if want <= 0:
             return 0.0
 

@@ -3,6 +3,7 @@
   "version": "0.8.1",
   
   "fps": 60,
+  "sim_ticks_per_step": 10,
   "simulation_speed": 1.0,
   
   "camera_width": 1100,

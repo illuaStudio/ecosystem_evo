@@ -12,14 +12,14 @@ class CorpseComponent:
         self.remaining_biomass = 0.0
         self.initial_biomass = 0.0
 
-    def update(self) -> None:
+    def update(self, dt: float = 1.0) -> None:
         """死骸専用: 自然分解でバイオマス減少とマナ還元（アクションなし）。"""
         if self.remaining_biomass <= 0:
             return
 
         owner = self.owner
         size = float(owner.traits.get("base_size", 9.0))
-        decompose_amount = size * 0.018
+        decompose_amount = size * 0.018 * float(dt)
         self.remaining_biomass -= decompose_amount
 
         world = owner.world

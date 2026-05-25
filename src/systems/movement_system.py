@@ -15,7 +15,7 @@ class MovementSystem:
 
     def update(self, entities: List[Any], world: Any, dt: float = 1.0) -> None:
         """速度の適用とワールド境界へのクランプ。"""
-        del dt  # ティック単位シミュレーション（将来 dt 対応用）
+        dt = float(dt)
         if world is None:
             return
 
@@ -28,8 +28,8 @@ class MovementSystem:
 
             velocity = getattr(entity, "velocity", None)
             if isinstance(velocity, Velocity) and (velocity.vx != 0.0 or velocity.vy != 0.0):
-                position.x += velocity.vx
-                position.y += velocity.vy
+                position.x += velocity.vx * dt
+                position.y += velocity.vy * dt
                 velocity.vx = 0.0
                 velocity.vy = 0.0
 
@@ -41,6 +41,7 @@ class MovementSystem:
         entity: Any,
         angle_range: float,
         speed_multiplier: float,
+        dt: float = 1.0,
     ) -> None:
         """徘徊: wander_angle に沿って Position を更新する。"""
         position = MovementSystem._require_position(entity)
@@ -48,7 +49,7 @@ class MovementSystem:
         wander_angle += random.uniform(-angle_range, angle_range)
         entity.wander_angle = wander_angle
 
-        step = entity.get_current_speed() * speed_multiplier
+        step = entity.get_current_speed() * speed_multiplier * float(dt)
         position.x += math.cos(math.radians(wander_angle)) * step
         position.y += math.sin(math.radians(wander_angle)) * step
         sync_legacy_pos(entity)
@@ -58,6 +59,7 @@ class MovementSystem:
         entity: Any,
         target: Any,
         speed_multiplier: float = 1.0,
+        dt: float = 1.0,
     ) -> float:
         """ターゲット方向へ移動し、移動後の距離を返す。"""
         position = MovementSystem._require_position(entity)
@@ -69,7 +71,7 @@ class MovementSystem:
         if dist == 0:
             return 0.0
 
-        step = entity.get_current_speed() * speed_multiplier
+        step = entity.get_current_speed() * speed_multiplier * float(dt)
         position.x += (dx / dist) * step
         position.y += (dy / dist) * step
         sync_legacy_pos(entity)

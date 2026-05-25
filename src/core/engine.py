@@ -28,6 +28,8 @@ class SimulationEngine:
 
         self.world = None
         self.paused = False
+        self.sim_ticks_per_step = max(1, int(config.game.get("sim_ticks_per_step", 10)))
+        self._render_ticks_until_sim = 0
         self.selected_creature = None
         self.show_debug = config.game.get("debug_mode", False)
         self.map_view_mode = "biome"  # "biome" | "mana"
@@ -48,6 +50,8 @@ class SimulationEngine:
     def reset_simulation(self, world_name: str = "Grassland"):
         """シミュレーション初期化"""
         config.reload_worlds()
+        self.sim_ticks_per_step = max(1, int(config.game.get("sim_ticks_per_step", 10)))
+        self._render_ticks_until_sim = 0
         self.world = World(world_name)
         self.selected_creature = None
         self.renderer.invalidate_biome_cache()
@@ -67,11 +71,20 @@ class SimulationEngine:
         """入力処理をInputHandlerに委譲"""
         return self.input_handler.handle_events()
 
+    def _sim_dt(self) -> float:
+        """1 回のシミュ更新で進むシミュレーション時間（レンダー tick 換算）。"""
+        speed = float(config.game.get("simulation_speed", 1.0))
+        return self.sim_ticks_per_step * speed
+
     def update(self):
-        """状態更新"""
-        if self.paused:
+        """状態更新（レンダー tick）。生態シミュは sim_ticks_per_step ごとに実行。"""
+        if self.paused or self.world is None:
             return
-        self.world.update()
+        if self._render_ticks_until_sim > 0:
+            self._render_ticks_until_sim -= 1
+            return
+        self.world.update(self._sim_dt())
+        self._render_ticks_until_sim = self.sim_ticks_per_step - 1
 
     def draw(self):
         """描画"""

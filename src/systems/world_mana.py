@@ -72,14 +72,14 @@ class WorldMana:
         col, row = self._pos_to_mana_cell(x, y)
         return self.mana_density[row][col]
 
-    def regenerate(self) -> None:
+    def regenerate(self, dt: float = 1.0) -> None:
         """バイオーム倍率に基づき、マナ密度マップ全体を回復させる。"""
         world = self._world
-        if self.regen_rate <= 0 or not self.mana_density:
+        if self.regen_rate <= 0 or not self.mana_density or dt <= 0:
             return
 
         cell_count = self._mana_cols * self._mana_rows
-        base_per_cell = self.regen_rate / cell_count
+        base_per_cell = (self.regen_rate / cell_count) * float(dt)
         cell = self.mana_cell_size
         cap = self.mana_density_cap
         regen_total = 0.0
