@@ -163,14 +163,14 @@ class ChaseAction(Action):
 class HuntAction(Action):
     """獲物を追跡し攻撃・殺害。死骸はその場で食べず拾って巣へ運ぶ。"""
 
-    HUNGER_THRESHOLD = 0.28
-
     DEFAULT_PARAMS = {
         "target_type": "Amoeba",
         "speed_multiplier": 1.3,
         "contact_padding": 8.0,
         "attack_power": 1.2,
         "pickup_on_kill": True,
+        "hunger_threshold": 0.28,
+        "colony_hoard_strength": 0.8,
     }
 
     def __init__(self, **params):
@@ -198,7 +198,6 @@ class HuntAction(Action):
                 )
             if (
                 not target.alive
-                and has_edible_carcass(target)
                 and self.params.get("pickup_on_kill", True)
             ):
                 try_pickup_carcass(creature, target, pad)
@@ -208,6 +207,25 @@ class HuntAction(Action):
                 self._target = None
 
         return False
+
+    def _hunt_drive(self, creature) -> float:
+        """個人の空腹とコロニー備蓄（常時）のうち強い方（0〜1）。"""
+        hunger = hunger_ratio(creature)
+        threshold = float(self.params["hunger_threshold"])
+        personal = 0.0
+        if hunger >= threshold:
+            headroom = max(1e-6, 1.0 - threshold)
+            personal = min(1.0, (hunger - threshold) / headroom)
+
+        if not creature.world:
+            return personal
+
+        nest = creature.world.nest_system.get_creature_nest(creature)
+        if nest is None:
+            return personal
+
+        colony_drive = float(self.params["colony_hoard_strength"])
+        return max(personal, colony_drive)
 
     def calculate_utility(self, creature) -> float:
         if getattr(creature, "colony", None) is None or creature.colony.is_carrying:
@@ -219,12 +237,12 @@ class HuntAction(Action):
         if prey is None:
             return 0.0
 
-        hunger = hunger_ratio(creature)
-        if hunger < self.HUNGER_THRESHOLD:
+        drive = self._hunt_drive(creature)
+        if drive <= 0.0:
             return 0.0
 
         closeness = closeness_ratio(creature, prey)
-        return min(1.0, hunger * (0.4 + closeness * 0.6))
+        return min(1.0, drive * (0.4 + closeness * 0.6))
 
     def _resolve_target(self, creature):
         target_type = self.params["target_type"]
@@ -513,3 +531,82 @@ class SplitAction(ReproductionAction):
         headroom = max(1e-6, 1.0 - threshold)
         excess = (sat - threshold) / headroom
         return min(1.0, 0.55 + excess * 0.45)
+
+
+class SpawnWorkerAction(ReproductionAction):
+    """巣の食料備蓄を消費して働きアリ（同種）を1匹生成する。"""
+
+    DEFAULT_PARAMS = {
+        "spawn_radius": 40.0,
+        "approach_speed_multiplier": 0.9,
+        "spawn_cooldown": 900,
+    }
+
+    def _colony_cfg(self, creature) -> dict:
+        return creature.species.colony_data or {}
+
+    def can_execute(self, creature) -> bool:
+        if not creature.alive or not creature.world:
+            return False
+        if getattr(creature, "colony", None) is None:
+            return False
+        if creature.colony.is_carrying:
+            return False
+        if creature.repro_cooldown > 0:
+            return False
+        return creature.world.nest_system.can_spawn_worker(
+            creature, self._colony_cfg(creature)
+        )
+
+    def execute(self, creature) -> bool:
+        if not self.can_execute(creature):
+            return False
+
+        ns = creature.world.nest_system
+        spawn_radius = float(self.params["spawn_radius"])
+
+        if not ns.is_at_nest(creature, spawn_radius):
+            nest = ns.get_creature_nest(creature)
+            if nest is None:
+                return False
+            move_toward_point(
+                creature,
+                nest.x,
+                nest.y,
+                float(self.params["approach_speed_multiplier"]),
+            )
+            return False
+
+        worker = ns.spawn_worker(creature, self._colony_cfg(creature))
+        if worker is None:
+            return False
+
+        self._register_offspring(creature, worker)
+        creature.set_repro_cooldown(int(self.params["spawn_cooldown"]))
+        self.completed = True
+        return True
+
+    def calculate_utility(self, creature) -> float:
+        if not self.can_execute(creature):
+            return 0.0
+
+        ns = creature.world.nest_system
+        nest = ns.get_creature_nest(creature)
+        if nest is None:
+            return 0.0
+
+        cfg = self._colony_cfg(creature)
+        cost = float(cfg.get("spawn_food_cost", 1))
+        reserve = float(cfg.get("min_food_reserve", 0))
+        max_workers = max(1, int(cfg.get("max_workers", 1)))
+        members = ns.member_count(nest.id, creature.species.name)
+
+        headroom = max(0.0, (max_workers - members) / max_workers)
+        surplus = nest.stored_food - reserve - cost
+        denom = max(1.0, nest.max_food - reserve - cost)
+        food_factor = max(0.0, min(1.0, surplus / denom))
+
+        at_nest = ns.is_at_nest(creature, float(self.params["spawn_radius"]))
+        proximity = 1.0 if at_nest else 0.35
+
+        return min(1.0, headroom * (0.35 + food_factor * 0.65) * proximity)

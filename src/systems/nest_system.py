@@ -231,6 +231,7 @@ class NestSystem:
         space = max(0.0, nest.max_food - nest.stored_food)
         deposited = min(amount, space)
         nest.stored_food += deposited
+        carcass.remaining_biomass = max(0.0, amount - deposited)
         colony.carried_carcass = None
         return deposited
 
@@ -272,3 +273,49 @@ class NestSystem:
             if colony is not None and colony.nest_id == nest_id:
                 count += 1
         return count
+
+    def can_spawn_worker(
+        self, creature, colony_cfg: dict | None = None
+    ) -> bool:
+        """巣備蓄・個体数上限・最低備蓄を満たすか。"""
+        colony = getattr(creature, "colony", None)
+        if colony is None:
+            return False
+        nest = self.get_creature_nest(creature)
+        if nest is None:
+            return False
+
+        cfg = colony_cfg if colony_cfg is not None else creature.species.colony_data
+        cost = float(cfg.get("spawn_food_cost", 0))
+        if cost <= 0:
+            return False
+
+        max_workers = int(cfg.get("max_workers", 0))
+        if max_workers <= 0:
+            return False
+
+        reserve = float(cfg.get("min_food_reserve", 0))
+        if nest.stored_food < reserve + cost:
+            return False
+
+        if self.member_count(nest.id, nest.owner_species) >= max_workers:
+            return False
+
+        return True
+
+    def spawn_worker(self, creature, colony_cfg: dict | None = None):
+        """食料を消費して子個体を生成する。失敗時は None。ワールドへの登録は呼び出し側。"""
+        if not self.can_spawn_worker(creature, colony_cfg):
+            return None
+
+        cfg = colony_cfg if colony_cfg is not None else creature.species.colony_data
+        cost = float(cfg["spawn_food_cost"])
+        nest = self.get_creature_nest(creature)
+        nest.stored_food -= cost
+
+        from src.entities.creature_factory import CreatureFactory
+
+        x, y = self.spawn_position(nest.owner_species, cfg)
+        return CreatureFactory.create(
+            nest.owner_species, world=self.world, x=x, y=y
+        )

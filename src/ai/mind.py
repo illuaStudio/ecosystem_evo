@@ -7,6 +7,7 @@ from src.ai.actions import (
     ManaGradientWanderAction,
     NestPatrolAction,
     ReturnToNestAction,
+    SpawnWorkerAction,
     SplitAction,
     WanderAction,
 )
@@ -20,6 +21,7 @@ ACTION_BY_NAME = {
     "ReturnToNestAction": ReturnToNestAction,
     "FeedAtNestAction": FeedAtNestAction,
     "NestPatrolAction": NestPatrolAction,
+    "SpawnWorkerAction": SpawnWorkerAction,
     "SplitAction": SplitAction,
 }
 

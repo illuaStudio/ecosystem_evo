@@ -126,6 +126,21 @@ def has_edible_carcass(target) -> bool:
     return not target.alive and getattr(target, "remaining_biomass", 0) > 0
 
 
+def is_carcass_carried(world, carcass) -> bool:
+    """他個体が運搬中の死骸か（同一参照）。"""
+    if world is None or carcass is None:
+        return False
+    for c in world.creatures:
+        colony = getattr(c, "colony", None)
+        if colony is not None and colony.carried_carcass is carcass:
+            return True
+    return False
+
+
+def is_unclaimed_carcass(world, carcass) -> bool:
+    return has_edible_carcass(carcass) and not is_carcass_carried(world, carcass)
+
+
 def is_living_prey(target, species_name: str) -> bool:
     return target is not None and target.alive and target.species.name == species_name
 
@@ -135,7 +150,10 @@ def is_edible_target(creature, target, species_name: str) -> bool:
         return False
     if target.species.name != species_name:
         return False
-    return target.alive or has_edible_carcass(target)
+    if target.alive:
+        return True
+    world = getattr(creature, "world", None)
+    return is_unclaimed_carcass(world, target)
 
 
 def is_in_vision(creature, target) -> bool:
@@ -280,14 +298,14 @@ def try_pickup_carcass(carrier, carcass, contact_padding: float = 8.0) -> bool:
     colony = getattr(carrier, "colony", None)
     if colony is None or colony.is_carrying:
         return False
-    if not has_edible_carcass(carcass):
+    world = carrier.world
+    if not is_unclaimed_carcass(world, carcass):
         return False
 
     dist = distance_between(carrier, carcass)
     if dist > contact_range(carrier, carcass, contact_padding):
         return False
 
-    world = carrier.world
     if world is not None and carcass in world.creatures:
         world.remove_creature(carcass)
 
@@ -311,7 +329,7 @@ def find_nearest_carcass_in_vision(creature, species_name: str, exclude=None):
             continue
         if other.species.name != species_name:
             continue
-        if not has_edible_carcass(other):
+        if not is_unclaimed_carcass(creature.world, other):
             continue
         dist = distance_between(creature, other)
         if dist <= vision and dist < min_dist:

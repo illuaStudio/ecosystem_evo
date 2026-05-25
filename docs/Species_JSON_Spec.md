@@ -209,6 +209,9 @@
 | food_leak_reserve_ratio | float | この割合までは漏洩しない（底上げ備蓄） | 0.12 |
 | nest_x / nest_y | float | 巣が未作成時のスポーン原点（省略時はワールド中央） | 中央 |
 | spawn_spread | float | 巣からのスポーンばらつき半径（px） | 28 |
+| spawn_food_cost | float | 働きアリ1匹生成に消費する食料 | — |
+| max_workers | int | コロニー最大個体数 | — |
+| min_food_reserve | float | 生成後も残す最低備蓄（漏洩底上げと併用） | 0 |
 
 **C 案（現状）:** 持ち帰りは **食料（バイオマス）** として `stored_food` に蓄える。コロニーは `FeedAtNest` で満腹度に変換。余剰は `food_leak_rate` で巣タイルへ **マナ還流** し、アメーバの生態系と接続する。
 
@@ -227,6 +230,12 @@
 | contact_padding | float | 接触・拾い判定の余白 | 8.0 |
 | attack_power | float | bite ダメージ倍率 | 1.2 |
 | pickup_on_kill | bool | 殺害直後に死骸を拾う | true |
+| hunger_threshold | float | 個人の空腹がこれ未満なら「自分のため」の狩り動機は弱い | 0.28 |
+| colony_hoard_strength | float | コロニー備蓄のための狩り動機（常時、0〜1）。満腹でもこの値が下限になる | 0.8 |
+
+**utility:** 個人空腹と `colony_hoard_strength` のうち強い方でスコア化。巣の備蓄量に関係なく、獲物がいれば持ち帰りに行く。死骸は他者が運搬中なら対象外（排他拾い）。
+
+**備蓄率（表示用）:** `Nest.food_ratio` = `stored_food / max_food`（0〜1）。UI の「備蓄率」表示に使用。狩りの動機には使わない。
 
 ---
 
@@ -250,6 +259,18 @@
 | bite_gain | float | 貯蔵→満腹度の変換効率 | 1.2 |
 | max_take_ratio | float | 1 ティックで巣から取れる最大比率 | 0.35 |
 | feed_radius | float | 食事可能半径 | 36 |
+
+---
+
+#### SpawnWorkerAction の params
+
+巣付近・備蓄が `min_food_reserve + spawn_food_cost` 以上・個体数が `max_workers` 未満のとき、巣の食料を消費して子個体を1匹生成。`colony` の `spawn_food_cost` / `max_workers` / `min_food_reserve` を参照。
+
+| キー | 型 | 意味 | デフォルト |
+|------|----|------|-----------|
+| spawn_radius | float | 生成可能半径（巣中心から） | 40 |
+| approach_speed_multiplier | float | 巣外から近づく速度倍率 | 0.9 |
+| spawn_cooldown | int | 生成者の再生成クールダウン（ティック） | 900 |
 
 ---
 
@@ -342,3 +363,5 @@ JSON の構造やパラメータを変更したときは、次をセットで更
 | 2026-05-21 | 初版（Amoeba / Predator 実装に基づく共通仕様） |
 | 2026-05-25 | Predator コロニー（巣・Hunt/Return/Feed/NestPatrol） |
 | 2026-05-25 | 巣備蓄を食料＋マナ漏洩（C 案）に変更 |
+| 2026-05-25 | SpawnWorkerAction・colony 成長パラメータ |
+| 2026-05-25 | Hunt コロニー備蓄動機・死骸運搬の排他 |

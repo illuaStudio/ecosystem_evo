@@ -3,7 +3,13 @@ import unittest
 
 from src.entities.creature_factory import CreatureFactory
 from src.systems.world import World
-from src.utils.creature_helpers import has_edible_carcass, hunger_ratio, try_attack_only
+from src.utils.creature_helpers import (
+    has_edible_carcass,
+    hunger_ratio,
+    is_carcass_carried,
+    try_attack_only,
+    try_pickup_carcass,
+)
 from src.config import config
 from src.utils.creature_helpers import distance_to_point
 from src.utils.position_helpers import entity_xy
@@ -96,8 +102,6 @@ class TestPredatorNest(unittest.TestCase):
         self.assertFalse(prey.alive)
         self.assertTrue(has_edible_carcass(prey))
 
-        from src.utils.creature_helpers import try_pickup_carcass
-
         self.assertTrue(try_pickup_carcass(predator, prey))
         self.assertTrue(predator.colony.is_carrying)
 
@@ -138,6 +142,10 @@ class TestPredatorNest(unittest.TestCase):
 
     def test_feed_per_member_ratio_divides_by_colony_size(self):
         world = World()
+        for c in list(world.creatures):
+            if c.species.name == "Predator":
+                world.remove_creature(c)
+        world.nest_system.nests.clear()
         preds = self._spawn_predators(world, 3)
         nest = world.nest_system.get_creature_nest(preds[0])
         nest.stored_food = 200.0
@@ -146,6 +154,157 @@ class TestPredatorNest(unittest.TestCase):
         solo_cap = 200.0 * 0.14
         shared_cap = 200.0 * 0.14 / members
         self.assertLess(shared_cap, solo_cap)
+
+    def test_spawn_worker_consumes_food_and_adds_member(self):
+        world = World()
+        preds = self._spawn_predators(world, 1)
+        predator = preds[0]
+        nest = world.nest_system.get_creature_nest(predator)
+        colony_cfg = config.get_species("Predator").get("colony", {})
+        cost = float(colony_cfg["spawn_food_cost"])
+        reserve = float(colony_cfg["min_food_reserve"])
+
+        nest.stored_food = reserve + cost + 10
+        members_before = world.nest_system.member_count(nest.id, "Predator")
+        food_before = nest.stored_food
+
+        from src.utils.position_helpers import entity_xy
+
+        predator.pos[0] = nest.x
+        predator.pos[1] = nest.y
+        if hasattr(predator, "position"):
+            predator.position.x = nest.x
+            predator.position.y = nest.y
+
+        worker = world.nest_system.spawn_worker(predator, colony_cfg)
+        self.assertIsNotNone(worker)
+        world.add_creature(worker)
+
+        self.assertEqual(
+            world.nest_system.member_count(nest.id, "Predator"),
+            members_before + 1,
+        )
+        self.assertAlmostEqual(nest.stored_food, food_before - cost)
+        self.assertEqual(worker.colony.nest_id, nest.id)
+
+    def test_spawn_worker_blocked_at_max_workers(self):
+        world = World()
+        colony_cfg = config.get_species("Predator").get("colony", {})
+        max_workers = int(colony_cfg["max_workers"])
+        preds = self._spawn_predators(world, max_workers)
+        nest = world.nest_system.get_creature_nest(preds[0])
+        nest.stored_food = nest.max_food
+
+        self.assertFalse(world.nest_system.can_spawn_worker(preds[0], colony_cfg))
+        self.assertIsNone(world.nest_system.spawn_worker(preds[0], colony_cfg))
+
+    def test_spawn_worker_blocked_below_min_reserve(self):
+        world = World()
+        preds = self._spawn_predators(world, 1)
+        predator = preds[0]
+        nest = world.nest_system.get_creature_nest(predator)
+        colony_cfg = config.get_species("Predator").get("colony", {})
+        cost = float(colony_cfg["spawn_food_cost"])
+        reserve = float(colony_cfg["min_food_reserve"])
+
+        nest.stored_food = reserve + cost - 1
+        self.assertFalse(world.nest_system.can_spawn_worker(predator, colony_cfg))
+
+    def test_hunt_utility_positive_when_satiated_regardless_of_nest_fill(self):
+        world = World()
+        preds = self._spawn_predators(world, 1)
+        predator = preds[0]
+        nest = world.nest_system.get_creature_nest(predator)
+        predator.satiety = predator.max_satiety * 0.95
+
+        prey = next(c for c in world.creatures if c.species.name == "Amoeba")
+        px, py = entity_xy(predator)
+        prey.pos[0] = px + 20
+        prey.pos[1] = py
+        if hasattr(prey, "position"):
+            prey.position.x = prey.pos[0]
+            prey.position.y = prey.pos[1]
+
+        from src.ai.actions import HuntAction
+
+        action = HuntAction()
+        for stored in (0.0, nest.max_food * 0.5, nest.max_food):
+            nest.stored_food = stored
+            with self.subTest(stored_food=stored):
+                self.assertGreater(action.calculate_utility(predator), 0.0)
+
+    def test_second_predator_cannot_pickup_carried_carcass(self):
+        world = World()
+        preds = self._spawn_predators(world, 2)
+        carrier, other = preds[0], preds[1]
+        prey = next(c for c in world.creatures if c.species.name == "Amoeba")
+        px, py = entity_xy(carrier)
+        prey.pos[0] = px + 10
+        prey.pos[1] = py
+        if hasattr(prey, "position"):
+            prey.position.x = prey.pos[0]
+            prey.position.y = prey.pos[1]
+
+        for _ in range(8):
+            if not prey.alive:
+                break
+            try_attack_only(carrier, prey, attack_power=2.5)
+        self.assertTrue(try_pickup_carcass(carrier, prey))
+        self.assertTrue(is_carcass_carried(world, prey))
+        self.assertFalse(try_pickup_carcass(other, prey))
+
+    def test_deposit_zeros_carcass_biomass_prevents_double_storage(self):
+        world = World()
+        preds = self._spawn_predators(world, 1)
+        predator = preds[0]
+        nest = world.nest_system.get_creature_nest(predator)
+        prey = next(c for c in world.creatures if c.species.name == "Amoeba")
+        px, py = entity_xy(predator)
+        prey.pos[0] = px + 10
+        prey.pos[1] = py
+        if hasattr(prey, "position"):
+            prey.position.x = prey.pos[0]
+            prey.position.y = prey.pos[1]
+
+        for _ in range(8):
+            if not prey.alive:
+                break
+            try_attack_only(predator, prey, attack_power=2.5)
+        try_pickup_carcass(predator, prey)
+        biomass = prey.remaining_biomass
+        deposited = world.nest_system.deposit_carried(predator)
+        self.assertGreater(deposited, 0)
+        self.assertEqual(prey.remaining_biomass, 0.0)
+        nest.stored_food = 0.0
+        predator.colony.carried_carcass = prey
+        second = world.nest_system.deposit_carried(predator)
+        self.assertEqual(second, 0.0)
+
+    def test_spawn_worker_action_at_nest(self):
+        world = World()
+        preds = self._spawn_predators(world, 1)
+        predator = preds[0]
+        nest = world.nest_system.get_creature_nest(predator)
+        colony_cfg = config.get_species("Predator").get("colony", {})
+        cost = float(colony_cfg["spawn_food_cost"])
+        reserve = float(colony_cfg["min_food_reserve"])
+        nest.stored_food = reserve + cost + 50
+
+        predator.pos[0] = nest.x
+        predator.pos[1] = nest.y
+        if hasattr(predator, "position"):
+            predator.position.x = nest.x
+            predator.position.y = nest.y
+
+        from src.ai.actions import SpawnWorkerAction
+
+        action = SpawnWorkerAction(spawn_cooldown=0)
+        members_before = world.nest_system.member_count(nest.id, "Predator")
+        self.assertTrue(action.execute(predator))
+        self.assertEqual(
+            world.nest_system.member_count(nest.id, "Predator"),
+            members_before + 1,
+        )
 
 
 if __name__ == "__main__":
