@@ -3,6 +3,7 @@ import pygame
 
 from src.config import config
 from src.utils.creature_helpers import format_life_stage_line
+from src.utils.position_helpers import entity_xy
 
 
 class Renderer:
@@ -62,12 +63,13 @@ class Renderer:
                     f"({sc.biomass_ratio() * 100:.0f}%)",
                 )
             if world and sc.alive:
-                biome = world.get_biome_at(sc.pos[0], sc.pos[1])
+                sx, sy = entity_xy(sc)
+                biome = world.get_biome_at(sx, sy)
                 texts.append(
                     f"バイオーム: {biome.get('display_name', biome.get('name', '?'))}"
                 )
                 if hasattr(world, "get_mana_density"):
-                    density = world.get_mana_density(sc.pos[0], sc.pos[1])
+                    density = world.get_mana_density(sx, sy)
                     cap = getattr(world, "mana_density_cap", 2500.0)
                     texts.append(f"マナ残量: {density:.0f}/{cap:.0f}")
 

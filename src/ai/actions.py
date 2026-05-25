@@ -3,6 +3,7 @@ import math
 import random
 from abc import ABC, abstractmethod
 
+from src.utils.position_helpers import entity_xy
 from src.utils.creature_helpers import (
     closeness_ratio,
     contact_range,
@@ -154,8 +155,9 @@ class ReproductionAction(Action):
 
     def _offspring_position(self, parent, distance: float) -> tuple[float, float]:
         angle = random.uniform(0, 360)
-        x = parent.pos[0] + math.cos(math.radians(angle)) * distance
-        y = parent.pos[1] + math.sin(math.radians(angle)) * distance
+        px, py = entity_xy(parent)
+        x = px + math.cos(math.radians(angle)) * distance
+        y = py + math.sin(math.radians(angle)) * distance
         if parent.world:
             margin = 30
             x = max(margin, min(parent.world.width - margin, x))

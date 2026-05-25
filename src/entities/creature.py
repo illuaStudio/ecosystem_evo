@@ -14,10 +14,16 @@ from src.entities.entity import BaseEntity
 from src.entities.species import Species
 from src.rendering.creature_renderer import CreatureRenderer
 from src.utils.creature_helpers import current_size, get_life_stage
+from src.utils.position_helpers import sync_legacy_pos
 
 
 class Creature(BaseEntity):
-    """原始的な単細胞生物基底クラス"""
+    """
+    原始的な単細胞生物基底クラス。
+
+    座標の正は Position コンポーネント。pos / last_pos は描画・レガシー API 用に
+    sync_legacy_pos() で同期する（直接 pos を書き換えない）。
+    """
 
     def __init__(self, x, y, species_name: str = "Amoeba"):
         super().__init__(x, y)
@@ -127,9 +133,7 @@ class Creature(BaseEntity):
         self.age += 1
         self.reproduction.update()
 
-        self.last_pos = [self.position.x, self.position.y]
-        self.pos[0] = self.position.x
-        self.pos[1] = self.position.y
+        sync_legacy_pos(self, update_last=True)
 
         if self.life_cycle.update():
             return

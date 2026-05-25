@@ -2,6 +2,7 @@
 import pygame
 
 from src.utils.creature_helpers import hp_ratio, satiety_ratio
+from src.utils.position_helpers import entity_xy
 
 
 class CreatureRenderer:
@@ -9,8 +10,9 @@ class CreatureRenderer:
 
     @staticmethod
     def draw(creature, screen, camera):
-        sx = int(creature.pos[0] - camera.x)
-        sy = int(creature.pos[1] - camera.y)
+        cx, cy = entity_xy(creature)
+        sx = int(cx - camera.x)
+        sy = int(cy - camera.y)
 
         if not (0 - 50 <= sx <= camera.screen_w + 50 and 0 - 50 <= sy <= camera.screen_h + 50):
             return

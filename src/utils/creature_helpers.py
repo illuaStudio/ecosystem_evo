@@ -3,13 +3,18 @@
 import math
 import random
 
+from src.utils.position_helpers import entity_xy
+
 
 def distance_between(a, b) -> float:
-    return math.hypot(b.pos[0] - a.pos[0], b.pos[1] - a.pos[1])
+    ax, ay = entity_xy(a)
+    bx, by = entity_xy(b)
+    return math.hypot(bx - ax, by - ay)
 
 
 def distance_to_point(entity, x: float, y: float) -> float:
-    return math.hypot(x - entity.pos[0], y - entity.pos[1])
+    ex, ey = entity_xy(entity)
+    return math.hypot(x - ex, y - ey)
 
 
 def current_size(creature) -> float:
@@ -187,10 +192,11 @@ def consume_carcass(predator, carcass, bite_gain: float = 1.35) -> float:
     if carcass.remaining_biomass <= 8.0:
         world = carcass.world
         if world:
+            cx, cy = entity_xy(carcass)
             world.return_mana_from_decomposition(
                 carcass.remaining_biomass * 0.8,
-                carcass.pos[0],
-                carcass.pos[1],
+                cx,
+                cy,
             )
         carcass.remaining_biomass = 0.0
 
@@ -226,10 +232,11 @@ def get_mana_gradient_direction(
     best_angle = creature.wander_angle
     best_mana = -1.0
 
+    cx, cy = entity_xy(creature)
     for angle in range(0, 360, angle_step):
         rad = math.radians(angle)
-        tx = creature.pos[0] + math.cos(rad) * sampling_distance
-        ty = creature.pos[1] + math.sin(rad) * sampling_distance
+        tx = cx + math.cos(rad) * sampling_distance
+        ty = cy + math.sin(rad) * sampling_distance
 
         tx = max(0, min(creature.world.width, tx))
         ty = max(0, min(creature.world.height, ty))

@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
 from src.config import config
+from src.utils.position_helpers import entity_xy
 from src.systems.mana_system import ManaSystem
 from src.systems.movement_system import MovementSystem
 from src.systems.world_biome import WorldBiome
@@ -154,7 +155,8 @@ class World:
                 continue
             if species_name and c.species.name != species_name:
                 continue
-            dist = math.hypot(c.pos[0] - pos[0], c.pos[1] - pos[1])
+            cx, cy = entity_xy(c)
+            dist = math.hypot(cx - pos[0], cy - pos[1])
             if dist < min_dist and dist <= max_dist:
                 min_dist = dist
                 best = c

@@ -5,6 +5,7 @@ from typing import Any, List, Optional
 
 from src.components.position import Position
 from src.components.velocity import Velocity
+from src.utils.position_helpers import entity_xy, sync_legacy_pos
 
 WORLD_MARGIN = 30
 
@@ -33,7 +34,7 @@ class MovementSystem:
                 velocity.vy = 0.0
 
             self._clamp_position(position, world)
-            self._sync_pos(entity, position)
+            sync_legacy_pos(entity)
 
     @staticmethod
     def wander_step(
@@ -50,7 +51,7 @@ class MovementSystem:
         step = entity.get_current_speed() * speed_multiplier
         position.x += math.cos(math.radians(wander_angle)) * step
         position.y += math.sin(math.radians(wander_angle)) * step
-        MovementSystem._sync_pos(entity, position)
+        sync_legacy_pos(entity)
 
     @staticmethod
     def move_toward(
@@ -71,7 +72,7 @@ class MovementSystem:
         step = entity.get_current_speed() * speed_multiplier
         position.x += (dx / dist) * step
         position.y += (dy / dist) * step
-        MovementSystem._sync_pos(entity, position)
+        sync_legacy_pos(entity)
 
         return math.hypot(target_pos[0] - position.x, target_pos[1] - position.y)
 
@@ -89,12 +90,4 @@ class MovementSystem:
 
     @staticmethod
     def _target_position(target: Any) -> tuple[float, float]:
-        if hasattr(target, "position") and target.position is not None:
-            return target.position.x, target.position.y
-        return float(target.pos[0]), float(target.pos[1])
-
-    @staticmethod
-    def _sync_pos(entity: Any, position: Position) -> None:
-        if hasattr(entity, "pos"):
-            entity.pos[0] = position.x
-            entity.pos[1] = position.y
+        return entity_xy(target)

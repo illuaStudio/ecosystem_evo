@@ -1,6 +1,8 @@
 """死骸化・分解・バイオマス管理を担当するコンポーネント。"""
 from typing import Any
 
+from src.utils.position_helpers import entity_xy
+
 
 class CorpseComponent:
     """死亡後の残存バイオマスと自然分解、マナ還元を処理する。"""
@@ -22,16 +24,16 @@ class CorpseComponent:
 
         world = owner.world
         if world:
+            ox, oy = entity_xy(owner)
             world.return_mana_from_decomposition(
-                decompose_amount * 0.65, owner.pos[0], owner.pos[1]
+                decompose_amount * 0.65, ox, oy
             )
 
         if self.remaining_biomass <= 0:
             self.remaining_biomass = 0.0
             if world:
-                world.return_mana_from_decomposition(
-                    15.0, owner.pos[0], owner.pos[1]
-                )
+                ox, oy = entity_xy(owner)
+                world.return_mana_from_decomposition(15.0, ox, oy)
 
     def become_corpse(self) -> None:
         """死亡→死骸化。残存バイオマスをサイズ・栄養に比例して設定。"""
