@@ -1,6 +1,16 @@
 {
   "name": "Predator",
+  "description": "コロニー型捕食者。狩り→殺害→巣へ持ち帰り→巣で共有食事。",
   "color": [220, 60, 60],
+  "colony": {
+    "enabled": true,
+    "single_colony": true,
+    "nest_x": 500,
+    "nest_y": 500,
+    "spawn_spread": 28,
+    "deposit_radius": 30,
+    "max_storage": 420
+  },
   "traits": {
     "base_size": 14.0,
     "base_speed": 3.0,
@@ -13,19 +23,48 @@
     "type": "utility",
     "actions": [
       {
-        "name": "ChaseAction",
-        "weight": 2.8,
+        "name": "HuntAction",
+        "weight": 3.0,
+        "description": "追跡・攻撃・殺害し死骸を拾う",
         "params": {
           "target_type": "Amoeba",
-          "speed_multiplier": 1.3,
-          "bite_gain": 1.35,
-          "attack_power": 1.2
+          "speed_multiplier": 1.35,
+          "attack_power": 1.25,
+          "pickup_on_kill": true
+        }
+      },
+      {
+        "name": "ReturnToNestAction",
+        "weight": 3.2,
+        "description": "運搬中は巣へ直行して貯蔵",
+        "params": {
+          "speed_multiplier": 1.15,
+          "deposit_radius": 30
+        }
+      },
+      {
+        "name": "FeedAtNestAction",
+        "weight": 2.4,
+        "description": "巣の貯蔵から食事",
+        "params": {
+          "bite_gain": 1.25,
+          "feed_radius": 38
+        }
+      },
+      {
+        "name": "NestPatrolAction",
+        "weight": 1.0,
+        "description": "巣周辺を巡回（空腹が低いとき）",
+        "params": {
+          "patrol_radius": 140,
+          "speed_multiplier": 0.8,
+          "nest_pull_strength": 0.6
         }
       },
       {
         "name": "WanderAction",
-        "weight": 0.6,
-        "params": { "angle_range": 30, "speed_multiplier": 0.85 }
+        "weight": 0.35,
+        "params": { "angle_range": 35, "speed_multiplier": 0.7 }
       }
     ]
   }

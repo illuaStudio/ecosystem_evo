@@ -62,6 +62,7 @@
 | life_cycle | object | 条件付き | 年齢ステージ・寿命。省略可（後述） |
 | traits | object | 推奨 | 身体・基礎能力。欠損キーは `species.py` のデフォルトで補完 |
 | mind | object | 推奨 | 行動 AI。省略時は空の actions リスト |
+| colony | object | 任意 | コロニー（巣）行動。`enabled: true` で巣システムに参加（主に Predator） |
 
 ---
 
@@ -147,7 +148,7 @@
 | description | string | 任意 | 人間向けメモ。コードでは未使用 |
 | params | object | 任意 | Action 固有パラメータ。省略時は `actions.py` の `DEFAULT_PARAMS` |
 
-**登録済み Action 名:** `WanderAction`, `ManaWanderAction`, `ChaseAction`, `SplitAction`
+**登録済み Action 名:** `WanderAction`, `ManaWanderAction`, `ChaseAction`, `HuntAction`, `ReturnToNestAction`, `FeedAtNestAction`, `NestPatrolAction`, `SplitAction`
 
 ---
 
@@ -189,6 +190,76 @@
 | attack_power | float | 生体への bite ダメージ倍率（実ダメージ = attack_power × 12） | 1.0 |
 
 **utility の目安:** 視界内に獲物がいないと 0。空腹度が低い（&lt; 0.2）ときも 0。
+
+---
+
+#### colony（コロニー・巣）— Predator 向け
+
+`colony.enabled: true` の種はワールド上に **巣（Nest）** を持ちます。
+
+| キー | 型 | 意味 | デフォルト |
+|------|----|------|-----------|
+| enabled | bool | コロニー機能を有効化 | false |
+| single_colony | bool | 同種はワールドに巣を1つだけ（初期スポーン・P 追加も既存巣へ） | true |
+| join_radius | float | `single_colony: false` 時の合流半径（px） | 200 |
+| deposit_radius | float | 持ち帰り判定半径（ReturnToNest と共有） | 30 |
+| max_storage | float | 巣の最大貯蔵バイオマス | 400 |
+| nest_x / nest_y | float | 巣が未作成時のスポーン原点（省略時はワールド中央） | 中央 |
+| spawn_spread | float | 巣からのスポーンばらつき半径（px） | 28 |
+
+**現状の Predator:** `single_colony: true` により巣は1つ。初期配置・**P** 追加はいずれも巣（または `nest_x`/`nest_y`）の近くから出現する。
+
+**観察のポイント:** 巣は茶色の円で表示。数字はコロニー人数。捕食者が死骸を運ぶと頭上ラベルが `↩` に変わる。
+
+---
+
+#### HuntAction の params
+
+`ChaseAction` と違い **その場で食べない**。攻撃→殺害→死骸を拾い `ReturnToNestAction` へ渡す。
+
+| キー | 型 | 意味 | デフォルト |
+|------|----|------|-----------|
+| target_type | string | 獲物の種名 | `"Amoeba"` |
+| speed_multiplier | float | 追跡移動倍率 | 1.3 |
+| contact_padding | float | 接触・拾い判定の余白 | 8.0 |
+| attack_power | float | bite ダメージ倍率 | 1.2 |
+| pickup_on_kill | bool | 殺害直後に死骸を拾う | true |
+
+---
+
+#### ReturnToNestAction の params
+
+運搬中のみ高スコア。巣到達で死骸バイオマスを巣貯蔵へ移す。
+
+| キー | 型 | 意味 | デフォルト |
+|------|----|------|-----------|
+| speed_multiplier | float | 帰巣移動倍率 | 1.1 |
+| deposit_radius | float | 貯蔵判定半径 | 30 |
+
+---
+
+#### FeedAtNestAction の params
+
+巣の貯蔵から満腹度を回復（コロニー共有の餌）。
+
+| キー | 型 | 意味 | デフォルト |
+|------|----|------|-----------|
+| bite_gain | float | 貯蔵→満腹度の変換効率 | 1.2 |
+| max_take_ratio | float | 1 ティックで巣から取れる最大比率 | 0.35 |
+| feed_radius | float | 食事可能半径 | 36 |
+
+---
+
+#### NestPatrolAction の params
+
+空腹が低いとき巣周辺を巡回。メンバーが多いほどやや選ばれやすい。
+
+| キー | 型 | 意味 | デフォルト |
+|------|----|------|-----------|
+| angle_range | float | 徘徊の角度乱れ | 40 |
+| speed_multiplier | float | 移動倍率 | 0.75 |
+| patrol_radius | float | 巣からの巡回半径 | 130 |
+| nest_pull_strength | float | 巣方向への引き寄せ（0〜1） | 0.55 |
 
 ---
 
@@ -241,9 +312,9 @@
 
 `config/species/amoeba.json` を参照。
 
-### Predator（寿命なし・捕食・徘徊）
+### Predator（コロニー・狩り・持ち帰り・巣で食事）
 
-`config/species/predator.json` を参照。`life_cycle` なし、`growth_rate` / `max_size` 省略で固定サイズ。
+`config/species/predator.json` を参照。`colony.enabled` で巣を共有。行動は **狩り → 持ち帰り → 巣で食事 → 巡回** のループを想定。
 
 ---
 
@@ -266,3 +337,4 @@ JSON の構造やパラメータを変更したときは、次をセットで更
 | 日付 | 内容 |
 |------|------|
 | 2026-05-21 | 初版（Amoeba / Predator 実装に基づく共通仕様） |
+| 2026-05-25 | Predator コロニー（巣・Hunt/Return/Feed/NestPatrol） |

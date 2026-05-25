@@ -29,5 +29,16 @@ class WorldSpawner:
             if species_name not in config.species:
                 print(f"警告: 種族 '{species_name}' の JSON が無いためスキップします")
                 continue
+            species_data = config.get_species(species_name) or {}
+            colony_cfg = species_data.get("colony", {})
             for _ in range(n):
-                self._world.add_creature(factory.create(species_name, world=self._world))
+                if colony_cfg.get("enabled"):
+                    x, y = self._world.nest_system.spawn_position(
+                        species_name, colony_cfg
+                    )
+                    creature = factory.create(
+                        species_name, world=self._world, x=x, y=y
+                    )
+                else:
+                    creature = factory.create(species_name, world=self._world)
+                self._world.add_creature(creature)

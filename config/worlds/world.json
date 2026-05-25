@@ -14,7 +14,7 @@
 
   "initial_entities": {
     "Amoeba": 25,
-    "Predator": 0
+    "Predator": 3
   },
 
   "world": {

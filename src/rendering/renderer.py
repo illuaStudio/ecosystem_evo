@@ -2,6 +2,7 @@
 import pygame
 
 from src.config import config
+from src.rendering.nest_renderer import NestRenderer
 from src.utils.creature_helpers import format_life_stage_line
 from src.utils.position_helpers import entity_xy
 
@@ -28,6 +29,9 @@ class Renderer:
 
         world = getattr(camera, "world", None)
         self._draw_background(world, camera, map_view_mode)
+
+        if world is not None:
+            NestRenderer.draw(world, self.screen, camera)
 
         for c in creatures:
             if hasattr(c, "draw"):
@@ -72,6 +76,20 @@ class Renderer:
                     density = world.get_mana_density(sx, sy)
                     cap = getattr(world, "mana_density_cap", 2500.0)
                     texts.append(f"マナ残量: {density:.0f}/{cap:.0f}")
+            colony = getattr(sc, "colony", None)
+            if colony is not None and world is not None:
+                nest = world.nest_system.get_creature_nest(sc)
+                if nest is not None:
+                    texts.append(
+                        f"巣 #{nest.id}: 貯蔵 {nest.stored_biomass:.0f}/{nest.max_storage:.0f}"
+                    )
+                    texts.append(
+                        f"コロニー: {world.nest_system.member_count(nest.id, sc.species.name)} 匹"
+                    )
+                if colony.is_carrying:
+                    texts.append("状態: 死骸を運搬中")
+                else:
+                    texts.append("状態: 未運搬")
 
             for text in texts:
                 self.screen.blit(self.small_font.render(text, True, (255, 255, 255)), (15, y))

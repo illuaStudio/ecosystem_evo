@@ -2,6 +2,7 @@
 import random
 
 from src.ai.mind import UtilityMind
+from src.components.colony import ColonyComponent
 from src.components.corpse import CorpseComponent
 from src.components.energy import Energy
 from src.components.life_cycle import LifeCycleManager
@@ -53,6 +54,9 @@ class Creature(BaseEntity):
         self.metabolism = MetabolismComponent(self)
         self.corpse = CorpseComponent(self)
         self.reproduction = ReproductionComponent(self)
+        self.colony: ColonyComponent | None = None
+        if self.species.colony_data.get("enabled"):
+            self.colony = ColonyComponent()
 
     def _init_mana_affinity_from_species(self) -> None:
         """種の mind 定義からマナ親和性コンポーネントを構築する。"""
@@ -139,6 +143,10 @@ class Creature(BaseEntity):
         self.reproduction.update(dt)
 
         sync_legacy_pos(self, update_last=True)
+
+        from src.utils.creature_helpers import sync_carried_carcass
+
+        sync_carried_carcass(self)
 
         if self.life_cycle.update():
             return

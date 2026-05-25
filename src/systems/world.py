@@ -10,6 +10,7 @@ from src.systems.mana_system import ManaSystem
 from src.systems.movement_system import MovementSystem
 from src.systems.world_biome import WorldBiome
 from src.systems.world_mana import WorldMana
+from src.systems.nest_system import NestSystem
 from src.systems.world_spawner import WorldSpawner
 
 
@@ -72,6 +73,7 @@ class World:
         self.mana_layer = WorldMana(self)
         self.mana_layer.init_from_config(world_data.get("mana", {}))
 
+        self.nest_system = NestSystem(self)
         self.spawner = WorldSpawner(self)
         self.spawner.spawn_initial_entities(world_data)
         self.sim_dt = 1.0
@@ -127,6 +129,10 @@ class World:
     def add_creature(self, creature) -> None:
         creature.world = self
         self.creatures.append(creature)
+        if getattr(creature, "colony", None) is not None:
+            self.nest_system.assign_creature(
+                creature, creature.species.colony_data
+            )
 
     def remove_creature(self, creature) -> None:
         if creature in self.creatures:

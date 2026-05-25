@@ -64,10 +64,28 @@ class CreatureRenderer:
                 (bar_x, bar_y_hp, int(bar_w * hp_fill), 6),
             )
 
+        colony = getattr(creature, "colony", None)
         if creature.species.name == "Predator" and creature.alive:
             font = pygame.font.SysFont("msgothic", 12)
-            text = font.render("P", True, (255, 60, 60))
-            screen.blit(text, (sx - 5, sy - size - 35))
+            label = "P"
+            if colony is not None and colony.is_carrying:
+                label = "↩"
+                carcass = colony.carried_carcass
+                if carcass is not None:
+                    csize = int(carcass.traits.get("base_size", 6) * 0.7)
+                    prey_color = tuple(max(0, c // 2) for c in carcass.species.color)
+                    pygame.draw.circle(
+                        screen, prey_color, (sx + size + 6, sy), max(3, csize)
+                    )
+                    pygame.draw.line(
+                        screen,
+                        (255, 200, 80),
+                        (sx, sy),
+                        (sx + size + 6, sy),
+                        2,
+                    )
+            text = font.render(label, True, (255, 60, 60))
+            screen.blit(text, (sx - 8, sy - size - 35))
 
     @staticmethod
     def _biomass_bar_color(ratio: float) -> tuple:

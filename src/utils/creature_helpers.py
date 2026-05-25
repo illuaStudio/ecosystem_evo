@@ -17,6 +17,26 @@ def distance_to_point(entity, x: float, y: float) -> float:
     return math.hypot(x - ex, y - ey)
 
 
+class PointTarget:
+    """座標のみの移動ターゲット（巣など）。"""
+
+    __slots__ = ("pos",)
+
+    def __init__(self, x: float, y: float):
+        self.pos = [float(x), float(y)]
+
+
+def move_toward_point(
+    creature,
+    x: float,
+    y: float,
+    speed_multiplier: float = 1.0,
+    dt: float | None = None,
+) -> float:
+    """座標へ移動し、移動後の距離を返す。"""
+    return move_toward(creature, PointTarget(x, y), speed_multiplier, dt)
+
+
 def current_size(creature) -> float:
     """現在の表示・判定サイズ（traits.base_size）。"""
     return float(creature.traits.get("base_size", 9.0))
@@ -230,6 +250,74 @@ def try_predate(
         bite(predator, target, attack_power=attack_power)
     if not target.alive:
         consume_carcass(predator, target, bite_gain=bite_gain)
+
+
+def try_attack_only(predator, target, attack_power: float = 1.0) -> bool:
+    """攻撃のみ（殺害まで。その場では食べない）。"""
+    if not target.alive:
+        return False
+    bite(predator, target, attack_power=attack_power)
+    return not target.alive
+
+
+def sync_carried_carcass(creature) -> None:
+    """運搬中の死骸を運搬者の座標に追従させる。"""
+    colony = getattr(creature, "colony", None)
+    if colony is None or not colony.is_carrying:
+        return
+
+    carcass = colony.carried_carcass
+    cx, cy = entity_xy(creature)
+    if hasattr(carcass, "position"):
+        carcass.position.x = cx
+        carcass.position.y = cy
+    carcass.pos[0] = cx
+    carcass.pos[1] = cy
+
+
+def try_pickup_carcass(carrier, carcass, contact_padding: float = 8.0) -> bool:
+    """接触した死骸を拾い、ワールドリストから外す（運搬状態）。"""
+    colony = getattr(carrier, "colony", None)
+    if colony is None or colony.is_carrying:
+        return False
+    if not has_edible_carcass(carcass):
+        return False
+
+    dist = distance_between(carrier, carcass)
+    if dist > contact_range(carrier, carcass, contact_padding):
+        return False
+
+    world = carrier.world
+    if world is not None and carcass in world.creatures:
+        world.remove_creature(carcass)
+
+    colony.carried_carcass = carcass
+    carcass.world = carrier.world
+    sync_carried_carcass(carrier)
+    return True
+
+
+def find_nearest_carcass_in_vision(creature, species_name: str, exclude=None):
+    """視界内の未運搬・指定種の死骸を探す。"""
+    if not creature.world:
+        return None
+
+    best = None
+    min_dist = float("inf")
+    vision = creature.get_current_vision()
+
+    for other in creature.world.creatures:
+        if other is exclude:
+            continue
+        if other.species.name != species_name:
+            continue
+        if not has_edible_carcass(other):
+            continue
+        dist = distance_between(creature, other)
+        if dist <= vision and dist < min_dist:
+            min_dist = dist
+            best = other
+    return best
 
 
 def wander_step(

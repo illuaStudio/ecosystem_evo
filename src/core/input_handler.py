@@ -1,6 +1,7 @@
 # input_handler.py
 import pygame
 
+from src.config import config
 from src.utils.creature_helpers import distance_to_point
 
 
@@ -58,8 +59,16 @@ class InputHandler:
             c = self.engine.creature_factory.create("Amoeba", world=self.engine.world)
             self.engine.world.add_creature(c)
         elif event.key == pygame.K_p:
-            c = self.engine.creature_factory.create("Predator", world=self.engine.world)
-            self.engine.world.add_creature(c)
+            world = self.engine.world
+            colony_cfg = (config.get_species("Predator") or {}).get("colony", {})
+            if colony_cfg.get("enabled"):
+                x, y = world.nest_system.spawn_position("Predator", colony_cfg)
+                c = self.engine.creature_factory.create(
+                    "Predator", world=world, x=x, y=y
+                )
+            else:
+                c = self.engine.creature_factory.create("Predator", world=world)
+            world.add_creature(c)
         elif event.key == pygame.K_d:
             self.engine.show_debug = not getattr(self.engine, 'show_debug', False)
         elif event.key == pygame.K_m:
