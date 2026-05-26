@@ -2,8 +2,9 @@
 import pygame
 
 from src.config import config
+from src.ai.actions import SplitAction
 from src.rendering.nest_renderer import NestRenderer
-from src.utils.creature_helpers import format_life_stage_line
+from src.utils.creature_helpers import current_size, format_life_stage_line, satiety_ratio
 from src.utils.position_helpers import entity_xy
 
 
@@ -23,7 +24,16 @@ class Renderer:
         self._biome_surface_world_id = None
         self._ui_panel = None
 
-    def draw(self, creatures, camera, selected_creature, paused, show_debug=False, map_view_mode="biome"):
+    def draw(
+        self,
+        creatures,
+        camera,
+        selected_creature,
+        selected_nest,
+        paused,
+        show_debug=False,
+        map_view_mode="biome",
+    ):
         # 毎フレーム必ず全画面クリア（未描画領域に UI が残るのを防ぐ）
         self.screen.fill(self.UI_MARGIN_COLOR)
 
@@ -31,13 +41,15 @@ class Renderer:
         self._draw_background(world, camera, map_view_mode)
 
         if world is not None:
-            NestRenderer.draw(world, self.screen, camera)
+            nest_id = selected_nest.id if selected_nest is not None else None
+            NestRenderer.draw(world, self.screen, camera, nest_id)
 
         for c in creatures:
             if hasattr(c, "draw"):
                 c.draw(self.screen, camera)
 
-        self._draw_hud_panels(has_selection=selected_creature is not None, show_debug=show_debug)
+        has_selection = selected_creature is not None or selected_nest is not None
+        self._draw_hud_panels(has_selection=has_selection, show_debug=show_debug)
 
         if selected_creature:
             y = 130
@@ -76,6 +88,51 @@ class Renderer:
                     density = world.get_mana_density(sx, sy)
                     cap = getattr(world, "mana_density_cap", 2500.0)
                     texts.append(f"マナ残量: {density:.0f}/{cap:.0f}")
+
+            # 分裂（SplitAction）の条件可視化：調整時に「そもそも条件を満たしていない」を即判別する
+            if sc.alive:
+                action_defs = (getattr(sc.species, "mind_data", {}) or {}).get("actions", [])
+                split_def = next(
+                    (a for a in action_defs if a.get("name") == "SplitAction"),
+                    None,
+                )
+                if split_def is not None:
+                    p = dict(SplitAction.DEFAULT_PARAMS)
+                    p.update(split_def.get("params", {}) or {})
+
+                    mature_age = sc.life_cycle.get("mature")
+                    size_now = current_size(sc)
+                    sat_now = satiety_ratio(sc)
+                    cd_ok = getattr(sc, "repro_cooldown", 0) <= 0
+                    mature_ok = mature_age is not None and sc.age >= int(mature_age)
+                    size_ok = size_now >= float(p["min_reproduce_size"])
+                    sat_ok = sat_now >= float(p["satiety_threshold"])
+
+                    if cd_ok and mature_ok and size_ok and sat_ok and getattr(sc, "world", None) is not None:
+                        texts.append(
+                            "分裂条件(Split): OK"
+                            f"（サイズ≥{float(p['min_reproduce_size']):.1f}, 満腹≥{float(p['satiety_threshold']):.2f}）"
+                        )
+                    else:
+                        reasons: list[str] = []
+                        if getattr(sc, "world", None) is None:
+                            reasons.append("worldなし")
+                        if not cd_ok:
+                            reasons.append(f"cooldown {int(sc.repro_cooldown)}")
+                        if not mature_ok:
+                            if mature_age is None:
+                                reasons.append("mature未定義")
+                            else:
+                                reasons.append(f"成熟 age {sc.age} < {int(mature_age)}")
+                        if not size_ok:
+                            reasons.append(
+                                f"サイズ {size_now:.1f} < {float(p['min_reproduce_size']):.1f}"
+                            )
+                        if not sat_ok:
+                            reasons.append(
+                                f"満腹 {sat_now:.2f} < {float(p['satiety_threshold']):.2f}"
+                            )
+                        texts.append("分裂条件(Split): NG → " + " / ".join(reasons))
             colony = getattr(sc, "colony", None)
             if colony is not None and world is not None:
                 nest = world.nest_system.get_creature_nest(sc)
@@ -98,6 +155,9 @@ class Renderer:
             for text in texts:
                 self.screen.blit(self.small_font.render(text, True, (255, 255, 255)), (15, y))
                 y += 24
+
+        elif selected_nest is not None and world is not None:
+            y = self._draw_nest_detail_panel(selected_nest, world, y=130)
 
         status = "【PAUSED】" if paused else "実行中"
         self.screen.blit(
@@ -125,7 +185,7 @@ class Renderer:
 
         self.screen.blit(
             self.small_font.render(
-                "Space:停止/再開  R:リセット  M:表示切替  A:アメーバ追加  P:捕食者追加  右クリック:選択",
+                "Space:停止/再開  R:リセット  M:表示切替  A:アメーバ追加  P:捕食者追加  右クリック:個体/巣",
                 True,
                 (160, 200, 255),
             ),
@@ -139,6 +199,51 @@ class Renderer:
                 (255, 255, 100),
             )
             self.screen.blit(debug_text, (15, 110))
+
+    def _draw_nest_detail_panel(self, nest, world, y: int = 130) -> int:
+        """選択中の巣の詳細 HUD。戻り値は次の描画 Y。"""
+        from src.config import config
+
+        ns = world.nest_system
+        species_data = config.get_species(nest.owner_species) or {}
+        colony_cfg = species_data.get("colony", {})
+        members = ns.member_count(nest.id, nest.owner_species)
+        can_spawn, spawn_msg = ns.spawn_readiness(nest)
+
+        cost = float(colony_cfg.get("spawn_food_cost", 0))
+        reserve = float(colony_cfg.get("min_food_reserve", 0))
+        max_workers = int(colony_cfg.get("max_workers", 0))
+        leak_rate = float(colony_cfg.get("food_leak_rate", 0))
+
+        self.screen.blit(
+            self.font.render("【選択中の巣】", True, (255, 200, 120)), (15, y)
+        )
+        y += 35
+
+        texts = [
+            f"巣 #{nest.id}  ({nest.owner_species})",
+            f"位置: ({nest.x:.0f}, {nest.y:.0f})",
+            f"食料: {nest.stored_food:.1f} / {nest.max_food:.0f}",
+            f"備蓄率: {nest.food_ratio * 100:.1f}%",
+            f"コロニー: {members} 匹",
+            f"繁殖: {spawn_msg}",
+        ]
+        if cost > 0:
+            texts.append(
+                f"  1回 {cost:.0f} 消費 / 最低備蓄 {reserve:.0f} / 上限 {max_workers} 匹"
+            )
+        if leak_rate > 0:
+            texts.append(f"  漏洩率: {leak_rate:.5f}/tick（余剰→マナ）")
+
+        for text in texts:
+            if text.startswith("繁殖:"):
+                color = (180, 255, 180) if can_spawn else (255, 220, 180)
+            else:
+                color = (255, 255, 255)
+            self.screen.blit(self.small_font.render(text, True, color), (15, y))
+            y += 24
+
+        return y
 
     def _get_ui_panel(self) -> pygame.Surface:
         sw, sh = self.screen.get_size()

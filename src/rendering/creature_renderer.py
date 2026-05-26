@@ -65,9 +65,9 @@ class CreatureRenderer:
             )
 
         colony = getattr(creature, "colony", None)
-        if creature.species.name == "Predator" and creature.alive:
+        if creature.species.name == "Ant" and creature.alive:
             font = pygame.font.SysFont("msgothic", 12)
-            label = "P"
+            label = "A"
             if colony is not None and colony.is_carrying:
                 label = "↩"
                 carcass = colony.carried_carcass

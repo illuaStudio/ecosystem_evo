@@ -1,6 +1,6 @@
 {
-  "name": "Predator",
-  "description": "コロニー型捕食者。狩り→殺害→巣へ持ち帰り→巣で共有食事。",
+  "name": "Ant",
+  "description": "コロニー型アリ（プレイヤー関与種）。狩り→殺害→巣へ持ち帰り→巣で共有食事。",
   "color": [220, 60, 60],
   "colony": {
     "enabled": true,

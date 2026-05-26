@@ -4,7 +4,7 @@ import pygame
 
 class NestRenderer:
     @staticmethod
-    def draw(world, screen, camera) -> None:
+    def draw(world, screen, camera, selected_nest_id: int | None = None) -> None:
         nest_system = getattr(world, "nest_system", None)
         if nest_system is None:
             return
@@ -26,6 +26,9 @@ class NestRenderer:
                 int(40 + fill * 30),
             )
             radius = 14 + int(fill * 10)
+            selected = selected_nest_id is not None and nest.id == selected_nest_id
+            if selected:
+                pygame.draw.circle(screen, (255, 240, 120), (sx, sy), radius + 10, 2)
             pygame.draw.circle(screen, outer, (sx, sy), radius + 4, 2)
             pygame.draw.circle(screen, inner, (sx, sy), radius)
             pygame.draw.circle(screen, (255, 200, 120), (sx, sy), 5)

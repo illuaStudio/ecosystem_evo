@@ -13,8 +13,8 @@
   },
 
   "initial_entities": {
-    "Amoeba": 25,
-    "Predator": 3
+    "Amoeba": 10,
+    "Ant": 3
   },
 
   "world": {

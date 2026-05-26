@@ -32,6 +32,7 @@ class SimulationEngine:
         self.sim_ticks_per_step = max(1, int(config.game.get("sim_ticks_per_step", 10)))
         self._render_ticks_until_sim = 0
         self.selected_creature = None
+        self.selected_nest = None
         self.show_debug = config.game.get("debug_mode", False)
         self.map_view_mode = "biome"  # "biome" | "mana"
 
@@ -64,6 +65,7 @@ class SimulationEngine:
         self._render_ticks_until_sim = 0
         self.world = World(world_name)
         self.selected_creature = None
+        self.selected_nest = None
         self.renderer.invalidate_biome_cache()
 
         # カメラにWorld情報を渡す（重要）
@@ -102,6 +104,7 @@ class SimulationEngine:
             self.world.creatures,
             self.camera,
             self.selected_creature,
+            self.selected_nest,
             self.paused,
             self.show_debug,
             self.map_view_mode,

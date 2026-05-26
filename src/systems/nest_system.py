@@ -68,6 +68,17 @@ class NestSystem:
             return None
         return self.nests.get(nest_id)
 
+    def find_nest_at(self, x: float, y: float, pick_radius: float = 36.0) -> Nest | None:
+        """ワールド座標でクリック可能な最寄り巣を返す。"""
+        best = None
+        min_dist = float("inf")
+        for nest in self.nests.values():
+            dist = math.hypot(nest.x - x, nest.y - y)
+            if dist <= pick_radius and dist < min_dist:
+                min_dist = dist
+                best = nest
+        return best
+
     def find_nearest_nest(
         self,
         x: float,
@@ -273,6 +284,38 @@ class NestSystem:
             if colony is not None and colony.nest_id == nest_id:
                 count += 1
         return count
+
+    def spawn_readiness(self, nest: Nest) -> tuple[bool, str]:
+        """コロニー全体として働きアリを増やせるか（個体を選ばない判定）。"""
+        from src.config import config
+
+        species_data = config.get_species(nest.owner_species) or {}
+        cfg = species_data.get("colony", {})
+        if not cfg.get("enabled"):
+            return False, "コロニー無効"
+
+        cost = float(cfg.get("spawn_food_cost", 0))
+        if cost <= 0:
+            return False, "繁殖未設定"
+
+        max_workers = int(cfg.get("max_workers", 0))
+        if max_workers <= 0:
+            return False, "繁殖未設定"
+
+        reserve = float(cfg.get("min_food_reserve", 0))
+        needed = reserve + cost
+        members = self.member_count(nest.id, nest.owner_species)
+
+        if members >= max_workers:
+            return False, f"個体数上限 ({members}/{max_workers})"
+
+        if nest.stored_food < needed:
+            return (
+                False,
+                f"備蓄不足 (要 {needed:.0f}, 現在 {nest.stored_food:.0f})",
+            )
+
+        return True, f"繁殖可能 ({members}/{max_workers})"
 
     def can_spawn_worker(
         self, creature, colony_cfg: dict | None = None

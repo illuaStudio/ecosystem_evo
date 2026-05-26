@@ -41,16 +41,23 @@ class InputHandler:
         return True
 
     def _handle_right_click(self, event):
-        """右クリックで生物を選択"""
+        """右クリックで生物または巣を選択"""
         wx = event.pos[0] + self.engine.camera.x
         wy = event.pos[1] + self.engine.camera.y
         self.engine.selected_creature = None
+        self.engine.selected_nest = None
 
         for c in self.engine.world.creatures:
             dist = distance_to_point(c, wx, wy)
             if dist < c.traits.get("base_size", 10) + 25:
                 self.engine.selected_creature = c
-                break
+                return
+
+        nest_system = getattr(self.engine.world, "nest_system", None)
+        if nest_system is not None:
+            nest = nest_system.find_nest_at(wx, wy)
+            if nest is not None:
+                self.engine.selected_nest = nest
 
     def _handle_keydown(self, event):
         """キー操作"""
@@ -63,14 +70,14 @@ class InputHandler:
             self.engine.world.add_creature(c)
         elif event.key == pygame.K_p:
             world = self.engine.world
-            colony_cfg = (config.get_species("Predator") or {}).get("colony", {})
+            colony_cfg = (config.get_species("Ant") or {}).get("colony", {})
             if colony_cfg.get("enabled"):
-                x, y = world.nest_system.spawn_position("Predator", colony_cfg)
+                x, y = world.nest_system.spawn_position("Ant", colony_cfg)
                 c = self.engine.creature_factory.create(
-                    "Predator", world=world, x=x, y=y
+                    "Ant", world=world, x=x, y=y
                 )
             else:
-                c = self.engine.creature_factory.create("Predator", world=world)
+                c = self.engine.creature_factory.create("Ant", world=world)
             world.add_creature(c)
         elif event.key == pygame.K_d:
             self.engine.show_debug = not getattr(self.engine, 'show_debug', False)

@@ -1,4 +1,4 @@
-"""捕食者コロニー（巣・持ち帰り）のスモークテスト。"""
+"""アリコロニー（巣・持ち帰り）のスモークテスト。"""
 import unittest
 
 from src.entities.creature_factory import CreatureFactory
@@ -15,14 +15,14 @@ from src.utils.creature_helpers import distance_to_point
 from src.utils.position_helpers import entity_xy
 
 
-class TestPredatorNest(unittest.TestCase):
+class TestAntNest(unittest.TestCase):
     def _spawn_predators(self, world, count: int = 3):
         factory = CreatureFactory()
         preds = []
         for i in range(count):
             x = 400 + i * 25
             y = 400 + i * 15
-            p = factory.create("Predator", world=world, x=x, y=y)
+            p = factory.create("Ant", world=world, x=x, y=y)
             world.add_creature(p)
             preds.append(p)
         return preds
@@ -32,7 +32,7 @@ class TestPredatorNest(unittest.TestCase):
         factory = CreatureFactory()
         preds = []
         for i, (x, y) in enumerate([(120, 120), (850, 850), (500, 200)]):
-            p = factory.create("Predator", world=world, x=x, y=y)
+            p = factory.create("Ant", world=world, x=x, y=y)
             world.add_creature(p)
             preds.append(p)
         nest_ids = {p.colony.nest_id for p in preds}
@@ -41,12 +41,12 @@ class TestPredatorNest(unittest.TestCase):
 
     def test_initial_predators_spawn_near_nest_anchor(self):
         world = World()
-        colony_cfg = config.get_species("Predator").get("colony", {})
+        colony_cfg = config.get_species("Ant").get("colony", {})
         anchor_x = float(colony_cfg.get("nest_x", world.width * 0.5))
         anchor_y = float(colony_cfg.get("nest_y", world.height * 0.5))
         spread = float(colony_cfg.get("spawn_spread", 28))
 
-        preds = [c for c in world.creatures if c.species.name == "Predator"]
+        preds = [c for c in world.creatures if c.species.name == "Ant"]
         self.assertGreaterEqual(len(preds), 1)
         for p in preds:
             px, py = entity_xy(p)
@@ -56,12 +56,12 @@ class TestPredatorNest(unittest.TestCase):
     def test_nest_spawn_position_uses_existing_nest(self):
         world = World()
         factory = CreatureFactory()
-        colony_cfg = config.get_species("Predator").get("colony", {})
-        first = factory.create("Predator", world=world, x=300, y=300)
+        colony_cfg = config.get_species("Ant").get("colony", {})
+        first = factory.create("Ant", world=world, x=300, y=300)
         world.add_creature(first)
         nest = world.nest_system.get_creature_nest(first)
 
-        x, y = world.nest_system.spawn_position("Predator", colony_cfg)
+        x, y = world.nest_system.spawn_position("Ant", colony_cfg)
         dist = distance_to_point(type("_P", (), {"pos": [x, y]})(), nest.x, nest.y)
         spread = float(colony_cfg.get("spawn_spread", 28))
         self.assertLessEqual(dist, spread + 1)
@@ -69,11 +69,11 @@ class TestPredatorNest(unittest.TestCase):
     def test_p_spawn_joins_existing_nest(self):
         world = World()
         factory = CreatureFactory()
-        first = factory.create("Predator", world=world, x=300, y=300)
+        first = factory.create("Ant", world=world, x=300, y=300)
         world.add_creature(first)
         nest_id = first.colony.nest_id
 
-        second = factory.create("Predator", world=world, x=900, y=900)
+        second = factory.create("Ant", world=world, x=900, y=900)
         world.add_creature(second)
         self.assertEqual(second.colony.nest_id, nest_id)
         self.assertEqual(len(world.nest_system.nests), 1)
@@ -85,7 +85,7 @@ class TestPredatorNest(unittest.TestCase):
         nest = world.nest_system.get_creature_nest(predator)
 
         prey = world.creatures[0]
-        if prey.species.name == "Predator":
+        if prey.species.name == "Ant":
             prey = next(c for c in world.creatures if c.species.name == "Amoeba")
 
         px, py = entity_xy(predator)
@@ -143,13 +143,13 @@ class TestPredatorNest(unittest.TestCase):
     def test_feed_per_member_ratio_divides_by_colony_size(self):
         world = World()
         for c in list(world.creatures):
-            if c.species.name == "Predator":
+            if c.species.name == "Ant":
                 world.remove_creature(c)
         world.nest_system.nests.clear()
         preds = self._spawn_predators(world, 3)
         nest = world.nest_system.get_creature_nest(preds[0])
         nest.stored_food = 200.0
-        members = world.nest_system.member_count(nest.id, "Predator")
+        members = world.nest_system.member_count(nest.id, "Ant")
         self.assertEqual(members, 3)
         solo_cap = 200.0 * 0.14
         shared_cap = 200.0 * 0.14 / members
@@ -160,12 +160,12 @@ class TestPredatorNest(unittest.TestCase):
         preds = self._spawn_predators(world, 1)
         predator = preds[0]
         nest = world.nest_system.get_creature_nest(predator)
-        colony_cfg = config.get_species("Predator").get("colony", {})
+        colony_cfg = config.get_species("Ant").get("colony", {})
         cost = float(colony_cfg["spawn_food_cost"])
         reserve = float(colony_cfg["min_food_reserve"])
 
         nest.stored_food = reserve + cost + 10
-        members_before = world.nest_system.member_count(nest.id, "Predator")
+        members_before = world.nest_system.member_count(nest.id, "Ant")
         food_before = nest.stored_food
 
         from src.utils.position_helpers import entity_xy
@@ -181,7 +181,7 @@ class TestPredatorNest(unittest.TestCase):
         world.add_creature(worker)
 
         self.assertEqual(
-            world.nest_system.member_count(nest.id, "Predator"),
+            world.nest_system.member_count(nest.id, "Ant"),
             members_before + 1,
         )
         self.assertAlmostEqual(nest.stored_food, food_before - cost)
@@ -189,7 +189,7 @@ class TestPredatorNest(unittest.TestCase):
 
     def test_spawn_worker_blocked_at_max_workers(self):
         world = World()
-        colony_cfg = config.get_species("Predator").get("colony", {})
+        colony_cfg = config.get_species("Ant").get("colony", {})
         max_workers = int(colony_cfg["max_workers"])
         preds = self._spawn_predators(world, max_workers)
         nest = world.nest_system.get_creature_nest(preds[0])
@@ -203,7 +203,7 @@ class TestPredatorNest(unittest.TestCase):
         preds = self._spawn_predators(world, 1)
         predator = preds[0]
         nest = world.nest_system.get_creature_nest(predator)
-        colony_cfg = config.get_species("Predator").get("colony", {})
+        colony_cfg = config.get_species("Ant").get("colony", {})
         cost = float(colony_cfg["spawn_food_cost"])
         reserve = float(colony_cfg["min_food_reserve"])
 
@@ -285,7 +285,7 @@ class TestPredatorNest(unittest.TestCase):
         preds = self._spawn_predators(world, 1)
         predator = preds[0]
         nest = world.nest_system.get_creature_nest(predator)
-        colony_cfg = config.get_species("Predator").get("colony", {})
+        colony_cfg = config.get_species("Ant").get("colony", {})
         cost = float(colony_cfg["spawn_food_cost"])
         reserve = float(colony_cfg["min_food_reserve"])
         nest.stored_food = reserve + cost + 50
@@ -299,12 +299,43 @@ class TestPredatorNest(unittest.TestCase):
         from src.ai.actions import SpawnWorkerAction
 
         action = SpawnWorkerAction(spawn_cooldown=0)
-        members_before = world.nest_system.member_count(nest.id, "Predator")
+        members_before = world.nest_system.member_count(nest.id, "Ant")
         self.assertTrue(action.execute(predator))
         self.assertEqual(
-            world.nest_system.member_count(nest.id, "Predator"),
+            world.nest_system.member_count(nest.id, "Ant"),
             members_before + 1,
         )
+
+    def test_find_nest_at_click(self):
+        world = World()
+        preds = self._spawn_predators(world, 1)
+        nest = world.nest_system.get_creature_nest(preds[0])
+        ns = world.nest_system
+
+        hit = ns.find_nest_at(nest.x, nest.y, pick_radius=36)
+        self.assertIs(hit, nest)
+
+        miss = ns.find_nest_at(nest.x + 200, nest.y + 200, pick_radius=36)
+        self.assertIsNone(miss)
+
+    def test_spawn_readiness_reports_food_shortage(self):
+        world = World()
+        preds = self._spawn_predators(world, 1)
+        nest = world.nest_system.get_creature_nest(preds[0])
+        colony_cfg = config.get_species("Ant").get("colony", {})
+        needed = float(colony_cfg["min_food_reserve"]) + float(
+            colony_cfg["spawn_food_cost"]
+        )
+
+        nest.stored_food = needed - 1
+        ok, msg = world.nest_system.spawn_readiness(nest)
+        self.assertFalse(ok)
+        self.assertIn("備蓄不足", msg)
+
+        nest.stored_food = needed
+        ok, msg = world.nest_system.spawn_readiness(nest)
+        self.assertTrue(ok)
+        self.assertIn("繁殖可能", msg)
 
 
 if __name__ == "__main__":

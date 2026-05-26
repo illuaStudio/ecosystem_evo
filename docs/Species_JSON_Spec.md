@@ -1,6 +1,6 @@
 # 生物JSON定義 共通仕様書
 
-このファイルは全生物（Amoeba, Predator, Plant, Herbivore など）の `config/species/*.json` の構造と各パラメータの意味を定義します。
+このファイルは全生物（Amoeba, Ant, Plant, Herbivore など）の `config/species/*.json` の構造と各パラメータの意味を定義します。
 
 **実装の参照先:** `species.py`（読み込み・正規化）、`mind.py`（行動選択）、`actions.py`（各 Action のデフォルト値）
 
@@ -62,7 +62,7 @@
 | life_cycle | object | 条件付き | 年齢ステージ・寿命。省略可（後述） |
 | traits | object | 推奨 | 身体・基礎能力。欠損キーは `species.py` のデフォルトで補完 |
 | mind | object | 推奨 | 行動 AI。省略時は空の actions リスト |
-| colony | object | 任意 | コロニー（巣）行動。`enabled: true` で巣システムに参加（主に Predator） |
+| colony | object | 任意 | コロニー（巣）行動。`enabled: true` で巣システムに参加（主に Ant） |
 
 ---
 
@@ -79,7 +79,7 @@
 | `elder ≤ age < death` | Elder（老齢） | death |
 | `age ≥ death` | 自然死（表示上は Expired 扱いの前に死亡処理） | — |
 
-**省略した場合:** `life_cycle` が空の種（例: Predator）は常に Adult 扱いとなり、自然死・ステージ UI は無効になります。
+**省略した場合:** `life_cycle` が空の種（例: Ant）は常に Adult 扱いとなり、自然死・ステージ UI は無効になります。
 
 | キー | 型 | 意味 | 例 |
 |------|----|------|----|
@@ -181,7 +181,7 @@
 
 #### ChaseAction の params
 
-視界内の指定種族を追跡し、接触時に噛みつき・死骸消費（Predator 向け）。
+視界内の指定種族を追跡し、接触時に噛みつき・死骸消費（Ant 向け）。
 
 | キー | 型 | 意味 | デフォルト |
 |------|----|------|-----------|
@@ -195,7 +195,7 @@
 
 ---
 
-#### colony（コロニー・巣）— Predator 向け
+#### colony（コロニー・巣）— Ant 向け
 
 `colony.enabled: true` の種はワールド上に **巣（Nest）** を持ちます。
 
@@ -338,9 +338,9 @@
 
 `config/species/amoeba.json` を参照。
 
-### Predator（コロニー・狩り・持ち帰り・巣で食事）
+### Ant（コロニー・狩り・持ち帰り・巣で食事）
 
-`config/species/predator.json` を参照。`colony.enabled` で巣を共有。行動は **狩り → 持ち帰り → 巣で食事 → 巡回** のループを想定。
+`config/species/ant.json` を参照。`colony.enabled` で巣を共有。行動は **狩り → 持ち帰り → 巣で食事 → 巡回** のループを想定。プレイヤー関与種として `P` キーで手動スポーン可能。
 
 ---
 
@@ -362,8 +362,9 @@ JSON の構造やパラメータを変更したときは、次をセットで更
 
 | 日付 | 内容 |
 |------|------|
-| 2026-05-21 | 初版（Amoeba / Predator 実装に基づく共通仕様） |
-| 2026-05-25 | Predator コロニー（巣・Hunt/Return/Feed/NestPatrol） |
+| 2026-05-21 | 初版（Amoeba / Ant 実装に基づく共通仕様） |
+| 2026-05-25 | Ant コロニー（巣・Hunt/Return/Feed/NestPatrol） |
+| 2026-05-26 | Predator → Ant にリネーム（プレイヤー関与種） |
 | 2026-05-25 | 巣備蓄を食料＋マナ漏洩（C 案）に変更 |
 | 2026-05-25 | SpawnWorkerAction・colony 成長パラメータ |
 | 2026-05-25 | Hunt コロニー備蓄動機・死骸運搬の排他 |

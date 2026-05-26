@@ -18,8 +18,10 @@ class WorldSpawner:
         if not initial:
             if world_data.get("initial_amoeba"):
                 initial["Amoeba"] = world_data["initial_amoeba"]
-            if world_data.get("initial_predator"):
-                initial["Predator"] = world_data["initial_predator"]
+            if world_data.get("initial_ant"):
+                initial["Ant"] = world_data["initial_ant"]
+            elif world_data.get("initial_predator"):
+                initial["Ant"] = world_data["initial_predator"]
 
         factory = CreatureFactory()
         for species_name, count in initial.items():

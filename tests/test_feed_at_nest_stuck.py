@@ -12,7 +12,7 @@ class TestFeedAtNestNotStuck(unittest.TestCase):
     def test_feed_approach_moves_predator_toward_nest(self):
         world = World()
         factory = CreatureFactory()
-        predator = factory.create("Predator", world=world, x=600, y=600)
+        predator = factory.create("Ant", world=world, x=600, y=600)
         world.add_creature(predator)
 
         nest = world.nest_system.get_creature_nest(predator)
