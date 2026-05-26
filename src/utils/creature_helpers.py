@@ -138,6 +138,55 @@ def hunger_drive(creature) -> float:
     return min(1.0, (hunger - low) / (high - low))
 
 
+def format_hunger_status(creature) -> str:
+    """HUD 用: 飢餓度・閾値・飢餓/飢餓深刻フラグ。"""
+    ratio = hunger_ratio(creature)
+    low = get_hunger_threshold(creature)
+    high = get_starvation_threshold(creature)
+    if is_starving(creature):
+        label = "飢餓深刻"
+    elif is_hungry(creature):
+        label = "飢餓"
+    else:
+        label = "満腹寄り"
+    return (
+        f"飢餓: {label} ({ratio * 100:.0f}%, 閾値 {low * 100:.0f}%"
+        f" / 深刻 {high * 100:.0f}%, drive {hunger_drive(creature):.2f})"
+    )
+
+
+def format_carry_status(creature) -> str | None:
+    """HUD 用: コロニー運搬チャンクの状態。運搬していなければ None。"""
+    colony = getattr(creature, "colony", None)
+    if colony is None:
+        return None
+    if not colony.is_carrying:
+        return "運搬: なし"
+    max_carry = get_haul_max_carry(creature)
+    src = ""
+    carcass = colony.carried_carcass
+    if carcass is not None:
+        src = f"（元: {carcass.species.name}"
+        if has_edible_carcass(carcass):
+            src += f", 現場残 {carcass.remaining_biomass:.1f}"
+        src += "）"
+    return (
+        f"運搬: {colony.carried_biomass:.1f} / 上限 {max_carry:.1f}{src}"
+    )
+
+
+def get_haul_max_carry(creature, default: float = 50.0) -> float:
+    """巣持ち帰り（ReturnToNestAction）の base_max_carry を種定義から取得。"""
+    mind_data = getattr(creature.species, "mind_data", {}) or {}
+    for action_def in mind_data.get("actions", []):
+        if action_def.get("name") != "ReturnToNestAction":
+            continue
+        params = action_def.get("params", {}) or {}
+        if "base_max_carry" in params:
+            return max(0.0, float(params["base_max_carry"]))
+    return default
+
+
 def nest_stored_food(creature, default: float = 0.0) -> float:
     world = getattr(creature, "world", None)
     if world is None:
@@ -222,7 +271,7 @@ def is_edible_prey(creature, target, species_names) -> bool:
     if target.alive:
         return True
     world = getattr(creature, "world", None)
-    return is_unclaimed_carcass(world, target)
+    return carcass_on_field(world, target)
 
 
 def is_trackable_prey(creature, target, species_names) -> bool:
@@ -270,19 +319,16 @@ def has_edible_carcass(target) -> bool:
     return not target.alive and getattr(target, "remaining_biomass", 0) > 0
 
 
-def is_carcass_carried(world, carcass) -> bool:
-    """他個体が運搬中の死骸か（同一参照）。"""
-    if world is None or carcass is None:
+def carcass_on_field(world, target) -> bool:
+    """ワールド上に存在し、まだバイオマスが残る死骸か。"""
+    if world is None or target is None:
         return False
-    for c in world.creatures:
-        colony = getattr(c, "colony", None)
-        if colony is not None and colony.carried_carcass is carcass:
-            return True
-    return False
+    return target in world.creatures and has_edible_carcass(target)
 
 
 def is_unclaimed_carcass(world, carcass) -> bool:
-    return has_edible_carcass(carcass) and not is_carcass_carried(world, carcass)
+    """残存バイオマスがある死骸（複数個体が同時に回収可能）。"""
+    return has_edible_carcass(carcass)
 
 
 def is_living_prey(target, species_name: str) -> bool:
@@ -297,7 +343,7 @@ def is_edible_target(creature, target, species_name: str) -> bool:
     if target.alive:
         return True
     world = getattr(creature, "world", None)
-    return is_unclaimed_carcass(world, target)
+    return carcass_on_field(world, target)
 
 
 def is_in_vision(creature, target) -> bool:
@@ -445,57 +491,100 @@ def try_attack_only(predator, target, attack_power: float = 1.0) -> bool:
     return not target.alive
 
 
-def sync_carried_carcass(creature) -> None:
-    """運搬中の死骸を運搬者の座標に追従させる。"""
-    colony = getattr(creature, "colony", None)
-    if colony is None or not colony.is_carrying:
+def _remove_depleted_carcass(world, carcass) -> None:
+    if world is None or carcass is None:
         return
-
-    carcass = colony.carried_carcass
-    cx, cy = entity_xy(creature)
-    if hasattr(carcass, "position"):
-        carcass.position.x = cx
-        carcass.position.y = cy
-    carcass.pos[0] = cx
-    carcass.pos[1] = cy
+    if carcass.remaining_biomass <= 0 and carcass in world.creatures:
+        world.remove_creature(carcass)
 
 
 def release_carried_carcass(carrier) -> None:
-    """運搬をやめ、残存バイオマスがあればワールドに死骸を戻す。"""
+    """運搬チャンクをやめ、採取元の死骸にバイオマスを戻す（なければマナ還元）。"""
     colony = getattr(carrier, "colony", None)
     if colony is None or not colony.is_carrying:
         return
 
+    chunk = float(colony.carried_biomass)
     carcass = colony.carried_carcass
+    colony.carried_biomass = 0.0
     colony.carried_carcass = None
-    if carcass is None:
+    if chunk <= 0:
         return
 
     world = carrier.world
-    if world is not None and has_edible_carcass(carcass) and carcass not in world.creatures:
-        world.add_creature(carcass)
+    if world is None:
+        return
+
+    if carcass is not None:
+        carcass.remaining_biomass += chunk
+        if carcass not in world.creatures:
+            carcass.world = world
+            world.add_creature(carcass)
+        return
+
+    cx, cy = entity_xy(carrier)
+    world.return_mana_from_decomposition(chunk * 0.65, cx, cy)
 
 
 def try_pickup_carcass(carrier, carcass, contact_padding: float = 8.0) -> bool:
-    """接触した死骸を拾い、ワールドリストから外す（運搬状態）。"""
+    """接触した死骸からチャンクを切り出して運搬する（死骸は現場に残る）。"""
     colony = getattr(carrier, "colony", None)
     if colony is None or colony.is_carrying:
         return False
     world = carrier.world
-    if not is_unclaimed_carcass(world, carcass):
+    if not has_edible_carcass(carcass):
         return False
 
     dist = distance_between(carrier, carcass)
-    if dist > contact_range(carrier, carcass, contact_padding):
+    reach = contact_range(carrier, carcass, contact_padding)
+    if dist > reach * 1.05:
         return False
 
-    if world is not None and carcass in world.creatures:
-        world.remove_creature(carcass)
+    max_carry = get_haul_max_carry(carrier)
+    if max_carry <= 0:
+        return False
 
+    chunk = min(float(carcass.remaining_biomass), max_carry)
+    if chunk <= 0:
+        return False
+
+    carcass.remaining_biomass -= chunk
+    colony.carried_biomass = chunk
     colony.carried_carcass = carcass
-    carcass.world = carrier.world
-    sync_carried_carcass(carrier)
+
+    if world is not None:
+        _remove_depleted_carcass(world, carcass)
+
     return True
+
+
+def consume_carried_biomass(predator, bite_gain: float = 1.35) -> float:
+    """運搬中チャンクをその場で消費して満腹度を回復。"""
+    colony = getattr(predator, "colony", None)
+    if colony is None or colony.carried_biomass <= 0:
+        return 0.0
+
+    base_size = float(predator.traits.get("base_size", 9.0))
+    bite_gain = float(bite_gain)
+    amount = min(
+        colony.carried_biomass * 0.45,
+        base_size * bite_gain * 1.6,
+    )
+    colony.carried_biomass = max(0.0, colony.carried_biomass - amount * 0.9)
+
+    gained = amount * bite_gain
+    predator.satiety = min(predator.max_satiety, predator.satiety + gained)
+
+    if colony.carried_biomass <= 1.0:
+        leftover = colony.carried_biomass
+        colony.carried_biomass = 0.0
+        colony.carried_carcass = None
+        world = predator.world
+        if world is not None and leftover > 0:
+            cx, cy = entity_xy(predator)
+            world.return_mana_from_decomposition(leftover * 0.8, cx, cy)
+
+    return gained
 
 
 def find_nearest_carcass_in_vision(creature, species_name: str, exclude=None):
@@ -512,7 +601,7 @@ def find_nearest_carcass_in_vision(creature, species_name: str, exclude=None):
             continue
         if other.species.name != species_name:
             continue
-        if not is_unclaimed_carcass(creature.world, other):
+        if not has_edible_carcass(other):
             continue
         dist = distance_between(creature, other)
         if dist <= vision and dist < min_dist:

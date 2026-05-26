@@ -4,9 +4,9 @@ import unittest
 from src.entities.creature_factory import CreatureFactory
 from src.systems.world import World
 from src.utils.creature_helpers import (
+    get_haul_max_carry,
     has_edible_carcass,
     hunger_ratio,
-    is_carcass_carried,
     try_attack_only,
     try_pickup_carcass,
 )
@@ -48,9 +48,11 @@ class TestAntNest(unittest.TestCase):
 
         preds = [c for c in world.creatures if c.species.name == "Ant"]
         self.assertGreaterEqual(len(preds), 1)
+        nest = world.nest_system.get_colony_nest("Ant")
+        self.assertIsNotNone(nest)
         for p in preds:
             px, py = entity_xy(p)
-            dist = ((px - anchor_x) ** 2 + (py - anchor_y) ** 2) ** 0.5
+            dist = ((px - nest.x) ** 2 + (py - nest.y) ** 2) ** 0.5
             self.assertLessEqual(dist, spread + 5)
 
     def test_nest_spawn_position_uses_existing_nest(self):
@@ -103,8 +105,11 @@ class TestAntNest(unittest.TestCase):
         self.assertFalse(prey.alive)
         self.assertTrue(has_edible_carcass(prey))
 
+        initial_biomass = prey.remaining_biomass
         self.assertTrue(try_pickup_carcass(predator, prey))
         self.assertTrue(predator.colony.is_carrying)
+        self.assertGreater(predator.colony.carried_biomass, 0)
+        self.assertLess(prey.remaining_biomass, initial_biomass)
 
         deposited = world.nest_system.deposit_carried(predator)
         self.assertGreater(deposited, 0)
@@ -129,16 +134,21 @@ class TestAntNest(unittest.TestCase):
         world = World()
         preds = self._spawn_predators(world, 1)
         nest = world.nest_system.get_creature_nest(preds[0])
-        nest.stored_food = 400.0
+        reserve = nest.max_food * float(
+            config.get_species("Ant").get("colony", {}).get(
+                "food_leak_reserve_ratio", 0.15
+            )
+        )
+        nest.stored_food = reserve + 500.0
+        food_before = nest.stored_food
 
         mana_before = world.get_mana_density(nest.x, nest.y)
-        for _ in range(80):
+        for _ in range(200):
             world.nest_system.update(1.0)
         mana_after = world.get_mana_density(nest.x, nest.y)
 
-        self.assertLess(nest.stored_food, 400.0)
+        self.assertLess(nest.stored_food, food_before)
         self.assertGreater(mana_after, mana_before)
-        reserve = nest.max_food * 0.15
         self.assertGreaterEqual(nest.stored_food, reserve * 0.85)
 
     def test_feed_per_member_ratio_divides_by_colony_size(self):
@@ -234,7 +244,7 @@ class TestAntNest(unittest.TestCase):
             with self.subTest(stored_food=stored):
                 self.assertGreater(action.calculate_utility(predator), 0.0)
 
-    def test_second_predator_cannot_pickup_carried_carcass(self):
+    def test_second_predator_can_pickup_same_carcass_chunk(self):
         world = World()
         preds = self._spawn_predators(world, 2)
         carrier, other = preds[0], preds[1]
@@ -253,10 +263,21 @@ class TestAntNest(unittest.TestCase):
                 break
             try_attack_only(carrier, prey, attack_power=2.5)
         self.assertTrue(try_pickup_carcass(carrier, prey))
-        self.assertTrue(is_carcass_carried(world, prey))
-        self.assertFalse(try_pickup_carcass(other, prey))
+        first_chunk = carrier.colony.carried_biomass
+        remaining_after_first = prey.remaining_biomass
 
-    def test_deposit_zeros_carcass_biomass_prevents_double_storage(self):
+        other.pos[0] = prey.pos[0]
+        other.pos[1] = prey.pos[1]
+        if hasattr(other, "position"):
+            other.position.x = prey.pos[0]
+            other.position.y = prey.pos[1]
+
+        self.assertTrue(try_pickup_carcass(other, prey))
+        self.assertGreater(other.colony.carried_biomass, 0)
+        self.assertLess(prey.remaining_biomass, remaining_after_first)
+        self.assertGreater(first_chunk, 0)
+
+    def test_deposit_chunk_does_not_double_storage(self):
         world = World()
         preds = self._spawn_predators(world, 1)
         predator = preds[0]
@@ -277,12 +298,13 @@ class TestAntNest(unittest.TestCase):
                 break
             try_attack_only(predator, prey, attack_power=2.5)
         self.assertTrue(try_pickup_carcass(predator, prey))
-        biomass = prey.remaining_biomass
+        carried = predator.colony.carried_biomass
         deposited = world.nest_system.deposit_carried(predator)
         self.assertGreater(deposited, 0)
-        self.assertEqual(prey.remaining_biomass, 0.0)
+        self.assertAlmostEqual(deposited, carried)
+        self.assertFalse(predator.colony.is_carrying)
         nest.stored_food = 0.0
-        predator.colony.carried_carcass = prey
+        predator.colony.carried_biomass = 0.0
         second = world.nest_system.deposit_carried(predator)
         self.assertEqual(second, 0.0)
 

@@ -144,10 +144,6 @@ class Creature(BaseEntity):
 
         sync_legacy_pos(self, update_last=True)
 
-        from src.utils.creature_helpers import sync_carried_carcass
-
-        sync_carried_carcass(self)
-
         if self.life_cycle.update():
             return
 

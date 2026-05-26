@@ -184,7 +184,7 @@
 
 #### ChaseAction の params
 
-視界内の指定種族を追跡し、接触時に噛みつき・死骸消費（Ant 向け）。
+視界内の指定種族を追跡し、接触時に噛みつき・死骸消費（単独捕食者向け。巣なし）。
 
 | キー | 型 | 意味 | デフォルト |
 |------|----|------|-----------|
@@ -356,9 +356,9 @@
 
 `config/species/ant.json` を参照。満腹時は **Amoeba + Spider** を狩って巣へ貯蔵。飢餓時のみ巣食事・その場食事を優先。
 
-### Spider（大型獲物・徘徊のみ）
+### Spider（アメーバ捕食・大型獲物）
 
-`config/species/spider.json` を参照。高 HP・大サイズ・`WanderAction` のみ。アリのフェーズ1狩り対象。`life_cycle` なし（常に Adult、自然死なし）。
+`config/species/spider.json` を参照。高 HP・大サイズ。空腹時は `ChaseAction` で **Amoeba** を追跡し、接触時に `try_predate`（殺害→その場で `consume_carcass`）。巣・コロニーなし。満腹時は `WanderAction`。アリの狩り対象。`life_cycle` なし（常に Adult、自然死なし）。
 
 ---
 
@@ -387,4 +387,5 @@ JSON の構造やパラメータを変更したときは、次をセットで更
 | 2026-05-25 | SpawnWorkerAction・colony 成長パラメータ |
 | 2026-05-25 | Hunt コロニー備蓄動機・死骸運搬の排他 |
 | 2026-05-26 | Spider（フェーズ1大型獲物）・Ant の target_type を Spider に |
+| 2026-05-26 | Spider: ChaseAction で Amoeba をその場捕食（巣なし） |
 | 2026-05-26 | 飢餓 traits（hunger/starvation_threshold）・ScavengeCarriedAction |

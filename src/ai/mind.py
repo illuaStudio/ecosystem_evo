@@ -56,6 +56,8 @@ class UtilityMind(Mind):
             action = action_cls(**params)
 
             utility = action.calculate_utility(creature)
+            if utility <= 0.0:
+                continue
             score = utility * weight
 
             # print(f"  → {action_name:12s} | Utility: {utility:.3f} × Weight: {weight:.2f} = Score: {score:.3f}")

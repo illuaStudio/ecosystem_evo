@@ -24,7 +24,7 @@
     "max_hp": 120.0,
     "max_satiety": 100.0,
     "metabolism_rate": 0.05,
-    "hunger_threshold": 0.15,
+    "hunger_threshold": 0.85,
     "starvation_threshold": 0.68
   },
   "mind": {
@@ -69,7 +69,8 @@
         "description": "満腹時: 運搬中の死骸を巣へ貯蔵",
         "params": {
           "speed_multiplier": 1.15,
-          "deposit_radius": 30
+          "deposit_radius": 30,
+          "base_max_carry": 3.3
         }
       },
       {

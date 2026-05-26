@@ -17,7 +17,7 @@ class TestFeedAtNestNotStuck(unittest.TestCase):
 
         nest = world.nest_system.get_creature_nest(predator)
         nest.stored_food = 120.0
-        predator.satiety = predator.max_satiety * 0.4
+        predator.satiety = predator.max_satiety * 0.08
 
         action = FeedAtNestAction(feed_radius=38)
         self.assertGreater(action.calculate_utility(predator), 0.0)

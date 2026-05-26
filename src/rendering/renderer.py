@@ -4,7 +4,14 @@ import pygame
 from src.config import config
 from src.ai.actions import SplitAction
 from src.rendering.nest_renderer import NestRenderer
-from src.utils.creature_helpers import current_size, format_life_stage_line, satiety_ratio
+from src.utils.creature_helpers import (
+    current_size,
+    format_carry_status,
+    format_hunger_status,
+    format_life_stage_line,
+    get_haul_max_carry,
+    satiety_ratio,
+)
 from src.utils.hunt_helpers import (
     describe_creature_short,
     find_hunters_for_prey,
@@ -77,12 +84,14 @@ class Renderer:
             texts = [
                 f"種: {sc.species.name} ({status})",
                 f"HP: {sc.hp:.1f}/{sc.max_hp:.0f}",
-                f"満腹度: {sc.satiety:.1f}/{sc.max_satiety:.0f}",
+                f"満腹度: {sc.satiety:.1f}/{sc.max_satiety:.0f} ({satiety_ratio(sc) * 100:.0f}%)",
                 f"サイズ: {sc.get_current_size():.1f} / {sc.traits.get('max_size', sc.get_current_size()):.1f}",
                 f"年齢: {sc.age}",
                 f"速度: {sc.get_current_speed():.2f}",
                 f"現在のAction: {action_name}",
             ]
+            if sc.alive:
+                texts.insert(3, format_hunger_status(sc))
             life_line = format_life_stage_line(sc)
             if life_line:
                 texts.insert(4, life_line)
@@ -161,10 +170,13 @@ class Renderer:
                     texts.append(
                         f"コロニー: {world.nest_system.member_count(nest.id, sc.species.name)} 匹"
                     )
-                if colony.is_carrying:
-                    texts.append("状態: 死骸を運搬中")
-                else:
-                    texts.append("状態: 未運搬")
+                carry_line = format_carry_status(sc)
+                if carry_line is not None:
+                    texts.append(carry_line)
+                if sc.alive and not colony.is_carrying:
+                    texts.append(
+                        f"持ち帰り上限(base_max_carry): {get_haul_max_carry(sc):.1f}"
+                    )
 
             hunt_target = get_hunt_target(sc)
             if hunt_target is not None:

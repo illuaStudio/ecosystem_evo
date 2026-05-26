@@ -224,7 +224,7 @@ class NestSystem:
         return self.distance_to_nest(creature) <= deposit_radius
 
     def deposit_carried(self, creature) -> float:
-        """運搬中の死骸を巣の食料備蓄へ移す。移した食料量を返す。"""
+        """運搬中チャンクを巣の食料備蓄へ移す。移した食料量を返す。"""
         colony = getattr(creature, "colony", None)
         if colony is None or not colony.is_carrying:
             return 0.0
@@ -233,17 +233,22 @@ class NestSystem:
         if nest is None:
             return 0.0
 
-        carcass = colony.carried_carcass
-        amount = float(getattr(carcass, "remaining_biomass", 0.0))
+        amount = float(colony.carried_biomass)
         if amount <= 0:
+            colony.carried_biomass = 0.0
             colony.carried_carcass = None
             return 0.0
 
         space = max(0.0, nest.max_food - nest.stored_food)
         deposited = min(amount, space)
         nest.stored_food += deposited
-        carcass.remaining_biomass = max(0.0, amount - deposited)
-        colony.carried_carcass = None
+        leftover = amount - deposited
+
+        if leftover > 0:
+            colony.carried_biomass = leftover
+        else:
+            colony.carried_biomass = 0.0
+            colony.carried_carcass = None
         return deposited
 
     def feed_creature(

@@ -1,7 +1,7 @@
 # creature_renderer.py
 import pygame
 
-from src.utils.creature_helpers import hp_ratio, satiety_ratio
+from src.utils.creature_helpers import get_haul_max_carry, hp_ratio, satiety_ratio
 from src.utils.position_helpers import entity_xy
 
 
@@ -74,20 +74,23 @@ class CreatureRenderer:
             label = "A"
             if colony is not None and colony.is_carrying:
                 label = "↩"
+                max_carry = max(get_haul_max_carry(creature), 0.001)
+                chunk_ratio = min(1.0, colony.carried_biomass / max_carry)
                 carcass = colony.carried_carcass
+                prey_color = (120, 90, 70)
                 if carcass is not None:
-                    csize = int(carcass.traits.get("base_size", 6) * 0.7)
                     prey_color = tuple(max(0, c // 2) for c in carcass.species.color)
-                    pygame.draw.circle(
-                        screen, prey_color, (sx + size + 6, sy), max(3, csize)
-                    )
-                    pygame.draw.line(
-                        screen,
-                        (255, 200, 80),
-                        (sx, sy),
-                        (sx + size + 6, sy),
-                        2,
-                    )
+                csize = max(3, int(size * 0.35 + chunk_ratio * size * 0.45))
+                pygame.draw.circle(
+                    screen, prey_color, (sx + size + 6, sy), csize
+                )
+                pygame.draw.line(
+                    screen,
+                    (255, 200, 80),
+                    (sx, sy),
+                    (sx + size + 6, sy),
+                    2,
+                )
             text = font.render(label, True, (255, 60, 60))
             screen.blit(text, (sx - 8, sy - size - 35))
 

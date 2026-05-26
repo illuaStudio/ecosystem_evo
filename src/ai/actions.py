@@ -6,7 +6,9 @@ from abc import ABC, abstractmethod
 from src.utils.position_helpers import entity_xy
 from src.utils.creature_helpers import (
     closeness_ratio,
+    carcass_on_field,
     consume_carcass,
+    consume_carried_biomass,
     contact_range,
     current_size,
     distance_to_point,
@@ -17,6 +19,7 @@ from src.utils.creature_helpers import (
     is_hungry,
     is_starving,
     is_trackable_target,
+    move_toward,
     move_toward_contact,
     move_toward_point,
     find_nearest_edible_among,
@@ -238,10 +241,15 @@ class HuntAction(Action):
     def _prey_species(self) -> tuple[str, ...]:
         return _hunt_prey_species(self.params)
 
+    def is_completed(self) -> bool:
+        return self.completed
+
     def execute(self, creature) -> bool:
         if not creature.world or getattr(creature, "colony", None) is None:
             return False
-        if creature.colony.is_carrying:
+        colony = creature.colony
+        if colony.is_carrying:
+            self.completed = True
             return False
 
         target = self._resolve_target(creature)
@@ -249,17 +257,14 @@ class HuntAction(Action):
             return False
 
         pad = float(self.params["contact_padding"])
-        dist = move_toward_contact(
-            creature, target, self.params["speed_multiplier"], pad
-        )
-        if dist <= contact_range(creature, target, pad):
-            if target.alive:
-                try_attack_only(
-                    creature,
-                    target,
-                    attack_power=float(self.params["attack_power"]),
-                )
-            if not target.alive and has_edible_carcass(target):
+        reach = contact_range(creature, target, pad)
+
+        if not target.alive:
+            if not carcass_on_field(creature.world, target):
+                self._target = None
+                return False
+            dist = move_toward(creature, target, self.params["speed_multiplier"])
+            if dist <= reach * 1.05:
                 if is_hungry(creature):
                     consume_carcass(
                         creature,
@@ -267,7 +272,29 @@ class HuntAction(Action):
                         bite_gain=float(self.params["bite_gain"]),
                     )
                 elif self.params.get("pickup_on_kill", True):
-                    try_pickup_carcass(creature, target, pad)
+                    if try_pickup_carcass(creature, target, pad):
+                        self.completed = True
+                        self._target = None
+                    else:
+                        self._target = None
+                        wander_step(
+                            creature,
+                            angle_range=40.0,
+                            speed_multiplier=0.55,
+                        )
+            if not is_trackable_prey(creature, target, self._prey_species()):
+                self._target = None
+            return False
+
+        dist = move_toward_contact(
+            creature, target, self.params["speed_multiplier"], pad
+        )
+        if dist <= reach:
+            try_attack_only(
+                creature,
+                target,
+                attack_power=float(self.params["attack_power"]),
+            )
             if not is_trackable_prey(creature, target, self._prey_species()):
                 self._target = None
 
@@ -297,7 +324,8 @@ class HuntAction(Action):
         return float(self.params["colony_hoard_strength"])
 
     def calculate_utility(self, creature) -> float:
-        if getattr(creature, "colony", None) is None or creature.colony.is_carrying:
+        colony = getattr(creature, "colony", None)
+        if colony is None or colony.is_carrying:
             return 0.0
 
         prey = find_nearest_edible_among(
@@ -324,7 +352,7 @@ class HuntAction(Action):
 
 
 class ScavengeCarriedAction(Action):
-    """飢餓時: 運搬中の死骸をその場で食べる（巣へ持ち帰らない）。"""
+    """飢餓時: 運搬中チャンクをその場で食べる（巣へ持ち帰らない）。"""
 
     DEFAULT_PARAMS = {
         "bite_gain": 1.35,
@@ -335,28 +363,19 @@ class ScavengeCarriedAction(Action):
         if colony is None or not colony.is_carrying:
             return False
 
-        carcass = colony.carried_carcass
-        if carcass is None or not has_edible_carcass(carcass):
-            colony.carried_carcass = None
-            return False
-
-        consume_carcass(
+        consume_carried_biomass(
             creature,
-            carcass,
             bite_gain=float(self.params["bite_gain"]),
         )
-        if not has_edible_carcass(carcass):
-            colony.carried_carcass = None
-        elif not is_hungry(creature):
+        if not colony.is_carrying:
+            return False
+        if not is_hungry(creature):
             release_carried_carcass(creature)
         return False
 
     def calculate_utility(self, creature) -> float:
         colony = getattr(creature, "colony", None)
         if colony is None or not colony.is_carrying or not is_hungry(creature):
-            return 0.0
-        carcass = colony.carried_carcass
-        if carcass is None or not has_edible_carcass(carcass):
             return 0.0
         drive = hunger_drive(creature)
         return min(1.0, 0.55 + drive * 0.45)
@@ -368,6 +387,7 @@ class ReturnToNestAction(Action):
     DEFAULT_PARAMS = {
         "speed_multiplier": 1.1,
         "deposit_radius": 30.0,
+        "base_max_carry": 50.0,
     }
 
     def execute(self, creature) -> bool:

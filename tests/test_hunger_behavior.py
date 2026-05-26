@@ -31,15 +31,15 @@ class TestHungerBehavior(unittest.TestCase):
     def test_hunger_threshold_from_traits(self):
         world = World()
         ant, _ = self._ant_and_prey(world)
-        self.assertAlmostEqual(get_hunger_threshold(ant), 0.45)
-        ant.satiety = ant.max_satiety * 0.6
+        self.assertAlmostEqual(get_hunger_threshold(ant), 0.85)
+        ant.satiety = ant.max_satiety * 0.9
         self.assertFalse(is_hungry(ant))
-        ant.satiety = ant.max_satiety * 0.5
+        ant.satiety = ant.max_satiety * 0.1
         self.assertTrue(is_hungry(ant))
 
     def test_hungry_ant_prefers_nest_when_food_available(self):
         world = World()
-        ant, _ = self._ant_and_prey(world, ant_satiety_ratio=0.48)
+        ant, _ = self._ant_and_prey(world, ant_satiety_ratio=0.10)
         factory = CreatureFactory()
         spider = factory.create("Spider", world=world, x=520, y=500)
         world.add_creature(spider)
@@ -52,7 +52,7 @@ class TestHungerBehavior(unittest.TestCase):
 
     def test_hungry_ant_hunts_when_nest_empty(self):
         world = World()
-        ant, _ = self._ant_and_prey(world, ant_satiety_ratio=0.48)
+        ant, _ = self._ant_and_prey(world, ant_satiety_ratio=0.10)
         factory = CreatureFactory()
         spider = factory.create("Spider", world=world, x=520, y=500)
         world.add_creature(spider)
@@ -86,7 +86,7 @@ class TestHungerBehavior(unittest.TestCase):
 
     def test_low_nest_reserve_not_usable_when_hungry(self):
         world = World()
-        ant, _ = self._ant_and_prey(world, ant_satiety_ratio=0.48)
+        ant, _ = self._ant_and_prey(world, ant_satiety_ratio=0.10)
         nest = world.nest_system.get_creature_nest(ant)
         nest.stored_food = 8.0
         nest.max_food = 5000.0
@@ -98,7 +98,7 @@ class TestHungerBehavior(unittest.TestCase):
 
     def test_hungry_carrying_prefers_scavenge_over_return(self):
         world = World()
-        ant, prey = self._ant_and_prey(world, ant_satiety_ratio=0.48)
+        ant, prey = self._ant_and_prey(world, ant_satiety_ratio=0.10)
         for _ in range(12):
             if not prey.alive:
                 break
@@ -111,20 +111,21 @@ class TestHungerBehavior(unittest.TestCase):
 
     def test_hungry_carrying_eats_carcass(self):
         world = World()
-        ant, prey = self._ant_and_prey(world, ant_satiety_ratio=0.48)
+        ant, prey = self._ant_and_prey(world, ant_satiety_ratio=0.10)
         for _ in range(12):
             if not prey.alive:
                 break
             try_attack_only(ant, prey, attack_power=2.5)
         try_pickup_carcass(ant, prey)
-        biomass_before = prey.remaining_biomass
+        carried_before = ant.colony.carried_biomass
         satiety_before = ant.satiety
+        self.assertGreater(carried_before, 0)
 
         action = ScavengeCarriedAction()
         action.execute(ant)
 
         self.assertGreater(ant.satiety, satiety_before)
-        self.assertLess(prey.remaining_biomass, biomass_before)
+        self.assertLess(ant.colony.carried_biomass, carried_before)
 
     def test_feed_action_moves_toward_empty_nest_when_hungry(self):
         world = World()

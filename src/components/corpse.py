@@ -7,6 +7,11 @@ from src.utils.position_helpers import entity_xy
 class CorpseComponent:
     """死亡後の残存バイオマスと自然分解、マナ還元を処理する。"""
 
+    # initial_biomass に対する分解率（sim 時間 dt=1 あたり）。0.00003 ≈ 実時間数分規模。
+    DECOMPOSE_FRACTION_PER_DT = 0.00003
+    MANA_YIELD_RATIO = 0.65
+    DEPLETION_MANA_BONUS = 15.0
+
     def __init__(self, owner: Any) -> None:
         self.owner = owner
         self.remaining_biomass = 0.0
@@ -18,22 +23,28 @@ class CorpseComponent:
             return
 
         owner = self.owner
-        size = float(owner.traits.get("base_size", 9.0))
-        decompose_amount = size * 0.018 * float(dt)
+        initial = max(float(self.initial_biomass), 1.0)
+        rate = float(
+            owner.traits.get("corpse_decompose_rate", self.DECOMPOSE_FRACTION_PER_DT)
+        )
+        decompose_amount = initial * rate * float(dt)
+        decompose_amount = min(decompose_amount, self.remaining_biomass)
         self.remaining_biomass -= decompose_amount
 
         world = owner.world
-        if world:
+        if world and decompose_amount > 0:
             ox, oy = entity_xy(owner)
             world.return_mana_from_decomposition(
-                decompose_amount * 0.65, ox, oy
+                decompose_amount * self.MANA_YIELD_RATIO, ox, oy
             )
 
         if self.remaining_biomass <= 0:
             self.remaining_biomass = 0.0
             if world:
                 ox, oy = entity_xy(owner)
-                world.return_mana_from_decomposition(15.0, ox, oy)
+                world.return_mana_from_decomposition(
+                    self.DEPLETION_MANA_BONUS, ox, oy
+                )
 
     def become_corpse(self) -> None:
         """死亡→死骸化。残存バイオマスをサイズ・栄養に比例して設定。"""
