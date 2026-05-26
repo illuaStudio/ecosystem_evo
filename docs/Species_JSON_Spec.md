@@ -105,13 +105,17 @@
 | max_hp | float | 最大体力 | 40〜150 | 100.0 |
 | max_satiety | float | 最大満腹度 | 30〜120 | 80.0 |
 | metabolism_rate | float | 1 ティックあたりの満腹度減少。大きいほど空腹になりやすい | 0.3〜1.2 | 0.5 |
-| hunger_threshold | float | 空腹度（1 − 満腹度比率）がこれ以上で **飢餓**。餌を求める行動が優先 | 0.45〜0.55 | 0.50 |
-| starvation_threshold | float | 空腹度がこれ以上で **深刻な飢餓**（`hunger_drive` が 1 に近づく）。`hunger_threshold` 以上に設定 | 0.65〜0.80 | 0.72 |
+| satiety_hungry_below | float | 満腹度比率がこれ以下で **飢餓**（自分優先: 食べる・巣食事） | 0.10〜0.20 | 0.15 |
+| satiety_full_above | float | 巣食事の停止目標・HUD「満腹」表示。通常帯と満腹帯の **行動は同じ**（持ち帰り狩り） | 0.80〜0.90 | 0.85 |
 
 **ゲーム内での使われ方（参考）**
 
 - 毎ティック: `satiety -= metabolism_rate`。満腹度が 0 を下回ると HP が減少
-- 空腹度: `hunger_ratio = 1 - satiety / max_satiety`。`is_hungry` / `is_starving` / `hunger_drive` で行動 AI が参照
+- **通常・満腹帯**（`> satiety_hungry_below`）: 探索→狩り→倒したら持ち帰り。行動は同一
+- **飢餓**（`≤ satiety_hungry_below`）: 自己給餌モードに入る。`satiety_full_above` に達するまで維持（チャタリング防止）
+- **回復モード中**（満腹度は通常帯でも）: 行動は飢餓時と同じ。HUD は瞬間状態＋「回復中」表示
+- **巣に帰ったとき**: `satiety_full_above` まで食べてから再び通常行動（飢餓期間を短くする）
+- 旧 `hunger_threshold`（空腹度基準）は読み込み時に `satiety_hungry_below = 1 - hunger_threshold` へ変換
 - 成長: 生存中かつ `base_size < max_size` のとき、`growth_rate × satiety_ratio` だけ `base_size` 増加
 - 分裂後: SplitAction が親の `base_size` に `size_reduction` を乗算
 
@@ -226,7 +230,7 @@
 
 #### HuntAction の params
 
-満腹時: 攻撃→殺害→死骸を拾い `ReturnToNestAction` へ。**飢餓時**（`traits.hunger_threshold`）: 巣に餌があれば狩らない。なければ狩り、殺害後はその場で `consume_carcass`（持ち帰らない）。
+**通常・満腹帯**（飢餓でない）: 攻撃→殺害→死骸を拾い `ReturnToNestAction` へ。**飢餓時**（`satiety_hungry_below` 以下）: 巣に餌があれば狩らない。なければ狩り、殺害後はその場で `consume_carcass`。
 
 | キー | 型 | 意味 | デフォルト |
 |------|----|------|-----------|
@@ -241,7 +245,7 @@
 | min_usable_food_ratio | float | 備蓄率がこれ未満なら「巣に餌あり」とみなさない | 0.01 |
 | min_usable_satiety_gain | float | 1 回の食事で得られる満腹度見積もりがこれ未満なら同左 | 1.0 |
 
-**utility:** 飢餓時は `hunger_drive`（traits 閾値）。満腹時は `colony_hoard_strength` で **常に狩り・持ち帰り**（従来どおり）。死骸は他者が運搬中なら対象外。
+**utility:** 飢餓時は 1.0（巣に食料があれば 0）。通常・満腹帯は `colony_hoard_strength` で備蓄狩り。
 
 ---
 
@@ -268,7 +272,7 @@
 
 #### FeedAtNestAction の params
 
-**飢餓時**（`traits.hunger_threshold`）に巣へ向かい、貯蔵から満腹度を回復。餌がなくても巣へ接近する（その後 `HuntAction` が狩りを担当）。
+**飢餓時**に巣へ向かい `satiety_full_above` まで回復。巣にいる通常帯でも同上限まで食べる。餌がなければ utility 0（`HuntAction` が狩りを担当）。帰巣途中の地上死骸は `scavenge_species` で食べる。
 
 | キー | 型 | 意味 | デフォルト |
 |------|----|------|-----------|
@@ -389,3 +393,5 @@ JSON の構造やパラメータを変更したときは、次をセットで更
 | 2026-05-26 | Spider（フェーズ1大型獲物）・Ant の target_type を Spider に |
 | 2026-05-26 | Spider: ChaseAction で Amoeba をその場捕食（巣なし） |
 | 2026-05-26 | 飢餓 traits（hunger/starvation_threshold）・ScavengeCarriedAction |
+| 2026-05-26 | 栄養3帯（satiety_hungry_below / satiety_full_above）、hunger_drive 廃止 |
+| 2026-05-26 | 回復モード（nutrition_recovery）: 飢餓後は full_above まで自己給餌を維持 |

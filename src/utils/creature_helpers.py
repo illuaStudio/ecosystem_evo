@@ -103,56 +103,91 @@ def satiety_ratio(creature) -> float:
 
 
 def hunger_ratio(creature) -> float:
-    """空腹度（0=満腹, 1=空腹）"""
+    """空腹度（0=満腹, 1=空腹）。ManaWander 等の連続 utility 用。"""
     return 1.0 - satiety_ratio(creature)
 
 
-def get_hunger_threshold(creature) -> float:
-    """traits.hunger_threshold — この空腹度以上で「飢餓」（餌を求める）。"""
-    return float(creature.traits.get("hunger_threshold", 0.50))
+class NutritionState:
+    HUNGRY = "hungry"
+    NORMAL = "normal"
+    FULL = "full"
 
 
-def get_starvation_threshold(creature) -> float:
-    """traits.starvation_threshold — 飢餓より深刻。必ず hunger_threshold 以上になるよう補正。"""
-    starve = float(creature.traits.get("starvation_threshold", 0.72))
-    return max(starve, get_hunger_threshold(creature))
+NUTRITION_LABELS = {
+    NutritionState.HUNGRY: "飢餓",
+    NutritionState.NORMAL: "通常",
+    NutritionState.FULL: "満腹",
+}
+
+
+def get_satiety_hungry_below(creature) -> float:
+    """満腹度比率がこれ以下なら飢餓。"""
+    return float(creature.traits.get("satiety_hungry_below", 0.15))
+
+
+def get_satiety_full_above(creature) -> float:
+    """満腹度比率の目標上限（巣での食事停止・HUD「満腹」表示）。"""
+    return float(creature.traits.get("satiety_full_above", 0.85))
+
+
+def satiety_feed_target(creature) -> float:
+    """巣食事の満腹度目標（絶対値）。"""
+    return get_satiety_full_above(creature) * creature.max_satiety
+
+
+def satiety_room_until_feed_target(creature) -> float:
+    """巣で satiety_full_above まで回復できる余地。"""
+    return max(0.0, satiety_feed_target(creature) - creature.satiety)
+
+
+def needs_nest_feed(creature) -> bool:
+    """巣食事の余地がある（full_above 未満）。"""
+    return satiety_room_until_feed_target(creature) > 0
+
+
+def get_nutrition_state(creature) -> str:
+    sat = satiety_ratio(creature)
+    if sat <= get_satiety_hungry_below(creature):
+        return NutritionState.HUNGRY
+    if sat >= get_satiety_full_above(creature):
+        return NutritionState.FULL
+    return NutritionState.NORMAL
 
 
 def is_hungry(creature) -> bool:
-    return hunger_ratio(creature) >= get_hunger_threshold(creature)
+    """瞬間的な飢餓（HUD 用）。行動 AI は needs_self_feed を使う。"""
+    return get_nutrition_state(creature) == NutritionState.HUNGRY
 
 
-def is_starving(creature) -> bool:
-    return hunger_ratio(creature) >= get_starvation_threshold(creature)
+def update_nutrition_recovery(creature) -> None:
+    """回復モードのラッチを満腹度に応じて更新する。"""
+    if not getattr(creature, "alive", True):
+        creature.nutrition_recovery = False
+        return
+    sat = satiety_ratio(creature)
+    if sat <= get_satiety_hungry_below(creature):
+        creature.nutrition_recovery = True
+    elif sat >= get_satiety_full_above(creature):
+        creature.nutrition_recovery = False
 
 
-def hunger_drive(creature) -> float:
-    """飢餓の強さ 0〜1（hunger_threshold 未満は 0、starvation 以上は 1）。"""
-    hunger = hunger_ratio(creature)
-    low = get_hunger_threshold(creature)
-    high = get_starvation_threshold(creature)
-    if hunger < low:
-        return 0.0
-    if high <= low:
-        return 1.0
-    return min(1.0, (hunger - low) / (high - low))
+def needs_self_feed(creature) -> bool:
+    """自己給餌モード（一度飢餓に入ったら satiety_full_above まで維持）。"""
+    update_nutrition_recovery(creature)
+    return bool(getattr(creature, "nutrition_recovery", False))
 
 
-def format_hunger_status(creature) -> str:
-    """HUD 用: 飢餓度・閾値・飢餓/飢餓深刻フラグ。"""
-    ratio = hunger_ratio(creature)
-    low = get_hunger_threshold(creature)
-    high = get_starvation_threshold(creature)
-    if is_starving(creature):
-        label = "飢餓深刻"
-    elif is_hungry(creature):
-        label = "飢餓"
-    else:
-        label = "満腹寄り"
-    return (
-        f"飢餓: {label} ({ratio * 100:.0f}%, 閾値 {low * 100:.0f}%"
-        f" / 深刻 {high * 100:.0f}%, drive {hunger_drive(creature):.2f})"
-    )
+def is_satiated(creature) -> bool:
+    """satiety_full_above 以上（巣食事不要・HUD 満腹表示）。"""
+    return not needs_nest_feed(creature)
+
+
+def format_nutrition_status(creature) -> str:
+    """HUD 用: 栄養状態と満腹度比率。"""
+    label = NUTRITION_LABELS[get_nutrition_state(creature)]
+    if needs_self_feed(creature) and not is_hungry(creature):
+        label = f"{label}・回復中"
+    return f"栄養: {label} ({satiety_ratio(creature) * 100:.0f}%)"
 
 
 def format_carry_status(creature) -> str | None:
@@ -222,7 +257,7 @@ def nest_feed_satiety_gain_estimate(
     if nest is None or nest.stored_food <= 0:
         return 0.0
 
-    hunger_room = max(0.0, creature.max_satiety - creature.satiety)
+    hunger_room = satiety_room_until_feed_target(creature)
     if hunger_room <= 0:
         return 0.0
 
@@ -292,6 +327,30 @@ def find_nearest_edible_among(creature, species_names, exclude=None):
 
     for other in creature.world.creatures:
         if other is exclude or not is_edible_prey(creature, other, names):
+            continue
+        dist = distance_between(creature, other)
+        if dist <= vision and dist < min_dist:
+            min_dist = dist
+            best = other
+    return best
+
+
+def find_nearest_field_carcass_among(creature, species_names, exclude=None):
+    """視界内で最も近い、現場に残る死骸（生きた個体は除外）。"""
+    if not creature.world:
+        return None
+
+    names = tuple(species_names)
+    best = None
+    min_dist = float("inf")
+    vision = creature.get_current_vision()
+
+    for other in creature.world.creatures:
+        if other is exclude:
+            continue
+        if other.alive or other.species.name not in names:
+            continue
+        if not carcass_on_field(creature.world, other):
             continue
         dist = distance_between(creature, other)
         if dist <= vision and dist < min_dist:

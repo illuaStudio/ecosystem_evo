@@ -13,18 +13,18 @@ from src.utils.creature_helpers import (
     current_size,
     distance_to_point,
     find_nearest_edible,
+    find_nearest_edible_among,
+    find_nearest_field_carcass_among,
     has_edible_carcass,
-    hunger_drive,
     hunger_ratio,
-    is_hungry,
-    is_starving,
+    needs_self_feed,
     is_trackable_target,
     move_toward,
     move_toward_contact,
     move_toward_point,
-    find_nearest_edible_among,
     is_trackable_prey,
     nest_has_usable_food,
+    needs_nest_feed,
     release_carried_carcass,
     satiety_ratio,
     try_attack_only,
@@ -172,18 +172,38 @@ class ChaseAction(Action):
             return False
 
         pad = float(self.params["contact_padding"])
-        dist = move_toward_contact(
-            creature, target, self.params["speed_multiplier"], pad
-        )
-        if dist <= contact_range(creature, target, pad):
-            try_predate(
+        reach = contact_range(creature, target, pad)
+        target_type = self.params["target_type"]
+
+        if not target.alive:
+            if not carcass_on_field(creature.world, target):
+                self._target = None
+                return False
+            dist = move_toward(
                 creature,
                 target,
-                attack_power=float(self.params["attack_power"]),
-                bite_gain=float(self.params["bite_gain"]),
+                float(self.params["speed_multiplier"]),
             )
-            if target.alive or not has_edible_carcass(target):
-                self._target = None
+            if dist <= reach * 1.05:
+                consume_carcass(
+                    creature,
+                    target,
+                    bite_gain=float(self.params["bite_gain"]),
+                )
+        else:
+            dist = move_toward_contact(
+                creature, target, self.params["speed_multiplier"], pad
+            )
+            if dist <= reach:
+                try_predate(
+                    creature,
+                    target,
+                    attack_power=float(self.params["attack_power"]),
+                    bite_gain=float(self.params["bite_gain"]),
+                )
+
+        if not is_trackable_target(creature, target, target_type):
+            self._target = None
 
         return False
 
@@ -194,12 +214,11 @@ class ChaseAction(Action):
         if prey is None:
             return 0.0
 
-        if not is_hungry(creature):
+        if not needs_self_feed(creature):
             return 0.0
 
-        drive = hunger_drive(creature)
         closeness = closeness_ratio(creature, prey)
-        return min(1.0, max(drive, 0.15) * (0.35 + closeness * 0.65))
+        return min(1.0, 0.35 + closeness * 0.65)
 
     def _resolve_target(self, creature):
         target_type = self.params["target_type"]
@@ -256,6 +275,10 @@ class HuntAction(Action):
         if target is None:
             return False
 
+        if needs_self_feed(creature) and self._nest_blocks_hunt(creature):
+            self._target = None
+            return False
+
         pad = float(self.params["contact_padding"])
         reach = contact_range(creature, target, pad)
 
@@ -265,13 +288,13 @@ class HuntAction(Action):
                 return False
             dist = move_toward(creature, target, self.params["speed_multiplier"])
             if dist <= reach * 1.05:
-                if is_hungry(creature):
+                if needs_self_feed(creature):
                     consume_carcass(
                         creature,
                         target,
                         bite_gain=float(self.params["bite_gain"]),
                     )
-                elif self.params.get("pickup_on_kill", True):
+                elif not needs_self_feed(creature) and self.params.get("pickup_on_kill", True):
                     if try_pickup_carcass(creature, target, pad):
                         self.completed = True
                         self._target = None
@@ -284,6 +307,10 @@ class HuntAction(Action):
                         )
             if not is_trackable_prey(creature, target, self._prey_species()):
                 self._target = None
+            return False
+
+        if needs_self_feed(creature) and self._nest_blocks_hunt(creature):
+            self._target = None
             return False
 
         dist = move_toward_contact(
@@ -308,11 +335,11 @@ class HuntAction(Action):
         )
 
     def _hunt_drive(self, creature) -> float:
-        """飢餓時: 巣で十分食べられるなら狩らない。満腹時: コロニー備蓄動機（従来どおり）。"""
-        if is_hungry(creature):
+        """飢餓時: 巣で食べられるなら狩らない。通常・満腹帯: 備蓄狩り。"""
+        if needs_self_feed(creature):
             if self._nest_blocks_hunt(creature):
                 return 0.0
-            return hunger_drive(creature)
+            return 1.0
 
         if not creature.world:
             return 0.0
@@ -369,16 +396,15 @@ class ScavengeCarriedAction(Action):
         )
         if not colony.is_carrying:
             return False
-        if not is_hungry(creature):
+        if not needs_self_feed(creature):
             release_carried_carcass(creature)
         return False
 
     def calculate_utility(self, creature) -> float:
         colony = getattr(creature, "colony", None)
-        if colony is None or not colony.is_carrying or not is_hungry(creature):
+        if colony is None or not colony.is_carrying or not needs_self_feed(creature):
             return 0.0
-        drive = hunger_drive(creature)
-        return min(1.0, 0.55 + drive * 0.45)
+        return 0.85
 
 
 class ReturnToNestAction(Action):
@@ -394,7 +420,7 @@ class ReturnToNestAction(Action):
         colony = getattr(creature, "colony", None)
         if colony is None or not colony.is_carrying or not creature.world:
             return False
-        if is_hungry(creature):
+        if needs_self_feed(creature):
             return False
 
         nest = creature.world.nest_system.get_creature_nest(creature)
@@ -416,7 +442,7 @@ class ReturnToNestAction(Action):
         colony = getattr(creature, "colony", None)
         if colony is None or not colony.is_carrying:
             return 0.0
-        if is_hungry(creature) or not creature.world:
+        if needs_self_feed(creature) or not creature.world:
             return 0.0
 
         nest = creature.world.nest_system.get_creature_nest(creature)
@@ -430,7 +456,7 @@ class ReturnToNestAction(Action):
 
 
 class FeedAtNestAction(Action):
-    """飢餓時に巣へ向かい、貯蔵から食事する（餌がなければ巣へ接近のみ）。"""
+    """巣で satiety_full_above まで食事。飢餓時は巣へ向かい、途中の死骸も食べる。"""
 
     DEFAULT_PARAMS = {
         "bite_gain": 1.15,
@@ -439,12 +465,59 @@ class FeedAtNestAction(Action):
         "approach_speed_multiplier": 0.95,
         "min_usable_food_ratio": 0.01,
         "min_usable_satiety_gain": 1.0,
+        "scavenge_species": None,
+        "scavenge_contact_padding": 10.0,
     }
+
+    def _has_usable_food(self, creature) -> bool:
+        return nest_has_usable_food(
+            creature,
+            min_food_ratio=float(self.params["min_usable_food_ratio"]),
+            min_satiety_gain=float(self.params["min_usable_satiety_gain"]),
+        )
+
+    def _scavenge_species(self) -> tuple[str, ...] | None:
+        raw = self.params.get("scavenge_species")
+        if not raw:
+            return None
+        return tuple(raw)
+
+    def _try_scavenge_on_path(self, creature) -> bool:
+        if not needs_self_feed(creature):
+            return False
+        species = self._scavenge_species()
+        if species is None:
+            return False
+        carcass = find_nearest_field_carcass_among(
+            creature, species, exclude=creature
+        )
+        if carcass is None:
+            return False
+        pad = float(self.params["scavenge_contact_padding"])
+        reach = contact_range(creature, carcass, pad)
+        dist = move_toward(
+            creature,
+            carcass,
+            float(self.params.get("approach_speed_multiplier", 0.95)),
+        )
+        if dist <= reach * 1.05:
+            consume_carcass(
+                creature,
+                carcass,
+                bite_gain=float(self.params["bite_gain"]),
+            )
+        # 死骸へ向かったティックは巣接近と併用しない（逆向きで移動が相殺される）
+        return True
 
     def execute(self, creature) -> bool:
         if not creature.world or getattr(creature, "colony", None) is None:
             return False
         if creature.colony.is_carrying:
+            return False
+        if not needs_nest_feed(creature):
+            return False
+
+        if self._try_scavenge_on_path(creature):
             return False
 
         ns = creature.world.nest_system
@@ -454,19 +527,16 @@ class FeedAtNestAction(Action):
 
         feed_radius = float(self.params["feed_radius"])
         if not ns.is_at_nest(creature, feed_radius):
-            move_toward_point(
-                creature,
-                nest.x,
-                nest.y,
-                float(self.params.get("approach_speed_multiplier", 0.95)),
-            )
+            if needs_self_feed(creature) and self._has_usable_food(creature):
+                move_toward_point(
+                    creature,
+                    nest.x,
+                    nest.y,
+                    float(self.params.get("approach_speed_multiplier", 0.95)),
+                )
             return False
 
-        if not nest_has_usable_food(
-            creature,
-            min_food_ratio=float(self.params["min_usable_food_ratio"]),
-            min_satiety_gain=float(self.params["min_usable_satiety_gain"]),
-        ):
+        if not self._has_usable_food(creature):
             return False
 
         ns.feed_creature(
@@ -480,12 +550,7 @@ class FeedAtNestAction(Action):
         colony = getattr(creature, "colony", None)
         if colony is None or colony.is_carrying or not creature.world:
             return 0.0
-
-        if not is_hungry(creature):
-            return 0.0
-
-        drive = hunger_drive(creature)
-        if drive <= 0.0:
+        if not needs_nest_feed(creature):
             return 0.0
 
         ns = creature.world.nest_system
@@ -493,26 +558,22 @@ class FeedAtNestAction(Action):
         if nest is None:
             return 0.0
 
+        usable = self._has_usable_food(creature)
         feed_radius = float(self.params["feed_radius"])
         at_nest = ns.is_at_nest(creature, feed_radius)
-        usable = nest_has_usable_food(
-            creature,
-            min_food_ratio=float(self.params["min_usable_food_ratio"]),
-            min_satiety_gain=float(self.params["min_usable_satiety_gain"]),
-        )
 
-        if not usable:
-            return 0.0
+        if at_nest and usable:
+            fill = nest.food_ratio
+            base = 0.55 + fill * 0.45
+            return min(1.0, base + (0.25 if needs_self_feed(creature) else 0.0))
 
-        if not at_nest:
+        if needs_self_feed(creature) and usable:
             dist = ns.distance_to_nest(creature)
             vision = max(creature.get_current_vision(), 1.0)
             closeness = max(0.0, min(1.0, 1.0 - dist / vision))
-            return min(1.0, drive * (0.45 + closeness * 0.55))
+            return min(1.0, 0.45 + closeness * 0.55)
 
-        fill = nest.food_ratio
-        boost = 0.2 if is_starving(creature) else 0.0
-        return min(1.0, drive * (0.55 + fill * 0.45) + boost)
+        return 0.0
 
 
 class NestPatrolAction(Action):
@@ -569,7 +630,7 @@ class NestPatrolAction(Action):
         if colony is None or colony.is_carrying or not creature.world:
             return 0.0
 
-        if is_hungry(creature):
+        if needs_self_feed(creature):
             return 0.0
 
         hunger = hunger_ratio(creature)
@@ -737,7 +798,7 @@ class SpawnWorkerAction(ReproductionAction):
     def calculate_utility(self, creature) -> float:
         if not self.can_execute(creature):
             return 0.0
-        if is_hungry(creature):
+        if needs_self_feed(creature):
             return 0.0
 
         ns = creature.world.nest_system

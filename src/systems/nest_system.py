@@ -7,7 +7,11 @@ import random
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from src.utils.creature_helpers import distance_to_point
+from src.utils.creature_helpers import (
+    distance_to_point,
+    satiety_feed_target,
+    satiety_room_until_feed_target,
+)
 from src.utils.position_helpers import entity_xy
 
 if TYPE_CHECKING:
@@ -263,7 +267,7 @@ class NestSystem:
         if nest is None or nest.stored_food <= 0:
             return 0.0
 
-        hunger_room = max(0.0, creature.max_satiety - creature.satiety)
+        hunger_room = satiety_room_until_feed_target(creature)
         if hunger_room <= 0:
             return 0.0
 
@@ -275,7 +279,10 @@ class NestSystem:
             return 0.0
 
         nest.stored_food -= take
-        creature.satiety = min(creature.max_satiety, creature.satiety + take * bite_gain)
+        creature.satiety = min(
+            satiety_feed_target(creature),
+            creature.satiety + take * bite_gain,
+        )
         return take
 
     def member_count(self, nest_id: int, species_name: str) -> int:

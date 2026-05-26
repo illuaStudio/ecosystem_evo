@@ -10,8 +10,8 @@ ESSENTIAL_TRAIT_KEYS = frozenset({
     "max_hp",
     "max_satiety",
     "metabolism_rate",
-    "hunger_threshold",
-    "starvation_threshold",
+    "satiety_hungry_below",
+    "satiety_full_above",
 })
 
 TRAIT_DEFAULTS = {
@@ -23,8 +23,8 @@ TRAIT_DEFAULTS = {
     "max_hp": 100.0,
     "max_satiety": 80.0,
     "metabolism_rate": 0.5,
-    "hunger_threshold": 0.50,
-    "starvation_threshold": 0.72,
+    "satiety_hungry_below": 0.15,
+    "satiety_full_above": 0.85,
 }
 
 
@@ -46,8 +46,16 @@ def normalize_life_cycle(raw: dict) -> dict:
 def normalize_traits(raw: dict) -> dict:
     """JSON の traits を身体特性のみに正規化し、欠損キーにデフォルトを補う。"""
     traits = {k: raw[k] for k in ESSENTIAL_TRAIT_KEYS if k in raw}
+    if "satiety_hungry_below" not in traits and "hunger_threshold" in raw:
+        traits["satiety_hungry_below"] = 1.0 - float(raw["hunger_threshold"])
     for key, default in TRAIT_DEFAULTS.items():
         traits.setdefault(key, default)
+    hungry = float(traits["satiety_hungry_below"])
+    full = float(traits["satiety_full_above"])
+    if full <= hungry:
+        full = min(1.0, hungry + 0.05)
+    traits["satiety_hungry_below"] = hungry
+    traits["satiety_full_above"] = full
     # max_size 未指定時は base_size と同じ（成長なし種用）
     if "max_size" not in raw and "base_size" in raw:
         traits["max_size"] = float(raw["base_size"])

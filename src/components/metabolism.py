@@ -1,7 +1,7 @@
 """代謝・成長・空腹による HP 影響を担当するコンポーネント（データ + 更新ロジック）。"""
 from typing import Any
 
-from src.utils.creature_helpers import current_size, satiety_ratio
+from src.utils.creature_helpers import current_size, satiety_ratio, update_nutrition_recovery
 
 
 class MetabolismComponent:
@@ -17,6 +17,7 @@ class MetabolismComponent:
             True なら HP が尽きて死骸化が必要（呼び出し側で become_corpse を実行）。
         """
         dt = float(dt)
+        update_nutrition_recovery(self.owner)
         self.apply_growth(dt)
         self._apply_metabolism(dt)
         return self.owner.hp <= 0

@@ -40,6 +40,7 @@ class Creature(BaseEntity):
         self.hp = self.max_hp
         self.max_satiety = float(self.traits.get("max_satiety", 80))
         self.satiety = self.max_satiety
+        self.nutrition_recovery = False
 
         self.world = None
         self.last_pos = self.pos.copy()

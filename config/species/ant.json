@@ -24,8 +24,8 @@
     "max_hp": 120.0,
     "max_satiety": 100.0,
     "metabolism_rate": 0.05,
-    "hunger_threshold": 0.85,
-    "starvation_threshold": 0.68
+    "satiety_hungry_below": 0.15,
+    "satiety_full_above": 0.85
   },
   "mind": {
     "type": "utility",
@@ -45,7 +45,8 @@
           "max_take_ratio": 0.14,
           "feed_radius": 38,
           "min_usable_food_ratio": 0.01,
-          "min_usable_satiety_gain": 1.0
+          "min_usable_satiety_gain": 1.0,
+          "scavenge_species": ["Amoeba", "Spider"]
         }
       },
       {

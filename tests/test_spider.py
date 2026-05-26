@@ -1,4 +1,5 @@
 """Spider（アメーバ捕食・アリの大型獲物）のスモークテスト。"""
+import math
 import unittest
 
 from src.ai.actions import ChaseAction, WanderAction
@@ -85,6 +86,40 @@ class TestSpider(unittest.TestCase):
         self.assertGreater(spider.satiety, satiety_before)
         self.assertLess(hunger_ratio(spider), hunger_before)
         self.assertIsNone(getattr(spider, "colony", None))
+
+    def test_chase_eats_carcass_sandwiched_without_long_freeze(self):
+        """上下の死骸に挟まれても、接触圏内で満腹度が回復する（standoff 張り付き防止）。"""
+        world = World()
+        for c in list(world.creatures):
+            world.remove_creature(c)
+
+        factory = CreatureFactory()
+        spider = factory.create("Spider", world=world, x=500, y=500)
+        top = factory.create("Amoeba", world=world, x=500, y=433)
+        bottom = factory.create("Amoeba", world=world, x=500, y=567)
+        for carcass in (top, bottom):
+            carcass.alive = False
+            carcass.remaining_biomass = 60.0
+        world.add_creature(spider)
+        world.add_creature(top)
+        world.add_creature(bottom)
+
+        spider.satiety = spider.max_satiety * 0.01
+        spider.nutrition_recovery = True
+
+        freeze_at_starvation = 0
+        for tick in range(120):
+            sat_before = spider.satiety
+            spider.update(1.0)
+            if (
+                type(spider.current_action).__name__ == "ChaseAction"
+                and spider.satiety <= sat_before + 0.05
+                and spider.satiety < spider.max_satiety * 0.1
+            ):
+                freeze_at_starvation += 1
+
+        self.assertGreater(spider.satiety, spider.max_satiety * 0.3)
+        self.assertLess(freeze_at_starvation, 30)
 
     def test_ant_hunts_spider_kill_pickup_deposit(self):
         world = World()
