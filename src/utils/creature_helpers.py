@@ -107,6 +107,150 @@ def hunger_ratio(creature) -> float:
     return 1.0 - satiety_ratio(creature)
 
 
+def get_hunger_threshold(creature) -> float:
+    """traits.hunger_threshold — この空腹度以上で「飢餓」（餌を求める）。"""
+    return float(creature.traits.get("hunger_threshold", 0.50))
+
+
+def get_starvation_threshold(creature) -> float:
+    """traits.starvation_threshold — 飢餓より深刻。必ず hunger_threshold 以上になるよう補正。"""
+    starve = float(creature.traits.get("starvation_threshold", 0.72))
+    return max(starve, get_hunger_threshold(creature))
+
+
+def is_hungry(creature) -> bool:
+    return hunger_ratio(creature) >= get_hunger_threshold(creature)
+
+
+def is_starving(creature) -> bool:
+    return hunger_ratio(creature) >= get_starvation_threshold(creature)
+
+
+def hunger_drive(creature) -> float:
+    """飢餓の強さ 0〜1（hunger_threshold 未満は 0、starvation 以上は 1）。"""
+    hunger = hunger_ratio(creature)
+    low = get_hunger_threshold(creature)
+    high = get_starvation_threshold(creature)
+    if hunger < low:
+        return 0.0
+    if high <= low:
+        return 1.0
+    return min(1.0, (hunger - low) / (high - low))
+
+
+def nest_stored_food(creature, default: float = 0.0) -> float:
+    world = getattr(creature, "world", None)
+    if world is None:
+        return default
+    colony = getattr(creature, "colony", None)
+    if colony is None:
+        return default
+    nest = world.nest_system.get_creature_nest(creature)
+    if nest is None:
+        return default
+    return float(nest.stored_food)
+
+
+def nest_has_food(creature, min_food: float = 8.0) -> bool:
+    """stored_food が絶対量の下限を超えるか（粗い判定）。"""
+    return nest_stored_food(creature) > min_food
+
+
+def nest_feed_satiety_gain_estimate(
+    creature,
+    *,
+    max_take_ratio: float = 0.14,
+    bite_gain: float = 1.15,
+) -> float:
+    """次の1ティックで巣から得られる満腹度の見積もり。"""
+    world = getattr(creature, "world", None)
+    if world is None:
+        return 0.0
+    colony = getattr(creature, "colony", None)
+    if colony is None:
+        return 0.0
+    nest = world.nest_system.get_creature_nest(creature)
+    if nest is None or nest.stored_food <= 0:
+        return 0.0
+
+    hunger_room = max(0.0, creature.max_satiety - creature.satiety)
+    if hunger_room <= 0:
+        return 0.0
+
+    members = max(
+        1, world.nest_system.member_count(nest.id, creature.species.name)
+    )
+    per_member_ratio = float(max_take_ratio) / members
+    max_take = nest.stored_food * per_member_ratio
+    take = min(nest.stored_food, max_take, hunger_room / float(bite_gain))
+    return take * float(bite_gain)
+
+
+def nest_has_usable_food(
+    creature,
+    *,
+    min_satiety_gain: float = 1.0,
+    min_food_ratio: float = 0.01,
+    min_absolute: float = 8.0,
+) -> bool:
+    """
+    巣の備蓄が「食事として意味がある」か。
+    極端に少ない備蓄（8/5000 など）はなし扱い。
+    """
+    stored = nest_stored_food(creature)
+    if stored <= min_absolute:
+        return False
+
+    world = getattr(creature, "world", None)
+    if world is not None:
+        colony = getattr(creature, "colony", None)
+        if colony is not None:
+            nest = world.nest_system.get_creature_nest(creature)
+            if nest is not None and nest.max_food > 0:
+                if stored / float(nest.max_food) < min_food_ratio:
+                    return False
+
+    return nest_feed_satiety_gain_estimate(creature) >= min_satiety_gain
+
+
+def is_edible_prey(creature, target, species_names) -> bool:
+    if target is None or target is creature:
+        return False
+    names = species_names if isinstance(species_names, (list, tuple, set)) else (species_names,)
+    if target.species.name not in names:
+        return False
+    if target.alive:
+        return True
+    world = getattr(creature, "world", None)
+    return is_unclaimed_carcass(world, target)
+
+
+def is_trackable_prey(creature, target, species_names) -> bool:
+    return is_edible_prey(creature, target, species_names) and is_in_vision(
+        creature, target
+    )
+
+
+def find_nearest_edible_among(creature, species_names, exclude=None):
+    """複数種のうち視界内で最も近い獲物／死骸。"""
+    if not creature.world:
+        return None
+
+    names = tuple(species_names)
+    best = None
+    min_dist = float("inf")
+    vision = creature.get_current_vision()
+
+    for other in creature.world.creatures:
+        if other is exclude or not is_edible_prey(creature, other, names):
+            continue
+        dist = distance_between(creature, other)
+        if dist <= vision and dist < min_dist:
+            min_dist = dist
+            best = other
+    return best
+
+
 def hp_ratio(creature) -> float:
     """HPの割合（0〜1）"""
     if creature.max_hp <= 0:
@@ -291,6 +435,22 @@ def sync_carried_carcass(creature) -> None:
         carcass.position.y = cy
     carcass.pos[0] = cx
     carcass.pos[1] = cy
+
+
+def release_carried_carcass(carrier) -> None:
+    """運搬をやめ、残存バイオマスがあればワールドに死骸を戻す。"""
+    colony = getattr(carrier, "colony", None)
+    if colony is None or not colony.is_carrying:
+        return
+
+    carcass = colony.carried_carcass
+    colony.carried_carcass = None
+    if carcass is None:
+        return
+
+    world = carrier.world
+    if world is not None and has_edible_carcass(carcass) and carcass not in world.creatures:
+        world.add_creature(carcass)
 
 
 def try_pickup_carcass(carrier, carcass, contact_padding: float = 8.0) -> bool:

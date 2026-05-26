@@ -10,6 +10,8 @@ ESSENTIAL_TRAIT_KEYS = frozenset({
     "max_hp",
     "max_satiety",
     "metabolism_rate",
+    "hunger_threshold",
+    "starvation_threshold",
 })
 
 TRAIT_DEFAULTS = {
@@ -21,6 +23,8 @@ TRAIT_DEFAULTS = {
     "max_hp": 100.0,
     "max_satiety": 80.0,
     "metabolism_rate": 0.5,
+    "hunger_threshold": 0.50,
+    "starvation_threshold": 0.72,
 }
 
 

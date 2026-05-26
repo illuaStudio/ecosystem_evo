@@ -14,7 +14,8 @@
 
   "initial_entities": {
     "Amoeba": 10,
-    "Ant": 3
+    "Ant": 3,
+    "Spider": 2
   },
 
   "world": {

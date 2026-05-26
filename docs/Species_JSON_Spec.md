@@ -105,10 +105,13 @@
 | max_hp | float | 最大体力 | 40〜150 | 100.0 |
 | max_satiety | float | 最大満腹度 | 30〜120 | 80.0 |
 | metabolism_rate | float | 1 ティックあたりの満腹度減少。大きいほど空腹になりやすい | 0.3〜1.2 | 0.5 |
+| hunger_threshold | float | 空腹度（1 − 満腹度比率）がこれ以上で **飢餓**。餌を求める行動が優先 | 0.45〜0.55 | 0.50 |
+| starvation_threshold | float | 空腹度がこれ以上で **深刻な飢餓**（`hunger_drive` が 1 に近づく）。`hunger_threshold` 以上に設定 | 0.65〜0.80 | 0.72 |
 
 **ゲーム内での使われ方（参考）**
 
 - 毎ティック: `satiety -= metabolism_rate`。満腹度が 0 を下回ると HP が減少
+- 空腹度: `hunger_ratio = 1 - satiety / max_satiety`。`is_hungry` / `is_starving` / `hunger_drive` で行動 AI が参照
 - 成長: 生存中かつ `base_size < max_size` のとき、`growth_rate × satiety_ratio` だけ `base_size` 増加
 - 分裂後: SplitAction が親の `base_size` に `size_reduction` を乗算
 
@@ -148,7 +151,7 @@
 | description | string | 任意 | 人間向けメモ。コードでは未使用 |
 | params | object | 任意 | Action 固有パラメータ。省略時は `actions.py` の `DEFAULT_PARAMS` |
 
-**登録済み Action 名:** `WanderAction`, `ManaWanderAction`, `ChaseAction`, `HuntAction`, `ReturnToNestAction`, `FeedAtNestAction`, `NestPatrolAction`, `SplitAction`
+**登録済み Action 名:** `WanderAction`, `ManaWanderAction`, `ChaseAction`, `HuntAction`, `ScavengeCarriedAction`, `ReturnToNestAction`, `FeedAtNestAction`, `NestPatrolAction`, `SpawnWorkerAction`, `SplitAction`
 
 ---
 
@@ -223,27 +226,38 @@
 
 #### HuntAction の params
 
-`ChaseAction` と違い **その場で食べない**。攻撃→殺害→死骸を拾い `ReturnToNestAction` へ渡す。
+満腹時: 攻撃→殺害→死骸を拾い `ReturnToNestAction` へ。**飢餓時**（`traits.hunger_threshold`）: 巣に餌があれば狩らない。なければ狩り、殺害後はその場で `consume_carcass`（持ち帰らない）。
 
 | キー | 型 | 意味 | デフォルト |
 |------|----|------|-----------|
-| target_type | string | 獲物の種名 | `"Amoeba"` |
+| target_type | string | 獲物の種名（単一種） | `"Amoeba"` |
+| target_types | string[] | 複数種を狩る場合（`target_type` より優先）。例: `["Amoeba", "Spider"]` | — |
 | speed_multiplier | float | 追跡移動倍率 | 1.3 |
 | contact_padding | float | 接触・拾い判定の余白 | 8.0 |
 | attack_power | float | bite ダメージ倍率 | 1.2 |
-| pickup_on_kill | bool | 殺害直後に死骸を拾う | true |
-| hunger_threshold | float | 個人の空腹がこれ未満なら「自分のため」の狩り動機は弱い | 0.28 |
-| colony_hoard_strength | float | コロニー備蓄のための狩り動機（常時、0〜1）。満腹でもこの値が下限になる | 0.8 |
+| pickup_on_kill | bool | 満腹時、殺害直後に死骸を拾う | true |
+| bite_gain | float | 飢餓時のその場食事効率 | 1.35 |
+| colony_hoard_strength | float | **満腹時**のコロニー備蓄のための狩り動機（0〜1） | 0.8 |
+| min_usable_food_ratio | float | 備蓄率がこれ未満なら「巣に餌あり」とみなさない | 0.01 |
+| min_usable_satiety_gain | float | 1 回の食事で得られる満腹度見積もりがこれ未満なら同左 | 1.0 |
 
-**utility:** 個人空腹と `colony_hoard_strength` のうち強い方でスコア化。巣の備蓄量に関係なく、獲物がいれば持ち帰りに行く。死骸は他者が運搬中なら対象外（排他拾い）。
+**utility:** 飢餓時は `hunger_drive`（traits 閾値）。満腹時は `colony_hoard_strength` で **常に狩り・持ち帰り**（従来どおり）。死骸は他者が運搬中なら対象外。
 
-**備蓄率（表示用）:** `Nest.food_ratio` = `stored_food / max_food`（0〜1）。UI の「備蓄率」表示に使用。狩りの動機には使わない。
+---
+
+#### ScavengeCarriedAction の params
+
+**飢餓時のみ**。運搬中の死骸をその場で食べる（`ReturnToNestAction` より優先）。
+
+| キー | 型 | 意味 | デフォルト |
+|------|----|------|-----------|
+| bite_gain | float | 死骸消費効率 | 1.35 |
 
 ---
 
 #### ReturnToNestAction の params
 
-運搬中のみ高スコア。巣到達で死骸バイオマスを巣貯蔵へ移す。
+**満腹時のみ**運搬中に高スコア。飢餓時は utility 0（`ScavengeCarriedAction` が担当）。
 
 | キー | 型 | 意味 | デフォルト |
 |------|----|------|-----------|
@@ -254,7 +268,7 @@
 
 #### FeedAtNestAction の params
 
-巣の貯蔵から満腹度を回復（コロニー共有の餌）。
+**飢餓時**（`traits.hunger_threshold`）に巣へ向かい、貯蔵から満腹度を回復。餌がなくても巣へ接近する（その後 `HuntAction` が狩りを担当）。
 
 | キー | 型 | 意味 | デフォルト |
 |------|----|------|-----------|
@@ -340,7 +354,11 @@
 
 ### Ant（コロニー・狩り・持ち帰り・巣で食事）
 
-`config/species/ant.json` を参照。`colony.enabled` で巣を共有。行動は **狩り → 持ち帰り → 巣で食事 → 巡回** のループを想定。プレイヤー関与種として `P` キーで手動スポーン可能。
+`config/species/ant.json` を参照。満腹時は **Amoeba + Spider** を狩って巣へ貯蔵。飢餓時のみ巣食事・その場食事を優先。
+
+### Spider（大型獲物・徘徊のみ）
+
+`config/species/spider.json` を参照。高 HP・大サイズ・`WanderAction` のみ。アリのフェーズ1狩り対象。`life_cycle` なし（常に Adult、自然死なし）。
 
 ---
 
@@ -368,3 +386,5 @@ JSON の構造やパラメータを変更したときは、次をセットで更
 | 2026-05-25 | 巣備蓄を食料＋マナ漏洩（C 案）に変更 |
 | 2026-05-25 | SpawnWorkerAction・colony 成長パラメータ |
 | 2026-05-25 | Hunt コロニー備蓄動機・死骸運搬の排他 |
+| 2026-05-26 | Spider（フェーズ1大型獲物）・Ant の target_type を Spider に |
+| 2026-05-26 | 飢餓 traits（hunger/starvation_threshold）・ScavengeCarriedAction |

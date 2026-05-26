@@ -82,11 +82,12 @@ class TestAntNest(unittest.TestCase):
         world = World()
         preds = self._spawn_predators(world, 1)
         predator = preds[0]
+        predator.satiety = predator.max_satiety * 0.95
         nest = world.nest_system.get_creature_nest(predator)
 
-        prey = world.creatures[0]
-        if prey.species.name == "Ant":
-            prey = next(c for c in world.creatures if c.species.name == "Amoeba")
+        factory = CreatureFactory()
+        prey = factory.create("Amoeba", world=world, x=0, y=0)
+        world.add_creature(prey)
 
         px, py = entity_xy(predator)
         prey.pos[0] = px + 12
@@ -95,7 +96,7 @@ class TestAntNest(unittest.TestCase):
             prey.position.x = prey.pos[0]
             prey.position.y = prey.pos[1]
 
-        for _ in range(8):
+        for _ in range(12):
             if not prey.alive:
                 break
             try_attack_only(predator, prey, attack_power=2.5)
@@ -217,7 +218,7 @@ class TestAntNest(unittest.TestCase):
         nest = world.nest_system.get_creature_nest(predator)
         predator.satiety = predator.max_satiety * 0.95
 
-        prey = next(c for c in world.creatures if c.species.name == "Amoeba")
+        prey = next(c for c in world.creatures if c.species.name == "Spider")
         px, py = entity_xy(predator)
         prey.pos[0] = px + 20
         prey.pos[1] = py
@@ -227,7 +228,7 @@ class TestAntNest(unittest.TestCase):
 
         from src.ai.actions import HuntAction
 
-        action = HuntAction()
+        action = HuntAction(target_types=["Amoeba", "Spider"])
         for stored in (0.0, nest.max_food * 0.5, nest.max_food):
             nest.stored_food = stored
             with self.subTest(stored_food=stored):
@@ -237,7 +238,9 @@ class TestAntNest(unittest.TestCase):
         world = World()
         preds = self._spawn_predators(world, 2)
         carrier, other = preds[0], preds[1]
-        prey = next(c for c in world.creatures if c.species.name == "Amoeba")
+        factory = CreatureFactory()
+        prey = factory.create("Amoeba", world=world, x=0, y=0)
+        world.add_creature(prey)
         px, py = entity_xy(carrier)
         prey.pos[0] = px + 10
         prey.pos[1] = py
@@ -245,7 +248,7 @@ class TestAntNest(unittest.TestCase):
             prey.position.x = prey.pos[0]
             prey.position.y = prey.pos[1]
 
-        for _ in range(8):
+        for _ in range(12):
             if not prey.alive:
                 break
             try_attack_only(carrier, prey, attack_power=2.5)
@@ -257,8 +260,11 @@ class TestAntNest(unittest.TestCase):
         world = World()
         preds = self._spawn_predators(world, 1)
         predator = preds[0]
+        predator.satiety = predator.max_satiety * 0.95
         nest = world.nest_system.get_creature_nest(predator)
-        prey = next(c for c in world.creatures if c.species.name == "Amoeba")
+        factory = CreatureFactory()
+        prey = factory.create("Amoeba", world=world, x=0, y=0)
+        world.add_creature(prey)
         px, py = entity_xy(predator)
         prey.pos[0] = px + 10
         prey.pos[1] = py
@@ -266,11 +272,11 @@ class TestAntNest(unittest.TestCase):
             prey.position.x = prey.pos[0]
             prey.position.y = prey.pos[1]
 
-        for _ in range(8):
+        for _ in range(12):
             if not prey.alive:
                 break
             try_attack_only(predator, prey, attack_power=2.5)
-        try_pickup_carcass(predator, prey)
+        self.assertTrue(try_pickup_carcass(predator, prey))
         biomass = prey.remaining_biomass
         deposited = world.nest_system.deposit_carried(predator)
         self.assertGreater(deposited, 0)
