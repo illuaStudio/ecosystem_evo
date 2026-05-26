@@ -5,6 +5,11 @@ from src.config import config
 from src.ai.actions import SplitAction
 from src.rendering.nest_renderer import NestRenderer
 from src.utils.creature_helpers import current_size, format_life_stage_line, satiety_ratio
+from src.utils.hunt_helpers import (
+    describe_creature_short,
+    find_hunters_for_prey,
+    get_hunt_target,
+)
 from src.utils.position_helpers import entity_xy
 
 
@@ -46,7 +51,16 @@ class Renderer:
 
         for c in creatures:
             if hasattr(c, "draw"):
-                c.draw(self.screen, camera)
+                c.draw(
+                    self.screen,
+                    camera,
+                    is_selected=(
+                        selected_creature is not None and c is selected_creature
+                    ),
+                )
+
+        if world is not None and selected_creature is not None:
+            self._draw_hunt_overlays(world, camera, selected_creature)
 
         has_selection = selected_creature is not None or selected_nest is not None
         self._draw_hud_panels(has_selection=has_selection, show_debug=show_debug)
@@ -152,6 +166,24 @@ class Renderer:
                 else:
                     texts.append("状態: 未運搬")
 
+            hunt_target = get_hunt_target(sc)
+            if hunt_target is not None:
+                texts.append(
+                    f"狩り対象: {describe_creature_short(hunt_target)}"
+                )
+            elif sc.alive and sc.current_action is not None:
+                if sc.current_action.__class__.__name__ == "HuntAction":
+                    texts.append("狩り対象: （未確定／視界外）")
+
+            if sc.alive and sc.species.name != "Ant":
+                hunters = find_hunters_for_prey(world, sc)
+                if hunters:
+                    texts.append(f"狩られ中: {len(hunters)} 匹のアリ")
+                    for hunter in hunters[:5]:
+                        texts.append(f"  ← {describe_creature_short(hunter)}")
+                    if len(hunters) > 5:
+                        texts.append(f"  …他 {len(hunters) - 5} 匹")
+
             for text in texts:
                 self.screen.blit(self.small_font.render(text, True, (255, 255, 255)), (15, y))
                 y += 24
@@ -199,6 +231,47 @@ class Renderer:
                 (255, 255, 100),
             )
             self.screen.blit(debug_text, (15, 110))
+
+    def _draw_hunt_overlays(self, world, camera, selected_creature) -> None:
+        """選択個体と狩り関係の線・ターゲットマーカー。"""
+        sc = selected_creature
+        hunt_target = get_hunt_target(sc)
+        if hunt_target is not None:
+            self._draw_hunt_link(sc, hunt_target, camera, (255, 90, 90))
+            self._draw_prey_marker(hunt_target, camera, (255, 120, 80))
+
+        hunters = find_hunters_for_prey(world, sc)
+        for hunter in hunters:
+            self._draw_hunt_link(hunter, sc, camera, (255, 60, 60))
+            hx, hy = entity_xy(hunter)
+            hsx = int(hx - camera.x)
+            hsy = int(hy - camera.y)
+            hsize = int(hunter.traits.get("base_size", 8))
+            pygame.draw.circle(
+                self.screen, (255, 100, 100), (hsx, hsy), hsize + 14, 2
+            )
+
+    def _draw_hunt_link(
+        self, predator, prey, camera, color: tuple[int, int, int]
+    ) -> None:
+        px, py = entity_xy(predator)
+        tx, ty = entity_xy(prey)
+        sx1, sy1 = int(px - camera.x), int(py - camera.y)
+        sx2, sy2 = int(tx - camera.x), int(ty - camera.y)
+        pygame.draw.line(self.screen, color, (sx1, sy1), (sx2, sy2), 2)
+        mid_x, mid_y = (sx1 + sx2) // 2, (sy1 + sy2) // 2
+        pygame.draw.circle(self.screen, color, (mid_x, mid_y), 4)
+
+    def _draw_prey_marker(self, prey, camera, color: tuple[int, int, int]) -> None:
+        tx, ty = entity_xy(prey)
+        sx = int(tx - camera.x)
+        sy = int(ty - camera.y)
+        size = int(prey.traits.get("base_size", 9))
+        pygame.draw.circle(self.screen, color, (sx, sy), size + 14, 2)
+        pygame.draw.circle(self.screen, (255, 240, 180), (sx, sy), size + 18, 1)
+        font = pygame.font.SysFont("msgothic", 12)
+        label = font.render("TARGET", True, (255, 220, 160))
+        self.screen.blit(label, (sx - 22, sy - size - 32))
 
     def _draw_nest_detail_panel(self, nest, world, y: int = 130) -> int:
         """選択中の巣の詳細 HUD。戻り値は次の描画 Y。"""

@@ -162,5 +162,5 @@ class Creature(BaseEntity):
         self.current_action = self.mind.decide_next_action(self)
         self.current_action.execute(self)
 
-    def draw(self, screen, camera):
-        CreatureRenderer.draw(self, screen, camera)
+    def draw(self, screen, camera, *, is_selected: bool = False):
+        CreatureRenderer.draw(self, screen, camera, is_selected=is_selected)

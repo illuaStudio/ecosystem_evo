@@ -96,8 +96,14 @@ class MovementSystem:
         target: Any,
         speed_multiplier: float = 1.0,
         dt: float = 1.0,
+        min_distance: float | None = None,
     ) -> float:
-        """ターゲット方向へ移動し、移動後の距離を返す。"""
+        """
+        ターゲット方向へ移動し、移動後の距離を返す。
+
+        min_distance を指定した場合、その距離より近づかない（相手サイズに応じた
+        接触リングの外側で止まる。攻撃判定の contact_range と揃える想定）。
+        """
         position = MovementSystem._require_position(entity)
         target_pos = MovementSystem._target_position(target)
 
@@ -107,7 +113,17 @@ class MovementSystem:
         if dist == 0:
             return 0.0
 
+        standoff = float(min_distance) if min_distance is not None else 0.0
+        if standoff > 0 and dist <= standoff:
+            return dist
+
         step = entity.get_current_speed() * speed_multiplier * float(dt)
+        if standoff > 0:
+            step = min(step, max(0.0, dist - standoff))
+
+        if step <= 0:
+            return dist
+
         position.x += (dx / dist) * step
         position.y += (dy / dist) * step
         sync_legacy_pos(entity)

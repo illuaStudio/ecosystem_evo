@@ -17,7 +17,7 @@ from src.utils.creature_helpers import (
     is_hungry,
     is_starving,
     is_trackable_target,
-    move_toward,
+    move_toward_contact,
     move_toward_point,
     find_nearest_edible_among,
     is_trackable_prey,
@@ -168,8 +168,11 @@ class ChaseAction(Action):
         if target is None:
             return False
 
-        dist = move_toward(creature, target, self.params["speed_multiplier"])
-        if dist <= contact_range(creature, target, self.params["contact_padding"]):
+        pad = float(self.params["contact_padding"])
+        dist = move_toward_contact(
+            creature, target, self.params["speed_multiplier"], pad
+        )
+        if dist <= contact_range(creature, target, pad):
             try_predate(
                 creature,
                 target,
@@ -245,8 +248,10 @@ class HuntAction(Action):
         if target is None:
             return False
 
-        dist = move_toward(creature, target, self.params["speed_multiplier"])
         pad = float(self.params["contact_padding"])
+        dist = move_toward_contact(
+            creature, target, self.params["speed_multiplier"], pad
+        )
         if dist <= contact_range(creature, target, pad):
             if target.alive:
                 try_attack_only(

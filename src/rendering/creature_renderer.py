@@ -9,7 +9,7 @@ class CreatureRenderer:
     """生物描画クラス（見えやすく強化）"""
 
     @staticmethod
-    def draw(creature, screen, camera):
+    def draw(creature, screen, camera, *, is_selected: bool = False):
         cx, cy = entity_xy(creature)
         sx = int(cx - camera.x)
         sy = int(cy - camera.y)
@@ -33,6 +33,10 @@ class CreatureRenderer:
 
         pygame.draw.circle(screen, color, (sx, sy), size + 2)
         pygame.draw.circle(screen, (255, 255, 255), (sx, sy), size + 2, 2)
+
+        if is_selected:
+            pygame.draw.circle(screen, (255, 240, 120), (sx, sy), size + 12, 2)
+            pygame.draw.circle(screen, (255, 200, 80), (sx, sy), size + 16, 1)
 
         bar_w = int(size * 3.0)
         bar_x = sx - bar_w // 2

@@ -348,12 +348,35 @@ def move_toward(
     target,
     speed_multiplier: float = 1.0,
     dt: float | None = None,
+    min_distance: float | None = None,
 ) -> float:
     """ターゲット方向へ移動し、移動後の距離を返す。"""
     from src.systems.movement_system import MovementSystem
 
     return MovementSystem.move_toward(
-        creature, target, speed_multiplier, _sim_dt(creature, dt)
+        creature,
+        target,
+        speed_multiplier,
+        _sim_dt(creature, dt),
+        min_distance=min_distance,
+    )
+
+
+def move_toward_contact(
+    creature,
+    target,
+    speed_multiplier: float = 1.0,
+    contact_padding: float = 8.0,
+    dt: float | None = None,
+) -> float:
+    """contact_range だけ近づき、相手の中心には入り込まない。"""
+    standoff = contact_range(creature, target, contact_padding)
+    return move_toward(
+        creature,
+        target,
+        speed_multiplier,
+        dt,
+        min_distance=standoff,
     )
 
 

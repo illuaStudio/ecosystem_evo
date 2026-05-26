@@ -233,7 +233,7 @@
 | target_type | string | 獲物の種名（単一種） | `"Amoeba"` |
 | target_types | string[] | 複数種を狩る場合（`target_type` より優先）。例: `["Amoeba", "Spider"]` | — |
 | speed_multiplier | float | 追跡移動倍率 | 1.3 |
-| contact_padding | float | 接触・拾い判定の余白 | 8.0 |
+| contact_padding | float | 接触・拾い・**接近停止**の余白（両者の `base_size` 之和 + この値で止まる） | 8.0 |
 | attack_power | float | bite ダメージ倍率 | 1.2 |
 | pickup_on_kill | bool | 満腹時、殺害直後に死骸を拾う | true |
 | bite_gain | float | 飢餓時のその場食事効率 | 1.35 |

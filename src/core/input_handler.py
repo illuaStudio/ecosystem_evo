@@ -68,6 +68,9 @@ class InputHandler:
         elif event.key == pygame.K_a:
             c = self.engine.creature_factory.create("Amoeba", world=self.engine.world)
             self.engine.world.add_creature(c)
+        elif event.key == pygame.K_s:
+            c = self.engine.creature_factory.create("Spider", world=self.engine.world)
+            self.engine.world.add_creature(c)
         elif event.key == pygame.K_p:
             world = self.engine.world
             colony_cfg = (config.get_species("Ant") or {}).get("colony", {})
