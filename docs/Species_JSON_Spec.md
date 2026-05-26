@@ -165,13 +165,15 @@
 
 #### ManaWanderAction の params
 
-徘徊しながら `World.mana` から満腹度を回復（主に Amoeba 向け）。
+自由徘徊しながら `World.mana` から満腹度を回復（主に Amoeba 向け）。局所マナ濃度が高いほど移動は鈍く、薄いほど速くランダムに探索する。
 
 | キー | 型 | 意味 | デフォルト |
 |------|----|------|-----------|
-| angle_range | float | 進路の乱れ（±度） | 30 |
-| speed_multiplier | float | 移動倍率 | 0.85 |
-| mana_absorption_rate | float | 1 ティックあたりの最大マナ吸収量（満腹度は max_satiety の 95% まで） | 0.8 |
+| angle_range_sparse | float | マナが薄いときの進路乱れ（±度） | 32 |
+| angle_range_dense | float | マナが濃いときの進路乱れ（±度） | 12 |
+| speed_multiplier_sparse | float | マナが薄いときの移動倍率 | 1.0 |
+| speed_multiplier_dense | float | マナが濃いときの移動倍率 | 0.35 |
+| mana_absorption_rate | float | 1 ティックあたりの最大マナ吸収量（満腹度は max_satiety の 95% まで） | 0.75 |
 
 **utility の目安:** 空腹度が高いほど選ばれやすい（0.75 + hunger × 0.25）
 

@@ -61,6 +61,45 @@ class WanderAction(Action):
         return 0.6
 
 
+class ManaWanderAction(Action):
+    """自由徘徊しながらマナを吸収。濃い場所は鈍く、薄い場所は活発にランダム探索。"""
+
+    DEFAULT_PARAMS = {
+        "angle_range_sparse": 32,
+        "angle_range_dense": 12,
+        "speed_multiplier_sparse": 1.0,
+        "speed_multiplier_dense": 0.35,
+        "mana_absorption_rate": 0.75,
+    }
+
+    def execute(self, creature) -> bool:
+        p = self.params
+        world = creature.world
+        if world is None:
+            wander_step(
+                creature,
+                p["angle_range_sparse"],
+                p["speed_multiplier_sparse"],
+            )
+            return False
+
+        cap = max(1.0, float(getattr(world, "mana_density_cap", 2500.0)))
+        pos = creature.position
+        density = world.get_mana_density(pos.x, pos.y)
+        t = min(1.0, max(0.0, density / cap))
+
+        angle = p["angle_range_sparse"] + (p["angle_range_dense"] - p["angle_range_sparse"]) * t
+        speed = p["speed_multiplier_sparse"] + (
+            p["speed_multiplier_dense"] - p["speed_multiplier_sparse"]
+        ) * t
+        wander_step(creature, angle, speed)
+        return False
+
+    def calculate_utility(self, creature) -> float:
+        hunger = hunger_ratio(creature)
+        return 0.75 + hunger * 0.25
+
+
 class ManaGradientWanderAction(Action):
     """マナの濃い方向へ移動傾向を強めた徘徊行動。
     局所勾配に従い、周囲の残量変化を見ながら少しずつ移動する。"""

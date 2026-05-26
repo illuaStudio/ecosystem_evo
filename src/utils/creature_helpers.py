@@ -347,7 +347,11 @@ def wander_step(
     from src.systems.movement_system import MovementSystem
 
     MovementSystem.wander_step(
-        creature, angle_range, speed_multiplier, _sim_dt(creature, dt)
+        creature,
+        angle_range,
+        speed_multiplier,
+        _sim_dt(creature, dt),
+        getattr(creature, "world", None),
     )
 
 

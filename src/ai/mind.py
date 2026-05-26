@@ -5,6 +5,7 @@ from src.ai.actions import (
     FeedAtNestAction,
     HuntAction,
     ManaGradientWanderAction,
+    ManaWanderAction,
     NestPatrolAction,
     ReturnToNestAction,
     SpawnWorkerAction,
@@ -14,8 +15,8 @@ from src.ai.actions import (
 
 ACTION_BY_NAME = {
     "WanderAction": WanderAction,
+    "ManaWanderAction": ManaWanderAction,
     "ManaGradientWanderAction": ManaGradientWanderAction,
-    "ManaWanderAction": ManaGradientWanderAction,
     "ChaseAction": ChaseAction,
     "HuntAction": HuntAction,
     "ReturnToNestAction": ReturnToNestAction,

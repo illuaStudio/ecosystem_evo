@@ -20,7 +20,7 @@ class ManaSystem:
         if world is None:
             return
 
-        from src.ai.actions import ManaGradientWanderAction
+        from src.ai.actions import ManaGradientWanderAction, ManaWanderAction
 
         for entity in entities:
             if not getattr(entity, "alive", True):
@@ -29,13 +29,17 @@ class ManaSystem:
             if not isinstance(affinity, ManaAffinity):
                 continue
             action = getattr(entity, "current_action", None)
-            if not isinstance(action, ManaGradientWanderAction):
-                continue
-            rate = float(
-                action.params.get("mana_absorption_rate", affinity.consumption_rate)
-            )
-            absorbed = self.absorb_mana(entity, world, affinity, rate, dt)
-            self._record_absorb_result(entity, world, absorbed, action.params)
+            if isinstance(action, ManaWanderAction):
+                rate = float(
+                    action.params.get("mana_absorption_rate", affinity.consumption_rate)
+                )
+                self.absorb_mana(entity, world, affinity, rate, dt)
+            elif isinstance(action, ManaGradientWanderAction):
+                rate = float(
+                    action.params.get("mana_absorption_rate", affinity.consumption_rate)
+                )
+                absorbed = self.absorb_mana(entity, world, affinity, rate, dt)
+                self._record_absorb_result(entity, world, absorbed, action.params)
 
     def apply_gradient_steering(
         self,
@@ -79,7 +83,7 @@ class ManaSystem:
 
         sim_dt = float(getattr(world, "sim_dt", 1.0))
         MovementSystem.wander_step(
-            entity, angle_range, speed_multiplier, sim_dt
+            entity, angle_range, speed_multiplier, sim_dt, world
         )
 
     def absorb_mana(

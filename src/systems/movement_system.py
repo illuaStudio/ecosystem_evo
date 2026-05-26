@@ -42,6 +42,7 @@ class MovementSystem:
         angle_range: float,
         speed_multiplier: float,
         dt: float = 1.0,
+        world: Any = None,
     ) -> None:
         """徘徊: wander_angle に沿って Position を更新する。"""
         position = MovementSystem._require_position(entity)
@@ -49,10 +50,45 @@ class MovementSystem:
         wander_angle += random.uniform(-angle_range, angle_range)
         entity.wander_angle = wander_angle
 
+        if world is not None:
+            MovementSystem._nudge_wander_from_bounds(entity, position, world)
+
         step = entity.get_current_speed() * speed_multiplier * float(dt)
-        position.x += math.cos(math.radians(wander_angle)) * step
-        position.y += math.sin(math.radians(wander_angle)) * step
+        position.x += math.cos(math.radians(entity.wander_angle)) * step
+        position.y += math.sin(math.radians(entity.wander_angle)) * step
         sync_legacy_pos(entity)
+
+    @staticmethod
+    def _nudge_wander_from_bounds(
+        entity: Any,
+        position: Position,
+        world: Any,
+        margin: float = WORLD_MARGIN,
+        band: float = 50.0,
+        strength: float = 0.4,
+    ) -> None:
+        """クランプ境界付近では内向きへ進路を寄せ、端への滞留を防ぐ。"""
+        inward_x = 0.0
+        inward_y = 0.0
+        x, y = position.x, position.y
+        w, h = float(world.width), float(world.height)
+
+        if x < margin + band:
+            inward_x += 1.0
+        elif x > w - margin - band:
+            inward_x -= 1.0
+        if y < margin + band:
+            inward_y += 1.0
+        elif y > h - margin - band:
+            inward_y -= 1.0
+
+        if inward_x == 0.0 and inward_y == 0.0:
+            return
+
+        target = math.degrees(math.atan2(inward_y, inward_x)) % 360
+        wander_angle = getattr(entity, "wander_angle", 0.0)
+        diff = ((target - wander_angle + 180) % 360) - 180
+        entity.wander_angle = (wander_angle + diff * strength) % 360
 
     @staticmethod
     def move_toward(
