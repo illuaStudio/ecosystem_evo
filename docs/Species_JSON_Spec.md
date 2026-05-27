@@ -213,6 +213,7 @@
 | join_radius | float | `single_colony: false` 時の合流半径（px） | 200 |
 | deposit_radius | float | 持ち帰り判定半径（ReturnToNest と共有） | 30 |
 | max_food | float | 巣の最大食料備蓄（旧 `max_storage` も可） | 400 |
+| initial_stored_food | float | **新設巣**の開始時備蓄（`max_food` でクランプ。合流時は加算しない） | 0 |
 | food_leak_rate | float | 1 ティックあたりの余剰食料の漏洩率（腐敗） | 0.0015 |
 | food_to_mana_ratio | float | 漏洩食料のうちマナへ還流する比率 | 0.35 |
 | food_leak_reserve_ratio | float | この割合までは漏洩しない（底上げ備蓄） | 0.12 |

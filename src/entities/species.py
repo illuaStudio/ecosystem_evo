@@ -14,6 +14,11 @@ ESSENTIAL_TRAIT_KEYS = frozenset({
     "satiety_full_above",
 })
 
+# ESSENTIAL に無くても JSON にあればcreature.traitsへ渡す（CorpseComponent 等が参照）
+OPTIONAL_TRAIT_KEYS = frozenset({
+    "corpse_decompose_rate",
+})
+
 TRAIT_DEFAULTS = {
     "base_size": 9.0,
     "max_size": 9.0,
@@ -44,8 +49,9 @@ def normalize_life_cycle(raw: dict) -> dict:
 
 
 def normalize_traits(raw: dict) -> dict:
-    """JSON の traits を身体特性のみに正規化し、欠損キーにデフォルトを補う。"""
-    traits = {k: raw[k] for k in ESSENTIAL_TRAIT_KEYS if k in raw}
+    """JSON の traits を正規化し、欠損キーにデフォルトを補う。"""
+    allowed = ESSENTIAL_TRAIT_KEYS | OPTIONAL_TRAIT_KEYS
+    traits = {k: raw[k] for k in allowed if k in raw}
     if "satiety_hungry_below" not in traits and "hunger_threshold" in raw:
         traits["satiety_hungry_below"] = 1.0 - float(raw["hunger_threshold"])
     for key, default in TRAIT_DEFAULTS.items():

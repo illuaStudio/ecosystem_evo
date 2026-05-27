@@ -80,6 +80,63 @@ class TestAntNest(unittest.TestCase):
         self.assertEqual(second.colony.nest_id, nest_id)
         self.assertEqual(len(world.nest_system.nests), 1)
 
+    def test_new_nest_gets_initial_stored_food_from_colony_cfg(self):
+        world = World.from_json(
+            {"name": "Test", "world_width": 1000, "world_height": 1000}
+        )
+        factory = CreatureFactory()
+        ant = factory.create("Ant", world=world, x=100, y=100)
+        world.nest_system.assign_creature(
+            ant,
+            {
+                "single_colony": True,
+                "max_food": 500.0,
+                "initial_stored_food": 123.0,
+            },
+        )
+        nest = world.nest_system.get_creature_nest(ant)
+        self.assertIsNotNone(nest)
+        self.assertAlmostEqual(nest.stored_food, 123.0)
+        self.assertAlmostEqual(nest.max_food, 500.0)
+
+    def test_initial_stored_food_clamped_to_max_food(self):
+        world = World.from_json(
+            {"name": "Test", "world_width": 1000, "world_height": 1000}
+        )
+        factory = CreatureFactory()
+        ant = factory.create("Ant", world=world, x=100, y=100)
+        world.nest_system.assign_creature(
+            ant,
+            {
+                "single_colony": True,
+                "max_food": 80.0,
+                "initial_stored_food": 999.0,
+            },
+        )
+        nest = world.nest_system.get_creature_nest(ant)
+        self.assertAlmostEqual(nest.stored_food, 80.0)
+
+    def test_joining_existing_nest_does_not_reset_stored_food(self):
+        world = World.from_json(
+            {"name": "Test", "world_width": 1000, "world_height": 1000}
+        )
+        factory = CreatureFactory()
+        first = factory.create("Ant", world=world, x=300, y=300)
+        world.nest_system.assign_creature(
+            first,
+            {"single_colony": True, "max_food": 400.0, "initial_stored_food": 90.0},
+        )
+        nest = world.nest_system.get_creature_nest(first)
+        nest.stored_food = 50.0
+
+        second = factory.create("Ant", world=world, x=900, y=900)
+        world.nest_system.assign_creature(
+            second,
+            {"single_colony": True, "max_food": 400.0, "initial_stored_food": 200.0},
+        )
+        self.assertEqual(second.colony.nest_id, nest.id)
+        self.assertAlmostEqual(nest.stored_food, 50.0)
+
     def test_hunt_pickup_and_deposit_increases_nest_storage(self):
         world = World()
         preds = self._spawn_predators(world, 1)

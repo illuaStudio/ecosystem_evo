@@ -58,13 +58,17 @@ class NestSystem:
         species_name: str,
         *,
         max_food: float = 400.0,
+        stored_food: float = 0.0,
     ) -> Nest:
+        cap = float(max_food)
+        food = max(0.0, min(float(stored_food), cap))
         nest = Nest(
             id=self._next_id,
             x=float(x),
             y=float(y),
             owner_species=species_name,
-            max_food=float(max_food),
+            stored_food=food,
+            max_food=cap,
         )
         self._next_id += 1
         self.nests[nest.id] = nest
@@ -166,11 +170,15 @@ class NestSystem:
             return
 
         cx, cy = entity_xy(creature)
+        initial_food = float(
+            cfg.get("initial_stored_food", cfg.get("initial_food", 0.0))
+        )
         nest = self.create_nest(
             cx,
             cy,
             species_name,
             max_food=max_food,
+            stored_food=initial_food,
         )
         colony.nest_id = nest.id
 

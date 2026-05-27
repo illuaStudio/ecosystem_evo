@@ -10,6 +10,7 @@
     "spawn_spread": 28,
     "deposit_radius": 30,
     "max_food": 5000,
+    "initial_stored_food": 2000,
     "food_leak_rate": 0.00012,
     "food_to_mana_ratio": 0.35,
     "food_leak_reserve_ratio": 0.15,
@@ -71,7 +72,7 @@
         "params": {
           "speed_multiplier": 1.15,
           "deposit_radius": 30,
-          "base_max_carry": 3.3
+          "base_max_carry": 100
         }
       },
       {
