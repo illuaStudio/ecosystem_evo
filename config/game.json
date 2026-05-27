@@ -8,6 +8,7 @@
   
   "camera_width": 1100,
   "camera_height": 750,
+  "camera_pan_extra": 300,
   
   "max_creatures": 250,
   

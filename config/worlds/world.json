@@ -1,8 +1,8 @@
 {
   "name": "Grassland",
   "display_name": "草原の生態系",
-  "world_width": 1500,
-  "world_height": 1500,
+  "world_width": 3000,
+  "world_height": 3000,
   "background_color": [34, 60, 25],
 
   "mana": {
@@ -13,15 +13,15 @@
   },
 
   "initial_entities": {
-    "Amoeba": 10,
-    "Ant": 3,
-    "Spider": 2
+    "Amoeba": 100,
+    "Ant": 30,
+    "Spider": 10
   },
 
   "population_limits": {
-    "Amoeba": 35,
-    "Ant": 15,
-    "Spider": 8
+    "Amoeba": 200,
+    "Ant": 60,
+    "Spider": 30
   },
 
   "world": {

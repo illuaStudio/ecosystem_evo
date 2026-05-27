@@ -28,6 +28,10 @@ class Renderer:
     # ワールド外・余白（画面 > マップ時）と HUD 背面
     UI_MARGIN_COLOR = (14, 22, 14)
     UI_PANEL_COLOR = (0, 0, 0, 170)
+    HUD_TOP_HEIGHT = 118
+    HUD_TOP_HEIGHT_DEBUG = 138
+    HUD_LEFT_PANEL_WIDTH = 520
+    HUD_RIGHT_PANEL_WIDTH = 220
 
     def __init__(self, screen, font, small_font, big_font):
         self.screen = screen
@@ -395,11 +399,12 @@ class Renderer:
         panel.fill((0, 0, 0, 0))
 
         sw, sh = self.screen.get_size()
-        top_h = 118 if not show_debug else 138
+        top_h = self.HUD_TOP_HEIGHT if not show_debug else self.HUD_TOP_HEIGHT_DEBUG
         pygame.draw.rect(panel, self.UI_PANEL_COLOR, (0, 0, sw, top_h))
 
         if has_selection:
-            pygame.draw.rect(panel, self.UI_PANEL_COLOR, (0, 118, min(520, sw), sh - 118))
+            left_w = min(self.HUD_LEFT_PANEL_WIDTH, sw)
+            pygame.draw.rect(panel, self.UI_PANEL_COLOR, (0, top_h, left_w, sh - top_h))
 
         self.screen.blit(panel, (0, 0))
 

@@ -98,8 +98,26 @@ class SimulationEngine:
         self.world.update(self._sim_dt())
         self._render_ticks_until_sim = self.sim_ticks_per_step - 1
 
+    def _update_camera_pan_insets(self) -> None:
+        """HUD の大きさに合わせ、マップ端を UI の下までずらせるパン余白を設定する。"""
+        extra = float(config.game.get("camera_pan_extra", 16))
+        has_selection = (
+            self.selected_creature is not None or self.selected_nest is not None
+        )
+        sw = self.screen.get_width()
+        top = (
+            Renderer.HUD_TOP_HEIGHT_DEBUG
+            if self.show_debug
+            else Renderer.HUD_TOP_HEIGHT
+        ) + extra
+        left = (min(Renderer.HUD_LEFT_PANEL_WIDTH, sw) if has_selection else 0) + extra
+        right = Renderer.HUD_RIGHT_PANEL_WIDTH + extra
+        bottom = extra
+        self.camera.set_pan_insets(top=top, left=left, right=right, bottom=bottom)
+
     def draw(self):
         """描画"""
+        self._update_camera_pan_insets()
         self.renderer.draw(
             self.world.creatures,
             self.camera,
