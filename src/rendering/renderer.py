@@ -5,11 +5,13 @@ from src.config import config
 from src.ai.actions import SplitAction
 from src.rendering.nest_renderer import NestRenderer
 from src.utils.creature_helpers import (
+    count_alive_by_species,
     current_size,
     format_carry_status,
     format_nutrition_status,
     format_life_stage_line,
     get_haul_max_carry,
+    get_species_population_cap,
     satiety_ratio,
 )
 from src.utils.hunt_helpers import (
@@ -128,8 +130,24 @@ class Renderer:
                     mature_ok = mature_age is not None and sc.age >= int(mature_age)
                     size_ok = size_now >= float(p["min_reproduce_size"])
                     sat_ok = sat_now >= float(p["satiety_threshold"])
+                    cap = None
+                    if getattr(sc, "world", None) is not None:
+                        cap = get_species_population_cap(sc.world, sc.species.name)
 
-                    if cd_ok and mature_ok and size_ok and sat_ok and getattr(sc, "world", None) is not None:
+                    alive = 0
+                    pop_ok = True
+                    if cap is not None and getattr(sc, "world", None) is not None:
+                        alive = count_alive_by_species(sc.world, sc.species.name)
+                        pop_ok = alive < cap
+
+                    if (
+                        cd_ok
+                        and mature_ok
+                        and size_ok
+                        and sat_ok
+                        and pop_ok
+                        and getattr(sc, "world", None) is not None
+                    ):
                         texts.append(
                             "分裂条件(Split): OK"
                             f"（サイズ≥{float(p['min_reproduce_size']):.1f}, 満腹≥{float(p['satiety_threshold']):.2f}）"
@@ -152,6 +170,10 @@ class Renderer:
                         if not sat_ok:
                             reasons.append(
                                 f"満腹 {sat_now:.2f} < {float(p['satiety_threshold']):.2f}"
+                            )
+                        if not pop_ok and cap is not None:
+                            reasons.append(
+                                f"種族上限 {alive}/{cap}"
                             )
                         texts.append("分裂条件(Split): NG → " + " / ".join(reasons))
             colony = getattr(sc, "colony", None)
@@ -225,6 +247,9 @@ class Renderer:
             (15, 55),
         )
 
+        if world is not None:
+            self._draw_population_panel(world)
+
         self.screen.blit(
             self.small_font.render(
                 "Space:停止/再開  R:リセット  M:表示切替  A:アメーバ追加  P:捕食者追加  右クリック:個体/巣",
@@ -241,6 +266,33 @@ class Renderer:
                 (255, 255, 100),
             )
             self.screen.blit(debug_text, (15, 110))
+
+    def _draw_population_panel(self, world) -> None:
+        """ワールド population_limits の現在数 / 上限を右上に表示。"""
+        limits = getattr(world, "population_limits", None) or {}
+        if not limits:
+            return
+
+        lines = ["【個体数】"]
+        for species_name in sorted(limits.keys()):
+            cap = limits[species_name]
+            alive = count_alive_by_species(world, species_name)
+            at_cap = alive >= cap
+            color = (255, 180, 140) if at_cap else (200, 230, 200)
+            text = f"{species_name}: {alive} / {cap}"
+            lines.append((text, color))
+
+        margin_x = 12
+        y = 10
+        for i, item in enumerate(lines):
+            if i == 0:
+                surf = self.font.render(item, True, (220, 235, 200))
+            else:
+                text, color = item
+                surf = self.small_font.render(text, True, color)
+            x = self.screen.get_width() - surf.get_width() - margin_x
+            self.screen.blit(surf, (x, y))
+            y += surf.get_height() + 4
 
     def _draw_hunt_overlays(self, world, camera, selected_creature) -> None:
         """選択個体と狩り関係の線・ターゲットマーカー。"""
@@ -296,6 +348,7 @@ class Renderer:
         cost = float(colony_cfg.get("spawn_food_cost", 0))
         reserve = float(colony_cfg.get("min_food_reserve", 0))
         max_workers = int(colony_cfg.get("max_workers", 0))
+        max_pop = get_species_population_cap(world, nest.owner_species)
         leak_rate = float(colony_cfg.get("food_leak_rate", 0))
 
         self.screen.blit(
@@ -312,8 +365,9 @@ class Renderer:
             f"繁殖: {spawn_msg}",
         ]
         if cost > 0:
+            cap_note = f" / 種族上限 {max_pop}" if max_pop else ""
             texts.append(
-                f"  1回 {cost:.0f} 消費 / 最低備蓄 {reserve:.0f} / 上限 {max_workers} 匹"
+                f"  1回 {cost:.0f} 消費 / 最低備蓄 {reserve:.0f} / 巣 {max_workers} 匹{cap_note}"
             )
         if leak_rate > 0:
             texts.append(f"  漏洩率: {leak_rate:.5f}/tick（余剰→マナ）")

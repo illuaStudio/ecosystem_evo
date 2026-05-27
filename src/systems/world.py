@@ -14,6 +14,19 @@ from src.systems.nest_system import NestSystem
 from src.systems.world_spawner import WorldSpawner
 
 
+def normalize_population_limits(raw: Dict) -> Dict[str, int]:
+    """ワールド JSON の population_limits を正の整数 dict に正規化。"""
+    out: Dict[str, int] = {}
+    for name, cap in (raw or {}).items():
+        try:
+            n = int(cap)
+        except (TypeError, ValueError):
+            continue
+        if n > 0:
+            out[str(name)] = n
+    return out
+
+
 class World:
     """ゲーム世界全体を管理。設定は config/worlds/*.json から読み込む。"""
 
@@ -73,10 +86,18 @@ class World:
         self.mana_layer = WorldMana(self)
         self.mana_layer.init_from_config(world_data.get("mana", {}))
 
+        self.population_limits = normalize_population_limits(
+            world_data.get("population_limits", {})
+        )
+
         self.nest_system = NestSystem(self)
         self.spawner = WorldSpawner(self)
         self.spawner.spawn_initial_entities(world_data)
         self.sim_dt = 1.0
+
+    def get_population_cap(self, species_name: str) -> Optional[int]:
+        """種族のワールド個体数上限。未設定なら None。"""
+        return self.population_limits.get(species_name)
 
     # バイオーム（後方互換）
     biomes = property(lambda s: s.biome.biomes)

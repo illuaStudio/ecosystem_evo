@@ -22,6 +22,7 @@ from src.utils.creature_helpers import (
     move_toward,
     move_toward_contact,
     move_toward_point,
+    is_at_population_cap,
     is_trackable_prey,
     nest_has_usable_food,
     needs_nest_feed,
@@ -652,6 +653,9 @@ class NestPatrolAction(Action):
 class ReproductionAction(Action):
     """繁殖系アクションの基底。卵生・交配などはサブクラスで spawn 戦略を差し替える。"""
 
+    def _blocked_by_population_cap(self, creature) -> bool:
+        return is_at_population_cap(creature)
+
     def _offspring_position(self, parent, distance: float) -> tuple[float, float]:
         angle = random.uniform(0, 360)
         px, py = entity_xy(parent)
@@ -684,6 +688,8 @@ class SplitAction(ReproductionAction):
 
     def can_execute(self, creature) -> bool:
         if not creature.alive or not creature.world:
+            return False
+        if self._blocked_by_population_cap(creature):
             return False
         if creature.repro_cooldown > 0:
             return False
@@ -756,6 +762,8 @@ class SpawnWorkerAction(ReproductionAction):
 
     def can_execute(self, creature) -> bool:
         if not creature.alive or not creature.world:
+            return False
+        if self._blocked_by_population_cap(creature):
             return False
         if getattr(creature, "colony", None) is None:
             return False

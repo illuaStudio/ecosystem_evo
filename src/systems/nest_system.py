@@ -8,7 +8,10 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from src.utils.creature_helpers import (
+    count_alive_by_species,
     distance_to_point,
+    get_species_population_cap,
+    is_species_at_population_cap,
     satiety_feed_target,
     satiety_room_until_feed_target,
 )
@@ -314,6 +317,11 @@ class NestSystem:
         if max_workers <= 0:
             return False, "繁殖未設定"
 
+        if is_species_at_population_cap(self.world, nest.owner_species):
+            alive = count_alive_by_species(self.world, nest.owner_species)
+            cap = get_species_population_cap(self.world, nest.owner_species)
+            return False, f"種族上限 ({alive}/{cap})"
+
         reserve = float(cfg.get("min_food_reserve", 0))
         needed = reserve + cost
         members = self.member_count(nest.id, nest.owner_species)
@@ -347,6 +355,9 @@ class NestSystem:
 
         max_workers = int(cfg.get("max_workers", 0))
         if max_workers <= 0:
+            return False
+
+        if is_species_at_population_cap(self.world, nest.owner_species):
             return False
 
         reserve = float(cfg.get("min_food_reserve", 0))

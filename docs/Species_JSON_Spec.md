@@ -314,6 +314,7 @@
 **実行条件（すべて必須）**
 
 - 生存・ワールド在籍
+- 同種の生存数 `< population_limits`（ワールド JSON。未設定なら制限なし）
 - `repro_cooldown == 0`
 - `age >= life_cycle.mature`（**mature 未定義の種では分裂不可**）
 - `base_size >= min_reproduce_size`
@@ -395,3 +396,4 @@ JSON の構造やパラメータを変更したときは、次をセットで更
 | 2026-05-26 | 飢餓 traits（hunger/starvation_threshold）・ScavengeCarriedAction |
 | 2026-05-26 | 栄養3帯（satiety_hungry_below / satiety_full_above）、hunger_drive 廃止 |
 | 2026-05-26 | 回復モード（nutrition_recovery）: 飢餓後は full_above まで自己給餌を維持 |
+| 2026-05-26 | ワールド `population_limits`（種ごとの個体数上限）。`ReproductionAction` 共通で参照 |

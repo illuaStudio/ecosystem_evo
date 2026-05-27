@@ -18,6 +18,12 @@
     "Spider": 2
   },
 
+  "population_limits": {
+    "Amoeba": 35,
+    "Ant": 15,
+    "Spider": 8
+  },
+
   "world": {
     "biome_map_cell_size": 64,
     "biomes": [

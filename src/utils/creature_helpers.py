@@ -718,6 +718,50 @@ def get_mana_gradient_direction(
     return best_angle
 
 
+def count_alive_by_species(world, species_name: str) -> int:
+    """ワールド上の生存個体数（種族名で集計）。"""
+    if world is None:
+        return 0
+    count = 0
+    for other in world.creatures:
+        if not getattr(other, "alive", True):
+            continue
+        if other.species.name != species_name:
+            continue
+        count += 1
+    return count
+
+
+def get_species_population_cap(world, species_name: str) -> int | None:
+    """ワールド JSON の population_limits における種族上限。"""
+    if world is None:
+        return None
+    getter = getattr(world, "get_population_cap", None)
+    if callable(getter):
+        return getter(species_name)
+    limits = getattr(world, "population_limits", None) or {}
+    raw = limits.get(species_name)
+    if raw is None:
+        return None
+    cap = int(raw)
+    return cap if cap > 0 else None
+
+
+def is_species_at_population_cap(world, species_name: str) -> bool:
+    """ワールド個体数上限に達しているか（未設定は上限なし）。"""
+    cap = get_species_population_cap(world, species_name)
+    if cap is None:
+        return False
+    return count_alive_by_species(world, species_name) >= cap
+
+
+def is_at_population_cap(creature) -> bool:
+    """個体の種族がワールド個体数上限に達しているか。"""
+    if not creature.world:
+        return False
+    return is_species_at_population_cap(creature.world, creature.species.name)
+
+
 def count_same_species_near(
     creature,
     x: float,
