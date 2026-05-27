@@ -324,8 +324,16 @@ class NestSystem:
     def is_at_nest(self, creature, deposit_radius: float) -> bool:
         return self.distance_to_nest(creature) <= deposit_radius
 
+    def deposit_space(self, nest: Nest) -> float:
+        """巣にこれ以上入れられる食料量。"""
+        return max(0.0, nest.max_food - nest.stored_food)
+
     def deposit_carried(self, creature) -> float:
-        """運搬中チャンクを巣の食料備蓄へ移す。移した食料量を返す。"""
+        """運搬中チャンクを巣の食料備蓄へ移す。移した食料量を返す。
+
+        備蓄が満杯で入らない分は巣付近でマナ還元し、運搬状態を解く
+        （満タン巣で持ち帰りループしないようにする）。
+        """
         colony = getattr(creature, "colony", None)
         if colony is None or not colony.is_carrying:
             return 0.0
@@ -340,13 +348,19 @@ class NestSystem:
             colony.carried_carcass = None
             return 0.0
 
-        space = max(0.0, nest.max_food - nest.stored_food)
+        space = self.deposit_space(nest)
         deposited = min(amount, space)
         nest.stored_food += deposited
         leftover = amount - deposited
 
         if leftover > 0:
-            colony.carried_biomass = leftover
+            overflow = leftover
+            if self.world is not None:
+                self.world.return_mana_from_decomposition(
+                    overflow * 0.65, nest.x, nest.y
+                )
+            colony.carried_biomass = 0.0
+            colony.carried_carcass = None
         else:
             colony.carried_biomass = 0.0
             colony.carried_carcass = None

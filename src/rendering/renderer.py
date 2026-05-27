@@ -16,7 +16,9 @@ from src.utils.creature_helpers import (
 )
 from src.utils.hunt_helpers import (
     describe_creature_short,
-    find_hunters_for_prey,
+    find_attackers_for_target,
+    get_aggression_target,
+    get_combat_target,
     get_hunt_target,
 )
 from src.utils.position_helpers import entity_xy
@@ -203,22 +205,30 @@ class Renderer:
                     )
 
             hunt_target = get_hunt_target(sc)
-            if hunt_target is not None:
+            combat_target = get_combat_target(sc)
+            if combat_target is not None:
+                texts.append(
+                    f"戦闘対象: {describe_creature_short(combat_target)}"
+                )
+            elif hunt_target is not None:
                 texts.append(
                     f"狩り対象: {describe_creature_short(hunt_target)}"
                 )
             elif sc.alive and sc.current_action is not None:
-                if sc.current_action.__class__.__name__ == "HuntAction":
+                action_name = sc.current_action.__class__.__name__
+                if action_name == "CombatAction":
+                    texts.append("戦闘対象: （未確定／視界外）")
+                elif action_name == "HuntAction":
                     texts.append("狩り対象: （未確定／視界外）")
 
-            if sc.alive and sc.species.name != "Ant":
-                hunters = find_hunters_for_prey(world, sc)
-                if hunters:
-                    texts.append(f"狩られ中: {len(hunters)} 匹のアリ")
-                    for hunter in hunters[:5]:
-                        texts.append(f"  ← {describe_creature_short(hunter)}")
-                    if len(hunters) > 5:
-                        texts.append(f"  …他 {len(hunters) - 5} 匹")
+            if sc.alive:
+                attackers = find_attackers_for_target(world, sc)
+                if attackers:
+                    texts.append(f"狙われ中: {len(attackers)} 匹")
+                    for attacker in attackers[:5]:
+                        texts.append(f"  ← {describe_creature_short(attacker)}")
+                    if len(attackers) > 5:
+                        texts.append(f"  …他 {len(attackers) - 5} 匹")
 
             for text in texts:
                 self.screen.blit(self.small_font.render(text, True, (255, 255, 255)), (15, y))
@@ -256,7 +266,7 @@ class Renderer:
 
         self.screen.blit(
             self.small_font.render(
-                "Space:停止/再開  R:リセット  M:表示切替  A:アメーバ  S:クモ  P:捕食者  H:巣穴  右クリック:個体/巣",
+                "Space:停止/再開  R:リセット  M:表示切替  A:アメーバ  S:クモ  P:味方アリ  H:巣穴  右クリック:個体/巣",
                 True,
                 (160, 200, 255),
             ),
@@ -299,20 +309,25 @@ class Renderer:
             y += surf.get_height() + 4
 
     def _draw_hunt_overlays(self, world, camera, selected_creature) -> None:
-        """選択個体と狩り関係の線・ターゲットマーカー。"""
+        """選択個体と狩り・戦闘関係の線・ターゲットマーカー。"""
         sc = selected_creature
+        combat_target = get_combat_target(sc)
         hunt_target = get_hunt_target(sc)
-        if hunt_target is not None:
+        if combat_target is not None:
+            self._draw_hunt_link(sc, combat_target, camera, (120, 160, 255))
+            self._draw_prey_marker(combat_target, camera, (100, 140, 255))
+        elif hunt_target is not None:
             self._draw_hunt_link(sc, hunt_target, camera, (255, 90, 90))
             self._draw_prey_marker(hunt_target, camera, (255, 120, 80))
 
-        hunters = find_hunters_for_prey(world, sc)
-        for hunter in hunters:
-            self._draw_hunt_link(hunter, sc, camera, (255, 60, 60))
-            hx, hy = entity_xy(hunter)
+        attackers = find_attackers_for_target(world, sc)
+        for attacker in attackers:
+            link_color = (80, 120, 255) if get_combat_target(attacker) is sc else (255, 60, 60)
+            self._draw_hunt_link(attacker, sc, camera, link_color)
+            hx, hy = entity_xy(attacker)
             hsx = int(hx - camera.x)
             hsy = int(hy - camera.y)
-            hsize = int(hunter.traits.get("base_size", 8))
+            hsize = int(attacker.traits.get("base_size", 8))
             pygame.draw.circle(
                 self.screen, (255, 100, 100), (hsx, hsy), hsize + 14, 2
             )

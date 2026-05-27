@@ -16,6 +16,18 @@ from src.utils.position_helpers import entity_xy
 
 
 class TestAntNest(unittest.TestCase):
+    def _empty_world(self) -> World:
+        """初期個体なし（EnemyAnt 巣の干渉を避ける）。"""
+        return World.from_json(
+            {
+                "name": "AntNestTest",
+                "world_width": 3000,
+                "world_height": 3000,
+                "initial_entities": {},
+                "population_limits": {"Ant": 60, "EnemyAnt": 60},
+            }
+        )
+
     def _spawn_predators(self, world, count: int = 3):
         factory = CreatureFactory()
         preds = []
@@ -28,7 +40,7 @@ class TestAntNest(unittest.TestCase):
         return preds
 
     def test_predators_share_single_nest_even_when_far_apart(self):
-        world = World()
+        world = self._empty_world()
         factory = CreatureFactory()
         preds = []
         for i, (x, y) in enumerate([(120, 120), (850, 850), (500, 200)]):
@@ -69,7 +81,7 @@ class TestAntNest(unittest.TestCase):
         self.assertLessEqual(dist, spread + 1)
 
     def test_p_spawn_joins_existing_nest(self):
-        world = World()
+        world = self._empty_world()
         factory = CreatureFactory()
         first = factory.create("Ant", world=world, x=300, y=300)
         world.add_creature(first)
@@ -224,7 +236,7 @@ class TestAntNest(unittest.TestCase):
         self.assertLess(shared_cap, solo_cap)
 
     def test_spawn_worker_consumes_food_and_adds_member(self):
-        world = World()
+        world = self._empty_world()
         preds = self._spawn_predators(world, 1)
         predator = preds[0]
         nest = world.nest_system.get_creature_nest(predator)
@@ -302,7 +314,7 @@ class TestAntNest(unittest.TestCase):
                 self.assertGreater(action.calculate_utility(predator), 0.0)
 
     def test_second_predator_can_pickup_same_carcass_chunk(self):
-        world = World()
+        world = self._empty_world()
         preds = self._spawn_predators(world, 2)
         carrier, other = preds[0], preds[1]
         factory = CreatureFactory()
@@ -366,7 +378,7 @@ class TestAntNest(unittest.TestCase):
         self.assertEqual(second, 0.0)
 
     def test_spawn_worker_action_at_nest(self):
-        world = World()
+        world = self._empty_world()
         preds = self._spawn_predators(world, 1)
         predator = preds[0]
         nest = world.nest_system.get_creature_nest(predator)
@@ -404,7 +416,7 @@ class TestAntNest(unittest.TestCase):
         self.assertIsNone(miss)
 
     def test_spawn_readiness_reports_food_shortage(self):
-        world = World()
+        world = self._empty_world()
         preds = self._spawn_predators(world, 1)
         nest = world.nest_system.get_creature_nest(preds[0])
         colony_cfg = config.get_species("Ant").get("colony", {})
@@ -421,6 +433,27 @@ class TestAntNest(unittest.TestCase):
         ok, msg = world.nest_system.spawn_readiness(nest)
         self.assertTrue(ok)
         self.assertIn("繁殖可能", msg)
+
+    def test_deposit_clears_carry_when_nest_full(self):
+        world = self._empty_world()
+        preds = self._spawn_predators(world, 1)
+        ant = preds[0]
+        nest = world.nest_system.get_creature_nest(ant)
+        nest.stored_food = nest.max_food
+
+        ant.colony.carried_biomass = 42.0
+        ant.colony.carried_carcass = None
+        px, py = entity_xy(ant)
+        ant.pos[0] = nest.x
+        ant.pos[1] = nest.y
+        if hasattr(ant, "position"):
+            ant.position.x = nest.x
+            ant.position.y = nest.y
+
+        deposited = world.nest_system.deposit_carried(ant)
+        self.assertEqual(deposited, 0.0)
+        self.assertFalse(ant.colony.is_carrying)
+        self.assertAlmostEqual(nest.stored_food, nest.max_food)
 
 
 if __name__ == "__main__":

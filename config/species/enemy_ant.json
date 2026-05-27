@@ -1,12 +1,12 @@
 {
-  "name": "Ant",
-  "description": "コロニー型アリ。満腹時はアメーバ・クモを狩って巣へ貯蔵。飢餓時は巣の餌優先・不足時は狩り。",
-  "color": [220, 60, 60],
+  "name": "EnemyAnt",
+  "description": "敵対コロニー型アリ。味方アリと同じ生態だが、視界に敵アリがいれば攻撃する。",
+  "color": [60, 90, 230],
   "colony": {
     "enabled": true,
     "single_colony": true,
-    "nest_x": 100,
-    "nest_y": 100,
+    "nest_x": 900,
+    "nest_y": 900,
     "spawn_spread": 28,
     "deposit_radius": 30,
     "max_food": 5000,
@@ -38,7 +38,7 @@
         "weight": 4.5,
         "description": "視界内の敵アリを攻撃",
         "params": {
-          "hostile_species": ["EnemyAnt"],
+          "hostile_species": ["Ant"],
           "speed_multiplier": 1.4,
           "attack_power": 1.3
         }

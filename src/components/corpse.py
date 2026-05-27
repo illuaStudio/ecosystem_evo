@@ -55,7 +55,7 @@ class CorpseComponent:
         owner.alive = False
         owner.hp = 0
         size = float(owner.traits.get("base_size", 9.0))
-        biomass = size * 20
+        biomass = size * 200
         self.remaining_biomass = biomass
         self.initial_biomass = biomass
 

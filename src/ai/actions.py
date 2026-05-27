@@ -15,6 +15,7 @@ from src.utils.creature_helpers import (
     find_nearest_edible,
     find_nearest_edible_among,
     find_nearest_field_carcass_among,
+    find_nearest_hostile_among,
     has_edible_carcass,
     hunger_ratio,
     needs_self_feed,
@@ -23,6 +24,7 @@ from src.utils.creature_helpers import (
     move_toward_contact,
     move_toward_point,
     is_at_population_cap,
+    is_trackable_hostile,
     is_trackable_prey,
     nest_has_usable_food,
     needs_nest_feed,
@@ -238,6 +240,80 @@ def _hunt_prey_species(params: dict) -> tuple[str, ...]:
     return (params.get("target_type", "Amoeba"),)
 
 
+class CombatAction(Action):
+    """視界内の敵対種を追跡し攻撃のみ（死骸の拾い・食事は行わない）。"""
+
+    DEFAULT_PARAMS = {
+        "hostile_species": (),
+        "speed_multiplier": 1.4,
+        "contact_padding": 8.0,
+        "attack_power": 1.3,
+    }
+
+    def __init__(self, **params):
+        super().__init__(**params)
+        self._target = None
+
+    def _enemies(self) -> tuple[str, ...]:
+        raw = self.params.get("hostile_species") or ()
+        return tuple(raw)
+
+    def execute(self, creature) -> bool:
+        if not creature.world:
+            return False
+        colony = getattr(creature, "colony", None)
+        if colony is not None and colony.is_carrying:
+            return False
+
+        enemies = self._enemies()
+        if not enemies:
+            return False
+
+        target = self._resolve_target(creature, enemies)
+        if target is None:
+            return False
+
+        pad = float(self.params["contact_padding"])
+        reach = contact_range(creature, target, pad)
+        dist = move_toward_contact(
+            creature, target, self.params["speed_multiplier"], pad
+        )
+        if dist <= reach:
+            try_attack_only(
+                creature,
+                target,
+                attack_power=float(self.params["attack_power"]),
+            )
+            if not is_trackable_hostile(creature, target, enemies):
+                self._target = None
+
+        return False
+
+    def calculate_utility(self, creature) -> float:
+        colony = getattr(creature, "colony", None)
+        if colony is not None and colony.is_carrying:
+            return 0.0
+
+        enemies = self._enemies()
+        if not enemies:
+            return 0.0
+
+        foe = find_nearest_hostile_among(creature, enemies, exclude=creature)
+        if foe is None:
+            return 0.0
+
+        closeness = closeness_ratio(creature, foe)
+        return min(1.0, 0.55 + closeness * 0.45)
+
+    def _resolve_target(self, creature, enemies: tuple[str, ...]):
+        if is_trackable_hostile(creature, self._target, enemies):
+            return self._target
+        self._target = find_nearest_hostile_among(
+            creature, enemies, exclude=creature
+        )
+        return self._target
+
+
 class HuntAction(Action):
     """獲物を追跡し攻撃・殺害。満腹時は死骸を拾って巣へ、飢餓時はその場で食べる。"""
 
@@ -335,6 +411,20 @@ class HuntAction(Action):
             min_satiety_gain=float(self.params["min_usable_satiety_gain"]),
         )
 
+    def _nest_hunt_dampening(self, creature) -> float:
+        """備蓄が十分な巣のすぐ近くでは狩り優先度を下げ、巣際の Hunt↔Return 往復を抑える。"""
+        if needs_self_feed(creature) or not creature.world:
+            return 1.0
+        ns = creature.world.nest_system
+        nest = ns.get_creature_nest(creature)
+        if nest is None:
+            return 1.0
+        if ns.distance_to_nest(creature) > float(self.params.get("nest_hunt_dampen_radius", 55.0)):
+            return 1.0
+        if nest.food_ratio < float(self.params.get("nest_hunt_dampen_food_ratio", 0.75)):
+            return 1.0
+        return float(self.params.get("nest_hunt_dampen_factor", 0.2))
+
     def _hunt_drive(self, creature) -> float:
         """飢餓時: 巣で食べられるなら狩らない。通常・満腹帯: 備蓄狩り。"""
         if needs_self_feed(creature):
@@ -367,7 +457,8 @@ class HuntAction(Action):
             return 0.0
 
         closeness = closeness_ratio(creature, prey)
-        return min(1.0, drive * (0.4 + closeness * 0.6))
+        score = min(1.0, drive * (0.4 + closeness * 0.6))
+        return score * self._nest_hunt_dampening(creature)
 
     def _resolve_target(self, creature):
         species = self._prey_species()
@@ -427,15 +518,20 @@ class ReturnToNestAction(Action):
         ns = creature.world.nest_system
         if ns.get_creature_nest(creature) is None:
             return False
-        tx, ty = ns.nest_target_xy(creature)
 
+        deposit_radius = float(self.params["deposit_radius"])
+        if ns.is_at_nest(creature, deposit_radius):
+            ns.deposit_carried(creature)
+            return False
+
+        tx, ty = ns.nest_target_xy(creature)
         dist = move_toward_point(
             creature,
             tx,
             ty,
             float(self.params["speed_multiplier"]),
         )
-        if dist <= float(self.params["deposit_radius"]):
+        if dist <= deposit_radius:
             ns.deposit_carried(creature)
 
         return False

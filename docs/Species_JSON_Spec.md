@@ -107,6 +107,7 @@
 | metabolism_rate | float | 1 ティックあたりの満腹度減少。大きいほど空腹になりやすい | 0.3〜1.2 | 0.5 |
 | satiety_hungry_below | float | 満腹度比率がこれ以下で **飢餓**（自分優先: 食べる・巣食事） | 0.10〜0.20 | 0.15 |
 | satiety_full_above | float | 巣食事の停止目標・HUD「満腹」表示。通常帯と満腹帯の **行動は同じ**（持ち帰り狩り） | 0.80〜0.90 | 0.85 |
+| corpse_decompose_rate | float | **死骸の自然分解速度**。`CorpseComponent.update(dt)` で `initial_biomass × rate × dt` だけ `remaining_biomass` が減少し、減少分はマナへ還元される | 0.00001〜0.01 | 0.00003 |
 
 **ゲーム内での使われ方（参考）**
 

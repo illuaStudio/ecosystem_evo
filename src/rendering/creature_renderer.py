@@ -4,6 +4,12 @@ import pygame
 from src.utils.creature_helpers import get_haul_max_carry, hp_ratio, satiety_ratio
 from src.utils.position_helpers import entity_xy
 
+# コロニー種の頭上ラベル（味方 / 敵アリ）
+COLONY_SPECIES_LABELS: dict[str, str] = {
+    "Ant": "A",
+    "EnemyAnt": "E",
+}
+
 
 class CreatureRenderer:
     """生物描画クラス（見えやすく強化）"""
@@ -69,9 +75,11 @@ class CreatureRenderer:
             )
 
         colony = getattr(creature, "colony", None)
-        if creature.species.name == "Ant" and creature.alive:
+        colony_label = COLONY_SPECIES_LABELS.get(creature.species.name)
+        if colony_label is not None and creature.alive:
             font = pygame.font.SysFont("msgothic", 12)
-            label = "A"
+            label = colony_label
+            label_color = tuple(creature.species.color)
             if colony is not None and colony.is_carrying:
                 label = "↩"
                 max_carry = max(get_haul_max_carry(creature), 0.001)
@@ -91,7 +99,7 @@ class CreatureRenderer:
                     (sx + size + 6, sy),
                     2,
                 )
-            text = font.render(label, True, (255, 60, 60))
+            text = font.render(label, True, label_color)
             screen.blit(text, (sx - 8, sy - size - 35))
 
     @staticmethod

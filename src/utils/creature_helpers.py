@@ -315,6 +315,42 @@ def is_trackable_prey(creature, target, species_names) -> bool:
     )
 
 
+def is_hostile_target(creature, target, species_names) -> bool:
+    """戦闘対象（生きている指定種のみ。死骸は対象外）。"""
+    if target is None or target is creature:
+        return False
+    names = species_names if isinstance(species_names, (list, tuple, set)) else (species_names,)
+    if target.species.name not in names:
+        return False
+    return bool(target.alive)
+
+
+def is_trackable_hostile(creature, target, species_names) -> bool:
+    return is_hostile_target(creature, target, species_names) and is_in_vision(
+        creature, target
+    )
+
+
+def find_nearest_hostile_among(creature, species_names, exclude=None):
+    """視界内で最も近い敵対生体。"""
+    if not creature.world:
+        return None
+
+    names = tuple(species_names)
+    best = None
+    min_dist = float("inf")
+    vision = creature.get_current_vision()
+
+    for other in creature.world.creatures:
+        if other is exclude or not is_hostile_target(creature, other, names):
+            continue
+        dist = distance_between(creature, other)
+        if dist <= vision and dist < min_dist:
+            min_dist = dist
+            best = other
+    return best
+
+
 def find_nearest_edible_among(creature, species_names, exclude=None):
     """複数種のうち視界内で最も近い獲物／死骸。"""
     if not creature.world:

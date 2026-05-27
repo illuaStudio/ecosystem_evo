@@ -60,7 +60,10 @@ class SimulationEngine:
 
     def reset_simulation(self, world_name: str = "Grassland"):
         """シミュレーション初期化"""
-        config.reload_worlds()
+        config.reload_all()
+        pygame.display.set_caption(
+            f"{config.game['game_title']} v{config.game['version']}"
+        )
         self.sim_ticks_per_step = max(1, int(config.game.get("sim_ticks_per_step", 10)))
         self._render_ticks_until_sim = 0
         self.world = World(world_name)
