@@ -252,7 +252,7 @@ class Renderer:
 
         self.screen.blit(
             self.small_font.render(
-                "Space:停止/再開  R:リセット  M:表示切替  A:アメーバ追加  P:捕食者追加  右クリック:個体/巣",
+                "Space:停止/再開  R:リセット  M:表示切替  A:アメーバ  S:クモ  P:捕食者  H:巣穴  右クリック:個体/巣",
                 True,
                 (160, 200, 255),
             ),
@@ -359,6 +359,7 @@ class Renderer:
         texts = [
             f"巣 #{nest.id}  ({nest.owner_species})",
             f"位置: ({nest.x:.0f}, {nest.y:.0f})",
+            f"巣穴: {len(getattr(nest, 'holes', []) or [])} 個  (H:カーソル位置に追加)",
             f"食料: {nest.stored_food:.1f} / {nest.max_food:.0f}",
             f"備蓄率: {nest.food_ratio * 100:.1f}%",
             f"コロニー: {members} 匹",

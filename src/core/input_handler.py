@@ -82,6 +82,8 @@ class InputHandler:
             else:
                 c = self.engine.creature_factory.create("Ant", world=world)
             world.add_creature(c)
+        elif event.key == pygame.K_h:
+            self._add_nest_hole_at_cursor()
         elif event.key == pygame.K_d:
             self.engine.show_debug = not getattr(self.engine, 'show_debug', False)
         elif event.key == pygame.K_m:
@@ -89,3 +91,23 @@ class InputHandler:
             self.engine.map_view_mode = "mana" if mode == "biome" else "biome"
         elif event.key == pygame.K_ESCAPE:
             return False
+
+    def _add_nest_hole_at_cursor(self) -> None:
+        """マウス位置に巣穴を追加（選択中の巣、なければカーソル付近の巣）。"""
+        world = self.engine.world
+        nest_system = getattr(world, "nest_system", None)
+        if nest_system is None:
+            return
+
+        mx, my = pygame.mouse.get_pos()
+        wx = mx + self.engine.camera.x
+        wy = my + self.engine.camera.y
+
+        nest = self.engine.selected_nest
+        if nest is None:
+            nest = nest_system.find_nest_at(wx, wy, pick_radius=80.0)
+        if nest is None:
+            return
+
+        nest_system.add_hole(nest, wx, wy)
+        self.engine.selected_nest = nest

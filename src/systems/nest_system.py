@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from src.utils.creature_helpers import (
@@ -22,6 +22,12 @@ if TYPE_CHECKING:
 
 
 @dataclass
+class NestHole:
+    x: float
+    y: float
+
+
+@dataclass
 class Nest:
     id: int
     x: float
@@ -30,6 +36,7 @@ class Nest:
     stored_food: float = 0.0
     max_food: float = 400.0
     spawn_timer: float = 0.0
+    holes: list[NestHole] = field(default_factory=list)
 
     @property
     def food_ratio(self) -> float:
@@ -72,9 +79,35 @@ class NestSystem:
             stored_food=food,
             max_food=cap,
         )
+        # 既定で「巣穴=作成地点」を1つ持つ（巣=備蓄、巣穴=出入口座標）。
+        nest.holes.append(NestHole(x=float(x), y=float(y)))
         self._next_id += 1
         self.nests[nest.id] = nest
         return nest
+
+    def add_hole(self, nest: Nest, x: float, y: float) -> None:
+        x, y = self._clamp_to_world(float(x), float(y))
+        nest.holes.append(NestHole(x=x, y=y))
+
+    def _nearest_hole_xy(self, nest: Nest, x: float, y: float) -> tuple[float, float]:
+        if not nest.holes:
+            return nest.x, nest.y
+        best = None
+        best_d = float("inf")
+        for h in nest.holes:
+            d = (h.x - x) ** 2 + (h.y - y) ** 2
+            if d < best_d:
+                best_d = d
+                best = h
+        return best.x, best.y
+
+    def nest_target_xy(self, creature) -> tuple[float, float]:
+        """その個体が所属する巣へ向かう座標（最寄り巣穴）。"""
+        nest = self.get_creature_nest(creature)
+        if nest is None:
+            return entity_xy(creature)
+        cx, cy = entity_xy(creature)
+        return self._nearest_hole_xy(nest, cx, cy)
 
     def get_nest(self, nest_id: int | None) -> Nest | None:
         if nest_id is None:
@@ -86,7 +119,8 @@ class NestSystem:
         best = None
         min_dist = float("inf")
         for nest in self.nests.values():
-            dist = math.hypot(nest.x - x, nest.y - y)
+            tx, ty = self._nearest_hole_xy(nest, x, y)
+            dist = math.hypot(tx - x, ty - y)
             if dist <= pick_radius and dist < min_dist:
                 min_dist = dist
                 best = nest
@@ -123,7 +157,9 @@ class NestSystem:
         spread = float(cfg.get("spawn_spread", self.DEFAULT_SPAWN_SPREAD))
         nest = self.get_colony_nest(species_name)
         if nest is not None:
-            return self._offset_near(nest.x, nest.y, spread)
+            hole = random.choice(nest.holes) if nest.holes else None
+            hx, hy = (hole.x, hole.y) if hole is not None else (nest.x, nest.y)
+            return self._offset_near(hx, hy, spread)
         ax, ay = self._nest_anchor(cfg)
         return self._offset_near(ax, ay, spread)
 
@@ -275,7 +311,9 @@ class NestSystem:
         nest = self.get_creature_nest(creature)
         if nest is None:
             return float("inf")
-        return distance_to_point(creature, nest.x, nest.y)
+        cx, cy = entity_xy(creature)
+        tx, ty = self._nearest_hole_xy(nest, cx, cy)
+        return math.hypot(tx - cx, ty - cy)
 
     def get_creature_nest(self, creature) -> Nest | None:
         colony = getattr(creature, "colony", None)

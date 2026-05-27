@@ -424,18 +424,19 @@ class ReturnToNestAction(Action):
         if needs_self_feed(creature):
             return False
 
-        nest = creature.world.nest_system.get_creature_nest(creature)
-        if nest is None:
+        ns = creature.world.nest_system
+        if ns.get_creature_nest(creature) is None:
             return False
+        tx, ty = ns.nest_target_xy(creature)
 
         dist = move_toward_point(
             creature,
-            nest.x,
-            nest.y,
+            tx,
+            ty,
             float(self.params["speed_multiplier"]),
         )
         if dist <= float(self.params["deposit_radius"]):
-            creature.world.nest_system.deposit_carried(creature)
+            ns.deposit_carried(creature)
 
         return False
 
@@ -446,11 +447,12 @@ class ReturnToNestAction(Action):
         if needs_self_feed(creature) or not creature.world:
             return 0.0
 
-        nest = creature.world.nest_system.get_creature_nest(creature)
-        if nest is None:
+        ns = creature.world.nest_system
+        if ns.get_creature_nest(creature) is None:
             return 0.0
 
-        dist = distance_to_point(creature, nest.x, nest.y)
+        tx, ty = ns.nest_target_xy(creature)
+        dist = distance_to_point(creature, tx, ty)
         vision = max(creature.get_current_vision(), 1.0)
         closeness = max(0.0, min(1.0, 1.0 - dist / vision))
         return 0.85 + closeness * 0.15
@@ -522,17 +524,17 @@ class FeedAtNestAction(Action):
             return False
 
         ns = creature.world.nest_system
-        nest = ns.get_creature_nest(creature)
-        if nest is None:
+        if ns.get_creature_nest(creature) is None:
             return False
+        tx, ty = ns.nest_target_xy(creature)
 
         feed_radius = float(self.params["feed_radius"])
         if not ns.is_at_nest(creature, feed_radius):
             if needs_self_feed(creature) and self._has_usable_food(creature):
                 move_toward_point(
                     creature,
-                    nest.x,
-                    nest.y,
+                    tx,
+                    ty,
                     float(self.params.get("approach_speed_multiplier", 0.95)),
                 )
             return False
@@ -596,8 +598,8 @@ class NestPatrolAction(Action):
             )
             return False
 
-        nest = creature.world.nest_system.get_creature_nest(creature)
-        if nest is None:
+        ns = creature.world.nest_system
+        if ns.get_creature_nest(creature) is None:
             wander_step(
                 creature,
                 self.params["angle_range"],
@@ -608,12 +610,13 @@ class NestPatrolAction(Action):
         from src.utils.position_helpers import entity_xy
 
         cx, cy = entity_xy(creature)
-        dist = math.hypot(nest.x - cx, nest.y - cy)
+        tx, ty = ns.nest_target_xy(creature)
+        dist = math.hypot(tx - cx, ty - cy)
         patrol_r = float(self.params["patrol_radius"])
 
         if dist > patrol_r * 1.15:
             pull = float(self.params["nest_pull_strength"])
-            to_nest = math.degrees(math.atan2(nest.y - cy, nest.x - cx)) % 360
+            to_nest = math.degrees(math.atan2(ty - cy, tx - cx)) % 360
             creature.wander_angle = (
                 creature.wander_angle * (1.0 - pull) + to_nest * pull
             ) % 360
@@ -783,13 +786,13 @@ class SpawnWorkerAction(ReproductionAction):
         spawn_radius = float(self.params["spawn_radius"])
 
         if not ns.is_at_nest(creature, spawn_radius):
-            nest = ns.get_creature_nest(creature)
-            if nest is None:
+            if ns.get_creature_nest(creature) is None:
                 return False
+            tx, ty = ns.nest_target_xy(creature)
             move_toward_point(
                 creature,
-                nest.x,
-                nest.y,
+                tx,
+                ty,
                 float(self.params["approach_speed_multiplier"]),
             )
             return False

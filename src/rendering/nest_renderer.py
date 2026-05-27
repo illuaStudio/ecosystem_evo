@@ -33,6 +33,13 @@ class NestRenderer:
             pygame.draw.circle(screen, inner, (sx, sy), radius)
             pygame.draw.circle(screen, (255, 200, 120), (sx, sy), 5)
 
+            # 巣穴（出入口）は小さく表示する
+            for h in getattr(nest, "holes", []) or []:
+                hx = int(h.x - camera.x)
+                hy = int(h.y - camera.y)
+                pygame.draw.circle(screen, (255, 230, 180), (hx, hy), 4)
+                pygame.draw.circle(screen, (90, 45, 30), (hx, hy), 6, 1)
+
             if fill > 0.05:
                 leak_glow = (
                     int(40 + fill * 40),
