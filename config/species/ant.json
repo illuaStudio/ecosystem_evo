@@ -15,6 +15,7 @@
     "food_to_mana_ratio": 0.35,
     "food_leak_reserve_ratio": 0.15,
     "spawn_food_cost": 55,
+    "spawn_interval_ticks": 900,
     "max_workers": 12,
     "min_food_reserve": 72
   },
@@ -73,15 +74,6 @@
           "speed_multiplier": 1.15,
           "deposit_radius": 30,
           "base_max_carry": 100
-        }
-      },
-      {
-        "name": "SpawnWorkerAction",
-        "weight": 1.6,
-        "description": "巣付近で備蓄を消費し働きアリを1匹増やす",
-        "params": {
-          "spawn_radius": 40,
-          "spawn_cooldown": 900
         }
       },
       {

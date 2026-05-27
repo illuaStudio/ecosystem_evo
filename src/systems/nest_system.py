@@ -29,6 +29,7 @@ class Nest:
     owner_species: str
     stored_food: float = 0.0
     max_food: float = 400.0
+    spawn_timer: float = 0.0
 
     @property
     def food_ratio(self) -> float:
@@ -44,6 +45,7 @@ class NestSystem:
     DEFAULT_FOOD_LEAK_RATE = 0.0015
     DEFAULT_FOOD_TO_MANA_RATIO = 0.35
     DEFAULT_FOOD_LEAK_RESERVE_RATIO = 0.12
+    DEFAULT_SPAWN_INTERVAL_TICKS = 900.0
     WORLD_MARGIN = 30.0
 
     def __init__(self, world: "World") -> None:
@@ -183,16 +185,62 @@ class NestSystem:
         colony.nest_id = nest.id
 
     def update(self, dt: float = 1.0) -> None:
-        """備蓄食料の腐敗・漏洩 → 巣位置へマナ還流（エコロジー接続）。"""
+        """巣の更新（食料漏洩→マナ還流、巣からのスポーン等）。"""
         from src.config import config
 
         dt = float(dt)
         for nest in self.nests.values():
-            if nest.stored_food <= 0:
-                continue
             species_data = config.get_species(nest.owner_species) or {}
             colony_cfg = species_data.get("colony", {})
-            self._leak_food_to_mana(nest, colony_cfg, dt)
+            if nest.stored_food > 0:
+                self._leak_food_to_mana(nest, colony_cfg, dt)
+            self._update_nest_spawning(nest, colony_cfg, dt)
+
+    def _spawn_interval_ticks(self, colony_cfg: dict) -> float:
+        interval = float(
+            colony_cfg.get("spawn_interval_ticks", self.DEFAULT_SPAWN_INTERVAL_TICKS)
+        )
+        return max(1.0, interval)
+
+    def _update_nest_spawning(self, nest: Nest, colony_cfg: dict, dt: float) -> None:
+        """巣の備蓄で一定間隔に1匹スポーン（卵概念なし）。"""
+        if not colony_cfg.get("enabled"):
+            nest.spawn_timer = 0.0
+            return
+
+        interval = self._spawn_interval_ticks(colony_cfg)
+        ok, _ = self.spawn_readiness(nest)
+        if not ok:
+            # 条件を満たさない間は孵化進行しない（溜めない）
+            nest.spawn_timer = 0.0
+            return
+
+        nest.spawn_timer += dt
+        if nest.spawn_timer < interval:
+            return
+
+        # 1回の update で大量スポーンしないように「最大1匹」に制限。
+        nest.spawn_timer = 0.0
+        spawned = self.spawn_worker_from_nest(nest, colony_cfg)
+        if spawned is not None:
+            self.world.add_creature(spawned)
+
+    def spawn_worker_from_nest(self, nest: Nest, colony_cfg: dict | None = None):
+        """巣の備蓄を消費して子個体を生成する。失敗時は None。ワールドへの登録は呼び出し側。"""
+        cfg = colony_cfg or {}
+        ok, _ = self.spawn_readiness(nest)
+        if not ok:
+            return None
+
+        cost = float(cfg.get("spawn_food_cost", 0))
+        if cost <= 0:
+            return None
+        nest.stored_food -= cost
+
+        from src.entities.creature_factory import CreatureFactory
+
+        x, y = self.spawn_position(nest.owner_species, cfg)
+        return CreatureFactory.create(nest.owner_species, world=self.world, x=x, y=y)
 
     def _leak_food_to_mana(self, nest: Nest, colony_cfg: dict, dt: float) -> None:
         leak_rate = float(
