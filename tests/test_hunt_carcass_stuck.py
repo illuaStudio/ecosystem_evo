@@ -30,7 +30,7 @@ class TestHuntCarcassStuck(unittest.TestCase):
 
         ants = []
         for i in range(4):
-            ant = factory.create("Ant", world=world, x=600 + i * 4, y=600)
+            ant = factory.create("red_ant", world=world, x=600 + i * 4, y=600)
             ant.satiety = ant.max_satiety * 0.95
             world.add_creature(ant)
             ants.append(ant)
@@ -50,7 +50,7 @@ class TestHuntCarcassStuck(unittest.TestCase):
     def test_carrier_switches_to_return_after_pickup(self):
         world = World()
         factory = CreatureFactory()
-        ant = factory.create("Ant", world=world, x=500, y=500)
+        ant = factory.create("red_ant", world=world, x=500, y=500)
         ant.satiety = ant.max_satiety * 0.95
         world.add_creature(ant)
 
@@ -70,7 +70,7 @@ class TestHuntCarcassStuck(unittest.TestCase):
     def test_off_field_carcass_not_trackable(self):
         world = World()
         factory = CreatureFactory()
-        ant = factory.create("Ant", world=world, x=500, y=500)
+        ant = factory.create("red_ant", world=world, x=500, y=500)
         world.add_creature(ant)
 
         prey = factory.create("Amoeba", world=world, x=512, y=500)

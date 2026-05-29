@@ -4,10 +4,14 @@ import pygame
 from src.utils.creature_helpers import get_haul_max_carry, hp_ratio, satiety_ratio
 from src.utils.position_helpers import entity_xy
 
-# コロニー種の頭上ラベル（味方 / 敵アリ）
+# コロニー種の頭上ラベル（勢力色）
 COLONY_SPECIES_LABELS: dict[str, str] = {
-    "Ant": "A",
-    "EnemyAnt": "E",
+    "red_ant": "R",
+    "red_ant_soldier": "R",
+    "blue_ant": "B",
+    "blue_ant_soldier": "B",
+    "yellow_ant": "Y",
+    "yellow_ant_soldier": "Y",
 }
 
 

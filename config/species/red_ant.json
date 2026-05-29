@@ -1,14 +1,14 @@
 {
-  "name": "EnemyAnt",
-  "description": "敵働きアリ。アメーバを狩って巣へ貯蔵。兵隊蟻・クモからは逃げる。",
-  "color": [60, 90, 230],
+  "name": "red_ant",
+  "description": "赤コロニーの働きアリ。アメーバを狩って巣へ貯蔵。他勢力の兵隊・クモからは逃げる。",
+  "color": [220, 60, 60],
   "colony": {
     "enabled": true,
-    "colony_id": "enemy_ant",
+    "colony_id": "red_ant",
     "single_colony": true,
     "territory_radius": 180,
-    "nest_x": 900,
-    "nest_y": 900,
+    "nest_x": 120,
+    "nest_y": 120,
     "spawn_spread": 28,
     "deposit_radius": 30,
     "max_food": 5000,
@@ -38,9 +38,9 @@
       {
         "name": "FleeAction",
         "weight": 5.0,
-        "description": "兵隊蟻・クモから逃げる",
+        "description": "他勢力の兵隊・クモから逃げる",
         "params": {
-          "threat_species": ["AntSoldier", "Spider"],
+          "threat_species": ["blue_ant_soldier", "yellow_ant_soldier", "Spider"],
           "speed_multiplier": 1.55
         }
       },

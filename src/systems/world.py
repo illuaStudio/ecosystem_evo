@@ -92,6 +92,7 @@ class World:
 
         colony_block = dict(world_data.get("colony", {}))
         self.faction_styles = dict(colony_block.pop("factions", {}))
+        self.faction_species = dict(colony_block.pop("faction_species", {}))
         self.colony_settings = colony_block
 
         self.nest_system = NestSystem(self)

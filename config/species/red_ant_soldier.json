@@ -1,10 +1,10 @@
 {
-  "name": "AntSoldier",
-  "description": "兵隊蟻。巣のテリトリーを巡回し、侵入した敵アリ・クモを襲う。",
+  "name": "red_ant_soldier",
+  "description": "赤コロニーの兵隊蟻。テリトリー内の他勢力・クモを襲う。",
   "color": [180, 30, 30],
   "colony": {
     "enabled": true,
-    "join_species": "Ant",
+    "join_species": "red_ant",
     "single_colony": true,
     "spawn_spread": 22
   },
@@ -25,7 +25,6 @@
       {
         "name": "FeedAtNestAction",
         "weight": 8.5,
-        "description": "飢餓時: 巣へ戻り備蓄から食事（遠征しない）",
         "params": {
           "bite_gain": 1.15,
           "max_take_ratio": 0.14,
@@ -39,7 +38,6 @@
       {
         "name": "NestPatrolAction",
         "weight": 6.0,
-        "description": "巣周辺を巡回（離れすぎたら最優先で戻る）",
         "params": {
           "patrol_radius": 165,
           "speed_multiplier": 0.85,
@@ -51,9 +49,9 @@
       {
         "name": "CombatAction",
         "weight": 4.5,
-        "description": "テリトリー内の敵アリを攻撃",
+        "description": "テリトリー内の他勢力を攻撃",
         "params": {
-          "hostile_species": ["EnemyAnt", "EnemyAntSoldier"],
+          "hostile_colony_ids": ["blue_ant", "yellow_ant"],
           "speed_multiplier": 1.35,
           "attack_power": 1.45,
           "territory_only": true,
@@ -63,7 +61,6 @@
       {
         "name": "HuntAction",
         "weight": 4.0,
-        "description": "テリトリー内のクモを襲う（運搬しない）",
         "params": {
           "target_types": ["Spider"],
           "speed_multiplier": 1.3,

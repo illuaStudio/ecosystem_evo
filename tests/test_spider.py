@@ -127,7 +127,7 @@ class TestSpider(unittest.TestCase):
             world.remove_creature(c)
 
         factory = CreatureFactory()
-        ant = factory.create("Ant", world=world, x=500, y=500)
+        ant = factory.create("red_ant", world=world, x=500, y=500)
         spider = factory.create("Spider", world=world, x=512, y=500)
         world.add_creature(ant)
         world.add_creature(spider)

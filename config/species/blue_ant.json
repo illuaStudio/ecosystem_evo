@@ -1,14 +1,14 @@
 {
-  "name": "Ant",
-  "description": "働きアリ。アメーバを狩って巣へ貯蔵。兵隊蟻・クモからは逃げる。",
-  "color": [220, 60, 60],
+  "name": "blue_ant",
+  "description": "青コロニーの働きアリ。アメーバを狩って巣へ貯蔵。他勢力の兵隊・クモからは逃げる。",
+  "color": [60, 90, 230],
   "colony": {
     "enabled": true,
-    "colony_id": "ant",
+    "colony_id": "blue_ant",
     "single_colony": true,
     "territory_radius": 180,
-    "nest_x": 100,
-    "nest_y": 100,
+    "nest_x": 500,
+    "nest_y": 820,
     "spawn_spread": 28,
     "deposit_radius": 30,
     "max_food": 5000,
@@ -38,22 +38,20 @@
       {
         "name": "FleeAction",
         "weight": 5.0,
-        "description": "兵隊蟻・クモから逃げる",
+        "description": "他勢力の兵隊・クモから逃げる",
         "params": {
-          "threat_species": ["EnemyAntSoldier", "Spider"],
+          "threat_species": ["red_ant_soldier", "yellow_ant_soldier", "Spider"],
           "speed_multiplier": 1.55
         }
       },
       {
         "name": "ScavengeCarriedAction",
         "weight": 4.2,
-        "description": "飢餓時: 運搬中の死骸をその場で食べる",
         "params": { "bite_gain": 1.2 }
       },
       {
         "name": "FeedAtNestAction",
         "weight": 3.8,
-        "description": "飢餓時: 巣で十分な備蓄があれば食事",
         "params": {
           "bite_gain": 1.15,
           "max_take_ratio": 0.14,
@@ -66,7 +64,6 @@
       {
         "name": "HuntAction",
         "weight": 3.0,
-        "description": "アメーバを狩って巣へ貯蔵",
         "params": {
           "target_types": ["Amoeba"],
           "speed_multiplier": 1.35,
@@ -81,7 +78,6 @@
       {
         "name": "ReturnToNestAction",
         "weight": 3.2,
-        "description": "満腹時: 運搬中の死骸を巣へ貯蔵",
         "params": {
           "speed_multiplier": 1.15,
           "deposit_radius": 30,
@@ -91,7 +87,6 @@
       {
         "name": "NestPatrolAction",
         "weight": 1.0,
-        "description": "巣周辺を巡回",
         "params": {
           "patrol_radius": 140,
           "speed_multiplier": 0.8,

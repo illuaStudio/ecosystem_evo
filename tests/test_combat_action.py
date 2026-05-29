@@ -1,4 +1,4 @@
-"""CombatAction と敵対種検索のテスト。"""
+"""CombatAction ???????????"""
 import unittest
 
 from src.ai.actions import CombatAction
@@ -14,7 +14,7 @@ def _isolated_world() -> World:
             "world_width": 800,
             "world_height": 800,
             "initial_entities": {},
-            "population_limits": {"Ant": 60, "EnemyAnt": 60},
+            "population_limits": {"red_ant": 60, "blue_ant": 60},
         }
     )
 
@@ -23,38 +23,40 @@ class TestCombatAction(unittest.TestCase):
     def test_find_nearest_hostile(self):
         world = _isolated_world()
         factory = CreatureFactory()
-        ant = factory.create("Ant", world=world, x=100, y=100)
-        enemy = factory.create("EnemyAnt", world=world, x=130, y=100)
-        world.add_creature(ant)
-        world.add_creature(enemy)
+        red = factory.create("red_ant_soldier", world=world, x=100, y=100)
+        blue = factory.create("blue_ant", world=world, x=130, y=100)
+        world.add_creature(red)
+        world.add_creature(blue)
 
-        foe = find_nearest_hostile_among(ant, ["EnemyAnt"])
-        self.assertIs(foe, enemy)
+        foe = find_nearest_hostile_among(red, ["blue_ant"])
+        self.assertIs(foe, blue)
 
-    def test_combat_utility_when_enemy_in_vision(self):
+    def test_combat_utility_when_rival_in_vision(self):
         world = _isolated_world()
         factory = CreatureFactory()
-        ant = factory.create("Ant", world=world, x=100, y=100)
-        enemy = factory.create("EnemyAnt", world=world, x=140, y=100)
-        world.add_creature(ant)
-        world.add_creature(enemy)
+        worker = factory.create("red_ant", world=world, x=100, y=100)
+        world.add_creature(worker)
+        soldier = factory.create("red_ant_soldier", world=world, x=105, y=100)
+        world.add_creature(soldier)
+        other = factory.create("blue_ant", world=world, x=160, y=100)
+        world.add_creature(other)
 
-        action = CombatAction(hostile_species=["EnemyAnt"])
-        self.assertGreater(action.calculate_utility(ant), 0.0)
+        action = CombatAction(hostile_species=["blue_ant"], territory_only=True)
+        self.assertGreater(action.calculate_utility(soldier), 0.0)
 
     def test_combat_attacks_without_eating(self):
         world = _isolated_world()
         factory = CreatureFactory()
-        ant = factory.create("Ant", world=world, x=100, y=100)
-        enemy = factory.create("EnemyAnt", world=world, x=112, y=100)
-        enemy.hp = 5.0
-        world.add_creature(ant)
-        world.add_creature(enemy)
+        soldier = factory.create("red_ant_soldier", world=world, x=100, y=100)
+        other = factory.create("blue_ant", world=world, x=112, y=100)
+        other.hp = 5.0
+        world.add_creature(soldier)
+        world.add_creature(other)
 
-        sat_before = ant.satiety
-        try_attack_only(ant, enemy, attack_power=2.5)
-        self.assertFalse(enemy.alive)
-        self.assertEqual(ant.satiety, sat_before)
+        sat_before = soldier.satiety
+        try_attack_only(soldier, other, attack_power=2.5)
+        self.assertFalse(other.alive)
+        self.assertEqual(soldier.satiety, sat_before)
 
 
 if __name__ == "__main__":

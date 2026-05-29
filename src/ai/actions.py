@@ -17,6 +17,7 @@ from src.utils.creature_helpers import (
     find_nearest_edible_in_territory_among,
     find_nearest_field_carcass_among,
     find_nearest_flee_threat_among,
+    expand_faction_species,
     find_nearest_hostile_among,
     find_nearest_hostile_in_territory_among,
     has_edible_carcass,
@@ -257,6 +258,7 @@ class CombatAction(Action):
 
     DEFAULT_PARAMS = {
         "hostile_species": (),
+        "hostile_colony_ids": (),
         "speed_multiplier": 1.4,
         "contact_padding": 8.0,
         "attack_power": 1.3,
@@ -268,8 +270,11 @@ class CombatAction(Action):
         super().__init__(**params)
         self._target = None
 
-    def _enemies(self) -> tuple[str, ...]:
-        raw = self.params.get("hostile_species") or ()
+    def _enemies(self, creature=None) -> tuple[str, ...]:
+        raw = list(self.params.get("hostile_species") or ())
+        colony_ids = self.params.get("hostile_colony_ids") or ()
+        if colony_ids and creature is not None and creature.world is not None:
+            raw.extend(expand_faction_species(creature.world, colony_ids))
         return tuple(raw)
 
     def _territory_only(self) -> bool:
@@ -311,7 +316,7 @@ class CombatAction(Action):
             )
             return False
 
-        enemies = self._enemies()
+        enemies = self._enemies(creature)
         if not enemies:
             return False
 
@@ -344,7 +349,7 @@ class CombatAction(Action):
         if self._territory_only() and needs_self_feed(creature):
             return 0.0
 
-        enemies = self._enemies()
+        enemies = self._enemies(creature)
         if not enemies:
             return 0.0
 

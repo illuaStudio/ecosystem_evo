@@ -308,7 +308,7 @@ class Renderer:
 
         self.screen.blit(
             self.small_font.render(
-                "Space:停止/再開  R:リセット  M:表示切替  T:テリトリー  A:アメーバ  S:クモ  P:味方アリ  H:巣穴  右クリック:個体/巣",
+                "Space:停止/再開  R:リセット  M:表示切替  T:テリトリー  A:アメーバ  S:クモ  P:赤アリ  H:巣穴  右クリック:個体/巣",
                 True,
                 (160, 200, 255),
             ),

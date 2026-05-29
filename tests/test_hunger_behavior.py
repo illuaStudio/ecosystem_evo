@@ -29,7 +29,7 @@ from src.utils.position_helpers import entity_xy
 class TestHungerBehavior(unittest.TestCase):
     def _ant_and_prey(self, world, ant_satiety_ratio=1.0):
         factory = CreatureFactory()
-        ant = factory.create("Ant", world=world, x=500, y=500)
+        ant = factory.create("red_ant", world=world, x=500, y=500)
         prey = factory.create("Amoeba", world=world, x=512, y=500)
         ant.satiety = ant.max_satiety * ant_satiety_ratio
         world.add_creature(ant)

@@ -15,7 +15,7 @@ class TestChunkCarry(unittest.TestCase):
     def test_spider_carcass_needs_many_trips(self):
         world = World()
         factory = CreatureFactory()
-        ant = factory.create("Ant", world=world, x=400, y=400)
+        ant = factory.create("red_ant", world=world, x=400, y=400)
         world.add_creature(ant)
 
         spider = factory.create("Spider", world=world, x=0, y=0)

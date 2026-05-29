@@ -16,7 +16,7 @@ class TestHuntHelpers(unittest.TestCase):
     def test_get_hunt_target_from_action(self):
         world = World()
         factory = CreatureFactory()
-        ant = factory.create("Ant", world=world, x=500, y=500)
+        ant = factory.create("red_ant", world=world, x=500, y=500)
         spider = factory.create("Spider", world=world, x=520, y=500)
         world.add_creature(ant)
         world.add_creature(spider)
@@ -30,7 +30,7 @@ class TestHuntHelpers(unittest.TestCase):
     def test_find_hunters_for_prey(self):
         world = World()
         factory = CreatureFactory()
-        ant = factory.create("Ant", world=world, x=500, y=500)
+        ant = factory.create("red_ant", world=world, x=500, y=500)
         spider = factory.create("Spider", world=world, x=520, y=500)
         world.add_creature(ant)
         world.add_creature(spider)
@@ -46,12 +46,12 @@ class TestHuntHelpers(unittest.TestCase):
     def test_get_combat_target(self):
         world = World()
         factory = CreatureFactory()
-        ant = factory.create("Ant", world=world, x=500, y=500)
-        enemy = factory.create("EnemyAnt", world=world, x=520, y=500)
+        ant = factory.create("red_ant", world=world, x=500, y=500)
+        enemy = factory.create("blue_ant", world=world, x=520, y=500)
         world.add_creature(ant)
         world.add_creature(enemy)
 
-        action = CombatAction(hostile_species=["EnemyAnt"])
+        action = CombatAction(hostile_species=["blue_ant"])
         action._target = enemy
         ant.current_action = action
 
@@ -60,12 +60,12 @@ class TestHuntHelpers(unittest.TestCase):
     def test_find_attackers_includes_combat(self):
         world = World()
         factory = CreatureFactory()
-        ant = factory.create("Ant", world=world, x=500, y=500)
-        enemy = factory.create("EnemyAnt", world=world, x=520, y=500)
+        ant = factory.create("red_ant", world=world, x=500, y=500)
+        enemy = factory.create("blue_ant", world=world, x=520, y=500)
         world.add_creature(ant)
         world.add_creature(enemy)
 
-        action = CombatAction(hostile_species=["Ant"])
+        action = CombatAction(hostile_species=["red_ant"])
         action._target = enemy
         ant.current_action = action
 

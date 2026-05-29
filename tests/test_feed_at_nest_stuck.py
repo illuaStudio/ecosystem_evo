@@ -13,7 +13,7 @@ class TestFeedAtNestNotStuck(unittest.TestCase):
     def test_feed_approach_moves_predator_toward_nest(self):
         world = World()
         factory = CreatureFactory()
-        predator = factory.create("Ant", world=world, x=600, y=600)
+        predator = factory.create("red_ant", world=world, x=600, y=600)
         world.add_creature(predator)
 
         nest = world.nest_system.get_creature_nest(predator)
@@ -35,7 +35,7 @@ class TestFeedAtNestNotStuck(unittest.TestCase):
         """死骸と巣が反対方向でも、1ティックで十分に動く（二重移動の相殺を防ぐ）。"""
         world = World()
         factory = CreatureFactory()
-        ant = factory.create("Ant", world=world, x=400, y=500)
+        ant = factory.create("red_ant", world=world, x=400, y=500)
         spider = factory.create("Spider", world=world, x=300, y=500)
         spider.alive = False
         spider.remaining_biomass = 200.0

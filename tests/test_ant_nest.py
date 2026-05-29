@@ -17,14 +17,14 @@ from src.utils.position_helpers import entity_xy
 
 class TestAntNest(unittest.TestCase):
     def _empty_world(self) -> World:
-        """初期個体なし（EnemyAnt 巣の干渉を避ける）。"""
+        """初期個体なし（blue_ant 巣の干渉を避ける）。"""
         return World.from_json(
             {
                 "name": "AntNestTest",
                 "world_width": 3000,
                 "world_height": 3000,
                 "initial_entities": {},
-                "population_limits": {"Ant": 60, "EnemyAnt": 60},
+                "population_limits": {"red_ant": 60, "blue_ant": 60},
             }
         )
 
@@ -34,7 +34,7 @@ class TestAntNest(unittest.TestCase):
         for i in range(count):
             x = 400 + i * 25
             y = 400 + i * 15
-            p = factory.create("Ant", world=world, x=x, y=y)
+            p = factory.create("red_ant", world=world, x=x, y=y)
             world.add_creature(p)
             preds.append(p)
         return preds
@@ -44,7 +44,7 @@ class TestAntNest(unittest.TestCase):
         factory = CreatureFactory()
         preds = []
         for i, (x, y) in enumerate([(120, 120), (850, 850), (500, 200)]):
-            p = factory.create("Ant", world=world, x=x, y=y)
+            p = factory.create("red_ant", world=world, x=x, y=y)
             world.add_creature(p)
             preds.append(p)
         nest_ids = {p.colony.nest_id for p in preds}
@@ -53,14 +53,14 @@ class TestAntNest(unittest.TestCase):
 
     def test_initial_predators_spawn_near_nest_anchor(self):
         world = World()
-        colony_cfg = config.get_species("Ant").get("colony", {})
+        colony_cfg = config.get_species("red_ant").get("colony", {})
         anchor_x = float(colony_cfg.get("nest_x", world.width * 0.5))
         anchor_y = float(colony_cfg.get("nest_y", world.height * 0.5))
         spread = float(colony_cfg.get("spawn_spread", 28))
 
-        preds = [c for c in world.creatures if c.species.name == "Ant"]
+        preds = [c for c in world.creatures if c.species.name == "red_ant"]
         self.assertGreaterEqual(len(preds), 1)
-        nest = world.nest_system.get_colony_nest("ant")
+        nest = world.nest_system.get_colony_nest("red_ant")
         self.assertIsNotNone(nest)
         for p in preds:
             px, py = entity_xy(p)
@@ -70,12 +70,12 @@ class TestAntNest(unittest.TestCase):
     def test_nest_spawn_position_uses_existing_nest(self):
         world = World()
         factory = CreatureFactory()
-        colony_cfg = config.get_species("Ant").get("colony", {})
-        first = factory.create("Ant", world=world, x=300, y=300)
+        colony_cfg = config.get_species("red_ant").get("colony", {})
+        first = factory.create("red_ant", world=world, x=300, y=300)
         world.add_creature(first)
         nest = world.nest_system.get_creature_nest(first)
 
-        x, y = world.nest_system.spawn_position("Ant", colony_cfg)
+        x, y = world.nest_system.spawn_position("red_ant", colony_cfg)
         dist = distance_to_point(type("_P", (), {"pos": [x, y]})(), nest.x, nest.y)
         spread = float(colony_cfg.get("spawn_spread", 28))
         self.assertLessEqual(dist, spread + 1)
@@ -83,11 +83,11 @@ class TestAntNest(unittest.TestCase):
     def test_p_spawn_joins_existing_nest(self):
         world = self._empty_world()
         factory = CreatureFactory()
-        first = factory.create("Ant", world=world, x=300, y=300)
+        first = factory.create("red_ant", world=world, x=300, y=300)
         world.add_creature(first)
         nest_id = first.colony.nest_id
 
-        second = factory.create("Ant", world=world, x=900, y=900)
+        second = factory.create("red_ant", world=world, x=900, y=900)
         world.add_creature(second)
         self.assertEqual(second.colony.nest_id, nest_id)
         self.assertEqual(len(world.nest_system.nests), 1)
@@ -97,7 +97,7 @@ class TestAntNest(unittest.TestCase):
             {"name": "Test", "world_width": 1000, "world_height": 1000}
         )
         factory = CreatureFactory()
-        ant = factory.create("Ant", world=world, x=100, y=100)
+        ant = factory.create("red_ant", world=world, x=100, y=100)
         world.nest_system.assign_creature(
             ant,
             {
@@ -116,7 +116,7 @@ class TestAntNest(unittest.TestCase):
             {"name": "Test", "world_width": 1000, "world_height": 1000}
         )
         factory = CreatureFactory()
-        ant = factory.create("Ant", world=world, x=100, y=100)
+        ant = factory.create("red_ant", world=world, x=100, y=100)
         world.nest_system.assign_creature(
             ant,
             {
@@ -133,7 +133,7 @@ class TestAntNest(unittest.TestCase):
             {"name": "Test", "world_width": 1000, "world_height": 1000}
         )
         factory = CreatureFactory()
-        first = factory.create("Ant", world=world, x=300, y=300)
+        first = factory.create("red_ant", world=world, x=300, y=300)
         world.nest_system.assign_creature(
             first,
             {"single_colony": True, "max_food": 400.0, "initial_stored_food": 90.0},
@@ -141,7 +141,7 @@ class TestAntNest(unittest.TestCase):
         nest = world.nest_system.get_creature_nest(first)
         nest.stored_food = 50.0
 
-        second = factory.create("Ant", world=world, x=900, y=900)
+        second = factory.create("red_ant", world=world, x=900, y=900)
         world.nest_system.assign_creature(
             second,
             {"single_colony": True, "max_food": 400.0, "initial_stored_food": 200.0},
@@ -204,7 +204,7 @@ class TestAntNest(unittest.TestCase):
         preds = self._spawn_predators(world, 1)
         nest = world.nest_system.get_creature_nest(preds[0])
         reserve = nest.max_food * float(
-            config.get_species("Ant").get("colony", {}).get(
+            config.get_species("red_ant").get("colony", {}).get(
                 "food_leak_reserve_ratio", 0.15
             )
         )
@@ -223,13 +223,13 @@ class TestAntNest(unittest.TestCase):
     def test_feed_per_member_ratio_divides_by_colony_size(self):
         world = World()
         for c in list(world.creatures):
-            if c.species.name == "Ant":
+            if c.species.name == "red_ant":
                 world.remove_creature(c)
         world.nest_system.nests.clear()
         preds = self._spawn_predators(world, 3)
         nest = world.nest_system.get_creature_nest(preds[0])
         nest.stored_food = 200.0
-        members = world.nest_system.member_count(nest.id, "Ant")
+        members = world.nest_system.member_count(nest.id, "red_ant")
         self.assertEqual(members, 3)
         solo_cap = 200.0 * 0.14
         shared_cap = 200.0 * 0.14 / members
@@ -240,12 +240,12 @@ class TestAntNest(unittest.TestCase):
         preds = self._spawn_predators(world, 1)
         predator = preds[0]
         nest = world.nest_system.get_creature_nest(predator)
-        colony_cfg = config.get_species("Ant").get("colony", {})
+        colony_cfg = config.get_species("red_ant").get("colony", {})
         cost = float(colony_cfg["spawn_food_cost"])
         reserve = float(colony_cfg["min_food_reserve"])
 
         nest.stored_food = reserve + cost + 10
-        members_before = world.nest_system.member_count(nest.id, "Ant")
+        members_before = world.nest_system.member_count(nest.id, "red_ant")
         food_before = nest.stored_food
 
         from src.utils.position_helpers import entity_xy
@@ -261,7 +261,7 @@ class TestAntNest(unittest.TestCase):
         world.add_creature(worker)
 
         self.assertEqual(
-            world.nest_system.member_count(nest.id, "Ant"),
+            world.nest_system.member_count(nest.id, "red_ant"),
             members_before + 1,
         )
         self.assertAlmostEqual(nest.stored_food, food_before - cost)
@@ -269,7 +269,7 @@ class TestAntNest(unittest.TestCase):
 
     def test_spawn_worker_blocked_at_max_workers(self):
         world = World()
-        colony_cfg = config.get_species("Ant").get("colony", {})
+        colony_cfg = config.get_species("red_ant").get("colony", {})
         max_workers = int(colony_cfg["max_workers"])
         preds = self._spawn_predators(world, max_workers)
         nest = world.nest_system.get_creature_nest(preds[0])
@@ -283,7 +283,7 @@ class TestAntNest(unittest.TestCase):
         preds = self._spawn_predators(world, 1)
         predator = preds[0]
         nest = world.nest_system.get_creature_nest(predator)
-        colony_cfg = config.get_species("Ant").get("colony", {})
+        colony_cfg = config.get_species("red_ant").get("colony", {})
         cost = float(colony_cfg["spawn_food_cost"])
         reserve = float(colony_cfg["min_food_reserve"])
 
@@ -382,7 +382,7 @@ class TestAntNest(unittest.TestCase):
         preds = self._spawn_predators(world, 1)
         predator = preds[0]
         nest = world.nest_system.get_creature_nest(predator)
-        colony_cfg = config.get_species("Ant").get("colony", {})
+        colony_cfg = config.get_species("red_ant").get("colony", {})
         cost = float(colony_cfg["spawn_food_cost"])
         reserve = float(colony_cfg["min_food_reserve"])
         nest.stored_food = reserve + cost + 50
@@ -396,10 +396,10 @@ class TestAntNest(unittest.TestCase):
         from src.ai.actions import SpawnWorkerAction
 
         action = SpawnWorkerAction(spawn_cooldown=0)
-        members_before = world.nest_system.member_count(nest.id, "Ant")
+        members_before = world.nest_system.member_count(nest.id, "red_ant")
         self.assertTrue(action.execute(predator))
         self.assertEqual(
-            world.nest_system.member_count(nest.id, "Ant"),
+            world.nest_system.member_count(nest.id, "red_ant"),
             members_before + 1,
         )
 
@@ -419,7 +419,7 @@ class TestAntNest(unittest.TestCase):
         world = self._empty_world()
         preds = self._spawn_predators(world, 1)
         nest = world.nest_system.get_creature_nest(preds[0])
-        colony_cfg = config.get_species("Ant").get("colony", {})
+        colony_cfg = config.get_species("red_ant").get("colony", {})
         needed = float(colony_cfg["min_food_reserve"]) + float(
             colony_cfg["spawn_food_cost"]
         )

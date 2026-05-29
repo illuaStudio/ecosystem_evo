@@ -14,19 +14,23 @@
 
   "initial_entities": {
     "Amoeba": 50,
-    "Ant": 3,
-    "AntSoldier": 2,
-    "EnemyAnt": 3,
-    "EnemyAntSoldier": 2,
+    "red_ant": 2,
+    "red_ant_soldier": 2,
+    "blue_ant": 2,
+    "blue_ant_soldier": 2,
+    "yellow_ant": 2,
+    "yellow_ant_soldier": 2,
     "Spider": 3
   },
 
   "population_limits": {
     "Amoeba": 50,
-    "Ant": 10,
-    "AntSoldier": 6,
-    "EnemyAnt": 10,
-    "EnemyAntSoldier": 6,
+    "red_ant": 10,
+    "red_ant_soldier": 6,
+    "blue_ant": 10,
+    "blue_ant_soldier": 6,
+    "yellow_ant": 10,
+    "yellow_ant_soldier": 6,
     "Spider": 30
   },
 
@@ -35,9 +39,14 @@
     "max_holes": 8,
     "min_hole_spacing": 120,
     "hole_min_food_reserve": 72,
+    "faction_species": {
+      "red_ant": ["red_ant", "red_ant_soldier"],
+      "blue_ant": ["blue_ant", "blue_ant_soldier"],
+      "yellow_ant": ["yellow_ant", "yellow_ant_soldier"]
+    },
     "factions": {
-      "ant": {
-        "label": "A",
+      "red_ant": {
+        "label": "R",
         "territory_fill": [220, 70, 70, 38],
         "territory_line": [255, 130, 130, 150],
         "nest_outer": [90, 45, 30],
@@ -45,14 +54,23 @@
         "nest_glow_base": [40, 120, 180],
         "nest_hole": [255, 230, 180]
       },
-      "enemy_ant": {
-        "label": "E",
+      "blue_ant": {
+        "label": "B",
         "territory_fill": [70, 90, 220, 38],
         "territory_line": [130, 160, 255, 150],
         "nest_outer": [35, 45, 95],
         "nest_inner_base": [70, 100, 200],
         "nest_glow_base": [50, 80, 200],
         "nest_hole": [180, 210, 255]
+      },
+      "yellow_ant": {
+        "label": "Y",
+        "territory_fill": [220, 190, 50, 38],
+        "territory_line": [255, 230, 120, 150],
+        "nest_outer": [100, 85, 25],
+        "nest_inner_base": [200, 175, 50],
+        "nest_glow_base": [180, 150, 40],
+        "nest_hole": [255, 245, 200]
       }
     }
   },

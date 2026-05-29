@@ -1,0 +1,103 @@
+{
+  "name": "yellow_ant",
+  "description": "黄コロニーの働きアリ。アメーバを狩って巣へ貯蔵。他勢力の兵隊・クモからは逃げる。",
+  "color": [220, 200, 50],
+  "colony": {
+    "enabled": true,
+    "colony_id": "yellow_ant",
+    "single_colony": true,
+    "territory_radius": 180,
+    "nest_x": 880,
+    "nest_y": 120,
+    "spawn_spread": 28,
+    "deposit_radius": 30,
+    "max_food": 5000,
+    "initial_stored_food": 2000,
+    "food_leak_rate": 0.00012,
+    "food_to_mana_ratio": 0.35,
+    "food_leak_reserve_ratio": 0.15,
+    "spawn_food_cost": 55,
+    "spawn_interval_ticks": 900,
+    "max_workers": 10,
+    "min_food_reserve": 72
+  },
+  "traits": {
+    "base_size": 14.0,
+    "base_speed": 0.5,
+    "base_vision": 260,
+    "max_hp": 120.0,
+    "max_satiety": 100.0,
+    "metabolism_rate": 0.05,
+    "satiety_hungry_below": 0.15,
+    "satiety_full_above": 0.85,
+    "corpse_decompose_rate": 0.01
+  },
+  "mind": {
+    "type": "utility",
+    "actions": [
+      {
+        "name": "FleeAction",
+        "weight": 5.0,
+        "description": "他勢力の兵隊・クモから逃げる",
+        "params": {
+          "threat_species": ["red_ant_soldier", "blue_ant_soldier", "Spider"],
+          "speed_multiplier": 1.55
+        }
+      },
+      {
+        "name": "ScavengeCarriedAction",
+        "weight": 4.2,
+        "params": { "bite_gain": 1.2 }
+      },
+      {
+        "name": "FeedAtNestAction",
+        "weight": 3.8,
+        "params": {
+          "bite_gain": 1.15,
+          "max_take_ratio": 0.14,
+          "feed_radius": 38,
+          "min_usable_food_ratio": 0.01,
+          "min_usable_satiety_gain": 1.0,
+          "scavenge_species": ["Amoeba"]
+        }
+      },
+      {
+        "name": "HuntAction",
+        "weight": 3.0,
+        "params": {
+          "target_types": ["Amoeba"],
+          "speed_multiplier": 1.35,
+          "attack_power": 1.25,
+          "pickup_on_kill": true,
+          "bite_gain": 1.2,
+          "colony_hoard_strength": 0.8,
+          "min_usable_food_ratio": 0.01,
+          "min_usable_satiety_gain": 1.0
+        }
+      },
+      {
+        "name": "ReturnToNestAction",
+        "weight": 3.2,
+        "params": {
+          "speed_multiplier": 1.15,
+          "deposit_radius": 30,
+          "base_max_carry": 100
+        }
+      },
+      {
+        "name": "NestPatrolAction",
+        "weight": 1.0,
+        "params": {
+          "patrol_radius": 140,
+          "speed_multiplier": 0.8,
+          "nest_pull_strength": 0.6
+        }
+      },
+      {
+        "name": "WanderAction",
+        "weight": 0.35,
+        "params": { "angle_range": 35, "speed_multiplier": 0.7 }
+      }
+    ]
+  }
+}

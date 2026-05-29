@@ -242,7 +242,7 @@ class NestSystem:
         """コロニー有効種を巣に割り当て。
 
         single_colony=true（既定）: 同種の既存巣があれば距離に関係なく合流。
-        なければ新設。将来の敵対コロニー用に join_radius による近傍合流も残す。
+        なければ新設。将来の複数コロニー用に join_radius による近傍合流も残す。
         """
         colony = getattr(creature, "colony", None)
         if colony is None:

@@ -95,7 +95,7 @@ class TestTraitVariance(unittest.TestCase):
         world = World()
         rng = random.Random(99)
         speeds = [
-            CreatureFactory.create("Ant", world=world, x=300, y=300, rng=rng).traits[
+            CreatureFactory.create("red_ant", world=world, x=300, y=300, rng=rng).traits[
                 "base_speed"
             ]
             for _ in range(15)
@@ -123,7 +123,7 @@ class TestTraitVariance(unittest.TestCase):
 
     def test_format_individual_trait_lines_for_ant(self):
         world = World()
-        ant = CreatureFactory.create("Ant", world=world, x=300, y=300, rng=random.Random(3))
+        ant = CreatureFactory.create("red_ant", world=world, x=300, y=300, rng=random.Random(3))
         lines = format_individual_trait_lines(ant)
         self.assertGreater(len(lines), 0)
         self.assertTrue(any("基礎速度" in line for line in lines))
@@ -138,7 +138,7 @@ class TestTraitVariance(unittest.TestCase):
             )
             return [line.split(":")[0].strip() for line in format_individual_trait_lines(c)]
 
-        ant_labels = labels_for("Ant", 1)
+        ant_labels = labels_for("red_ant", 1)
         spider_labels = labels_for("Spider", 2)
         self.assertEqual(ant_labels, spider_labels)
 

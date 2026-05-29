@@ -73,14 +73,14 @@ class InputHandler:
             self.engine.world.add_creature(c)
         elif event.key == pygame.K_p:
             world = self.engine.world
-            colony_cfg = (config.get_species("Ant") or {}).get("colony", {})
+            colony_cfg = (config.get_species("red_ant") or {}).get("colony", {})
             if colony_cfg.get("enabled"):
-                x, y = world.nest_system.spawn_position("Ant", colony_cfg)
+                x, y = world.nest_system.spawn_position("red_ant", colony_cfg)
                 c = self.engine.creature_factory.create(
-                    "Ant", world=world, x=x, y=y
+                    "red_ant", world=world, x=x, y=y
                 )
             else:
-                c = self.engine.creature_factory.create("Ant", world=world)
+                c = self.engine.creature_factory.create("red_ant", world=world)
             world.add_creature(c)
         elif event.key == pygame.K_h:
             self._add_nest_hole_at_cursor()

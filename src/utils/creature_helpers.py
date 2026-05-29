@@ -372,6 +372,19 @@ def is_trackable_prey(creature, target, species_names) -> bool:
     )
 
 
+def expand_faction_species(world, colony_ids) -> tuple[str, ...]:
+    """勢力 ID からそのコロニーに属する全種名を列挙（world.colony.faction_species）。"""
+    if world is None:
+        return ()
+    faction_species = getattr(world, "faction_species", {}) or {}
+    names: list[str] = []
+    for cid in colony_ids or ():
+        for name in faction_species.get(cid, ()):
+            if name not in names:
+                names.append(str(name))
+    return tuple(names)
+
+
 def is_hostile_target(creature, target, species_names) -> bool:
     """戦闘対象（生きている指定種のみ。死骸は対象外）。"""
     if target is None or target is creature:

@@ -12,7 +12,7 @@ class TestMovementStandoff(unittest.TestCase):
     def test_move_toward_stops_at_min_distance(self):
         world = World()
         factory = CreatureFactory()
-        ant = factory.create("Ant", world=world, x=100, y=100)
+        ant = factory.create("red_ant", world=world, x=100, y=100)
         spider = factory.create("Spider", world=world, x=200, y=100)
         world.add_creature(ant)
         world.add_creature(spider)
@@ -32,7 +32,7 @@ class TestMovementStandoff(unittest.TestCase):
     def test_move_toward_without_standoff_reaches_center(self):
         world = World()
         factory = CreatureFactory()
-        ant = factory.create("Ant", world=world, x=100, y=100)
+        ant = factory.create("red_ant", world=world, x=100, y=100)
         spider = factory.create("Spider", world=world, x=200, y=100)
         world.add_creature(ant)
         world.add_creature(spider)
@@ -50,7 +50,7 @@ class TestMovementStandoff(unittest.TestCase):
     def test_move_toward_contact_matches_standoff(self):
         world = World()
         factory = CreatureFactory()
-        ant = factory.create("Ant", world=world, x=100, y=100)
+        ant = factory.create("red_ant", world=world, x=100, y=100)
         spider = factory.create("Spider", world=world, x=250, y=100)
         world.add_creature(ant)
         world.add_creature(spider)
