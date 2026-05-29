@@ -56,9 +56,9 @@ class ManaWanderAction(Action):
             )
             return False
 
-        cap = max(1.0, float(getattr(world, "mana_density_cap", 2500.0)))
+        cap = max(1.0, float(getattr(world.mana_layer, "mana_density_cap", 2500.0)))
         pos = creature.position
-        density = world.get_mana_density(pos.x, pos.y)
+        density = world.mana_layer.get_mana_density(pos.x, pos.y)
         t = min(1.0, max(0.0, density / cap))
 
         angle = p["angle_range_sparse"] + (p["angle_range_dense"] - p["angle_range_sparse"]) * t

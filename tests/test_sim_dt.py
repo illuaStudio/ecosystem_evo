@@ -43,18 +43,19 @@ class TestSimDt(unittest.TestCase):
     def test_mana_regen_scales_with_dt(self):
         world = World()
         col, row = 0, 0
-        before = world.mana_density[row][col]
-        world.mana_density[row][col] = 0.0
+        ml = world.mana_layer
+        before = ml.mana_density[row][col]
+        ml.mana_density[row][col] = 0.0
 
-        world.mana_layer.regenerate(1.0)
-        after_1 = world.mana_density[row][col]
+        ml.regenerate(1.0)
+        after_1 = ml.mana_density[row][col]
 
-        world.mana_density[row][col] = 0.0
-        world.mana_layer.regenerate(10.0)
-        after_10 = world.mana_density[row][col]
+        ml.mana_density[row][col] = 0.0
+        ml.regenerate(10.0)
+        after_10 = ml.mana_density[row][col]
 
         self.assertAlmostEqual(after_10, after_1 * 10.0, delta=after_1 * 0.01)
-        world.mana_density[row][col] = before
+        ml.mana_density[row][col] = before
 
 
 if __name__ == "__main__":

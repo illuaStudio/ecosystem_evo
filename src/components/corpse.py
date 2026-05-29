@@ -34,7 +34,7 @@ class CorpseComponent:
         world = owner.world
         if world and decompose_amount > 0:
             ox, oy = entity_xy(owner)
-            world.return_mana_from_decomposition(
+            world.mana_layer.return_from_decomposition(
                 decompose_amount * self.MANA_YIELD_RATIO, ox, oy
             )
 
@@ -42,7 +42,7 @@ class CorpseComponent:
             self.remaining_biomass = 0.0
             if world:
                 ox, oy = entity_xy(owner)
-                world.return_mana_from_decomposition(
+                world.mana_layer.return_from_decomposition(
                     self.DEPLETION_MANA_BONUS, ox, oy
                 )
 

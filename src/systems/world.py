@@ -106,54 +106,6 @@ class World:
         """種族のワールド個体数上限。未設定なら None。"""
         return self.population_limits.get(species_name)
 
-    # バイオーム（後方互換）
-    biomes = property(lambda s: s.biome.biomes)
-    biome_by_name = property(lambda s: s.biome.biome_by_name)
-    biome_cell_size = property(lambda s: s.biome.biome_cell_size)
-    biome_noise = property(lambda s: s.biome.biome_noise)
-    biome_color_grid = property(lambda s: s.biome.biome_color_grid)
-    avg_mana_regen_multiplier = property(lambda s: s.biome.avg_mana_regen_multiplier)
-
-    def get_biome_at(self, x: float, y: float) -> Dict:
-        return self.biome.get_biome_at(x, y)
-
-    def get_biome_color_at(self, x: float, y: float) -> Tuple[int, int, int]:
-        return self.biome.get_biome_color_at(x, y)
-
-    def get_mana_regen_multiplier(self, x: float, y: float) -> float:
-        return self.biome.get_mana_regen_multiplier(x, y)
-
-    # マナ（後方互換）
-    mana_regen_rate = property(lambda s: s.mana_layer.regen_rate)
-    mana_cell_size = property(lambda s: s.mana_layer.mana_cell_size)
-    mana_density_cap = property(lambda s: s.mana_layer.mana_density_cap)
-    mana_density = property(lambda s: s.mana_layer.mana_density)
-    max_mana = property(lambda s: s.mana_layer.max_mana)
-    _mana_cols = property(lambda s: s.mana_layer._mana_cols)
-    _mana_rows = property(lambda s: s.mana_layer._mana_rows)
-
-    @property
-    def mana(self) -> float:
-        return self.mana_layer.mana
-
-    @mana.setter
-    def mana(self, value: float) -> None:
-        self.mana_layer.mana = value
-
-    def get_mana_density(self, x: float, y: float) -> float:
-        return self.mana_layer.get_mana_density(x, y)
-
-    def _regenerate_mana_density(self, dt: float = 1.0) -> None:
-        self.mana_layer.regenerate(dt)
-
-    def return_mana_from_decomposition(
-        self, amount: float, x: float = None, y: float = None
-    ) -> None:
-        self.mana_layer.return_from_decomposition(amount, x, y)
-
-    def consume_mana(self, amount: float, x: float = None, y: float = None) -> float:
-        return self.mana_layer.consume(amount, x, y)
-
     def add_creature(self, creature) -> None:
         creature.world = self
         self.creatures.append(creature)
@@ -169,7 +121,7 @@ class World:
     def update(self, dt: float = 1.0) -> None:
         """生態シミュレーションを dt 分進める（1 = 旧来の 1 シミュ tick）。"""
         self.sim_dt = float(dt)
-        self._regenerate_mana_density(dt)
+        self.mana_layer.regenerate(dt)
         self.nest_system.update(dt)
         for creature in self.creatures[:]:
             creature.update(dt)

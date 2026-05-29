@@ -34,9 +34,11 @@ class TestManaSteering(unittest.TestCase):
 
     def _world(self, density=1500.0, cap=2500.0):
         world = MagicMock()
-        world.mana_density_cap = cap
-        world.mana_cell_size = 16
-        world.get_mana_density.return_value = density
+        world.mana_layer = MagicMock()
+        world.mana_layer.mana_density_cap = cap
+        world.mana_layer.mana_cell_size = 16
+        world.mana_layer.get_mana_density = MagicMock(return_value=density)
+        world.mana_layer.mana_density = [[density]]
         world.creatures = []
         return world
 
@@ -44,14 +46,13 @@ class TestManaSteering(unittest.TestCase):
         entity = self._entity()
         cap = 2500.0
         world = self._world(density=cap * 0.05)
-        world.mana_density_cap = cap
-        world.get_mana_density.return_value = cap * 0.05
+        world.mana_layer.get_mana_density = MagicMock(return_value=cap * 0.05)
         self.assertTrue(ManaSystem.should_escape(entity, world, self._params()))
 
     def test_should_escape_on_depletion_rate(self):
         entity = self._entity()
         world = self._world()
-        world.get_mana_density.return_value = 900.0
+        world.mana_layer.get_mana_density = MagicMock(return_value=900.0)
         entity.mana_steer_snap_density = 1000.0
         self.assertGreaterEqual(ManaSystem.local_depletion_rate(entity, world), 0.1)
         self.assertTrue(ManaSystem.should_escape(entity, world, self._params()))

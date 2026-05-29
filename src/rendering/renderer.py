@@ -136,14 +136,14 @@ class Renderer:
                 )
             if world and sc.alive:
                 sx, sy = entity_xy(sc)
-                biome = world.get_biome_at(sx, sy)
+                biome = world.biome.get_biome_at(sx, sy)
                 texts.append(
                     f"バイオーム: {biome.get('display_name', biome.get('name', '?'))}"
                 )
-                if hasattr(world, "get_mana_density"):
-                    density = world.get_mana_density(sx, sy)
-                    cap = getattr(world, "mana_density_cap", 2500.0)
-                    texts.append(f"マナ残量: {density:.0f}/{cap:.0f}")
+                ml = world.mana_layer
+                density = ml.get_mana_density(sx, sy)
+                cap = getattr(ml, "mana_density_cap", 2500.0)
+                texts.append(f"マナ残量: {density:.0f}/{cap:.0f}")
 
             # 分裂（SplitAction）の条件可視化：調整時に「そもそも条件を満たしていない」を即判別する
             if sc.alive:
@@ -283,13 +283,13 @@ class Renderer:
 
         mana_label = ""
         if world:
-            w = world
-            mult = getattr(w, "avg_mana_regen_multiplier", 1.0)
+            ml = world.mana_layer
+            mult = world.biome.avg_mana_regen_multiplier
             view_name = "マナ密度" if map_view_mode == "mana" else "バイオーム"
             territory_on = getattr(self, "_show_territory_hud", False)
             territory_label = "  テリトリー: ON" if territory_on else ""
             mana_label = (
-                f"    Mana: {w.mana:.0f}/{w.max_mana:.0f}  (回復×{mult:.2f})"
+                f"    Mana: {ml.mana:.0f}/{ml.max_mana:.0f}  (回復×{mult:.2f})"
                 f"    表示: {view_name}{territory_label}"
             )
         self.screen.blit(
@@ -317,7 +317,7 @@ class Renderer:
 
         if show_debug and world:
             debug_text = self.small_font.render(
-                f"Debug | 生物: {len(creatures)} | マナ回復平均倍率: {world.avg_mana_regen_multiplier:.3f}",
+                f"Debug | 生物: {len(creatures)} | マナ回復平均倍率: {world.biome.avg_mana_regen_multiplier:.3f}",
                 True,
                 (255, 255, 100),
             )
@@ -474,9 +474,9 @@ class Renderer:
         if world is None:
             return
 
-        if map_view_mode == "mana" and getattr(world, "mana_density", None):
+        if map_view_mode == "mana" and getattr(world.mana_layer, "mana_density", None):
             self._draw_mana_density_tiles(world, camera)
-        elif world.biome_color_grid:
+        elif world.biome.biome_color_grid:
             self._draw_biome_tiles(world, camera)
         else:
             self._draw_world_rect(world, camera, world.background_color)
@@ -487,9 +487,9 @@ class Renderer:
         if self._biome_surface_world_id == wid and self._biome_surface is not None:
             return
 
-        cell = world.biome_cell_size
+        cell = world.biome.biome_cell_size
         surface = pygame.Surface((world.width, world.height))
-        grid = world.biome_color_grid
+        grid = world.biome.biome_color_grid
 
         for row, row_colors in enumerate(grid):
             wy = row * cell
@@ -542,16 +542,17 @@ class Renderer:
 
     def _draw_mana_density_tiles(self, world, camera) -> None:
         """可視範囲のマナ密度セルをヒートマップ表示（毎フレーム更新）。"""
-        cell = world.mana_cell_size
-        cap = world.mana_density_cap
+        ml = world.mana_layer
+        cell = ml.mana_cell_size
+        cap = ml.mana_density_cap
         cam_x = int(camera.x)
         cam_y = int(camera.y)
         sw, sh = self.screen.get_width(), self.screen.get_height()
 
         start_col = max(0, cam_x // cell)
-        end_col = min(world._mana_cols, (cam_x + sw + cell - 1) // cell + 1)
+        end_col = min(ml._mana_cols, (cam_x + sw + cell - 1) // cell + 1)
         start_row = max(0, cam_y // cell)
-        end_row = min(world._mana_rows, (cam_y + sh + cell - 1) // cell + 1)
+        end_row = min(ml._mana_rows, (cam_y + sh + cell - 1) // cell + 1)
 
         screen_rect = self.screen.get_rect()
         for row in range(start_row, end_row):
@@ -562,7 +563,7 @@ class Renderer:
                 wx = col * cell
                 screen_x = wx - cam_x
                 rw = min(cell, world.width - wx)
-                density = world.mana_density[row][col]
+                density = ml.mana_density[row][col]
                 color = self._mana_density_to_color(density, cap)
                 rect = pygame.Rect(screen_x, screen_y, rw, rh)
                 visible = rect.clip(screen_rect)

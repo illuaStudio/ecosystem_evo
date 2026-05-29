@@ -1,22 +1,26 @@
 from src.ai.actions.base import Action
+from src.ai.actions.tracking import (
+    CreatureTargetMixin,
+    NestLeashMixin,
+    TerritoryOnlyMixin,
+)
 from src.combat.target_query import (
     find_nearest_prey_creature,
     is_trackable_prey_creature,
 )
+from src.utils.movement_helpers import is_beyond_nest_leash
 from src.utils.creature_helpers import (
     carcass_on_field,
     closeness_ratio,
     consume_carcass,
     contact_range,
     find_nearest_edible,
-    is_beyond_nest_leash,
     is_flee_latch_active,
     is_trackable_target,
     move_toward,
     move_toward_contact,
     needs_self_feed,
     nest_has_usable_food,
-    return_toward_nest,
     try_attack_only,
     try_pickup_carcass,
     try_predate,
@@ -113,7 +117,7 @@ def hunt_prey_species(params: dict) -> tuple[str, ...]:
     return (params.get("target_type", "Amoeba"),)
 
 
-class HuntAction(Action):
+class HuntAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action):
     """獲物を追跡し攻撃・殺害。満腹時は死骸を拾って巣へ、飢餓時はその場で食べる。"""
 
     DEFAULT_PARAMS = {
@@ -138,9 +142,6 @@ class HuntAction(Action):
     def _prey_species(self) -> tuple[str, ...]:
         return hunt_prey_species(self.params)
 
-    def _territory_only(self) -> bool:
-        return bool(self.params.get("territory_only"))
-
     def _find_prey(self, creature, species: tuple[str, ...]):
         ref = find_nearest_prey_creature(
             creature,
@@ -158,12 +159,6 @@ class HuntAction(Action):
             territory_only=self._territory_only(),
         )
 
-    def _nest_leash(self):
-        raw = self.params.get("nest_leash_radius")
-        if raw is None:
-            return None
-        return float(raw)
-
     def is_completed(self) -> bool:
         return self.completed
 
@@ -175,13 +170,7 @@ class HuntAction(Action):
             self.completed = True
             return False
 
-        leash = self._nest_leash()
-        if is_beyond_nest_leash(creature, leash):
-            self._target = None
-            return_toward_nest(
-                creature,
-                speed_multiplier=float(self.params["speed_multiplier"]),
-            )
+        if self._abort_if_beyond_nest_leash(creature):
             return False
 
         target = self._resolve_target(creature)
@@ -311,7 +300,8 @@ class HuntAction(Action):
 
     def _resolve_target(self, creature):
         species = self._prey_species()
-        if self._trackable_prey(creature, self._target, species):
-            return self._target
-        self._target = self._find_prey(creature, species)
-        return self._target
+        return self._resolve_creature_target(
+            creature,
+            find_fn=lambda c: self._find_prey(c, species),
+            trackable_fn=lambda c, t: self._trackable_prey(c, t, species),
+        )

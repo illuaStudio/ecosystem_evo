@@ -133,7 +133,7 @@ class NestSystem:
         cfg = self._colony_settings()
         mana_cost = float(cfg.get("hole_damage_mana_cost", 0.35))
         if mana_cost > 0 and dealt > 0:
-            self.world.consume_mana(dealt * mana_cost, hole.x, hole.y)
+            self.world.mana_layer.consume(dealt * mana_cost, hole.x, hole.y)
 
         if hole.hp <= HOLE_DESTROY_HP:
             hole.hp = 0.0
@@ -144,7 +144,7 @@ class NestSystem:
         cfg = self._colony_settings()
         ratio = float(cfg.get("hole_destroy_mana_return_ratio", 0.25))
         if ratio > 0 and hole.max_hp > 0:
-            self.world.return_mana_from_decomposition(
+            self.world.mana_layer.return_from_decomposition(
                 hole.max_hp * ratio, hole.x, hole.y
             )
         try:
@@ -465,7 +465,7 @@ class NestSystem:
             return
 
         nest.stored_food -= leak
-        self.world.return_mana_from_decomposition(
+        self.world.mana_layer.return_from_decomposition(
             leak * mana_ratio, nest.x, nest.y
         )
 
@@ -518,7 +518,7 @@ class NestSystem:
         if leftover > 0:
             overflow = leftover
             if self.world is not None:
-                self.world.return_mana_from_decomposition(
+                self.world.mana_layer.return_from_decomposition(
                     overflow * 0.65, nest.x, nest.y
                 )
             colony.carried_biomass = 0.0

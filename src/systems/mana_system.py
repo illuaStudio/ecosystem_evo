@@ -111,7 +111,7 @@ class ManaSystem:
             return 0.0
 
         position = entity.position
-        absorbed = world.consume_mana(want, position.x, position.y)
+        absorbed = world.mana_layer.consume(want, position.x, position.y)
         if absorbed <= 0:
             return 0.0
 
@@ -121,9 +121,9 @@ class ManaSystem:
     @staticmethod
     def should_escape(entity: Any, world: Any, params: dict) -> bool:
         """絶対枯渇・減少率・吸収失敗・密集のいずれかで退避モード。"""
-        cap = getattr(world, "mana_density_cap", 2500.0)
+        cap = getattr(world.mana_layer, "mana_density_cap", 2500.0)
         position = entity.position
-        local_density = world.get_mana_density(position.x, position.y)
+        local_density = world.mana_layer.get_mana_density(position.x, position.y)
         if local_density < cap * float(params.get("depleted_ratio", 0.12)):
             return True
 
@@ -156,11 +156,11 @@ class ManaSystem:
         if snap_x is None or snap_y is None or snap_density is None:
             return 0.0
 
-        cell = float(getattr(world, "mana_cell_size", 16))
+        cell = float(getattr(world.mana_layer, "mana_cell_size", 16))
         if math.hypot(position.x - snap_x, position.y - snap_y) > cell * 1.5:
             return 0.0
 
-        current = world.get_mana_density(position.x, position.y)
+        current = world.mana_layer.get_mana_density(position.x, position.y)
         if snap_density <= 1e-6:
             return 0.0
         return max(0.0, (snap_density - current) / snap_density)
@@ -181,7 +181,7 @@ class ManaSystem:
         position = entity.position
         entity.mana_steer_snap_x = position.x
         entity.mana_steer_snap_y = position.y
-        entity.mana_steer_snap_density = world.get_mana_density(
+        entity.mana_steer_snap_density = world.mana_layer.get_mana_density(
             position.x, position.y
         )
 
@@ -208,15 +208,15 @@ class ManaSystem:
         """
         if (
             not world
-            or not hasattr(world, "mana_density")
-            or not world.mana_density
+            or not hasattr(world.mana_layer, "mana_density")
+            or not world.mana_layer.mana_density
         ):
             return getattr(entity, "wander_angle", random.uniform(0, 360))
 
         wander_angle = getattr(entity, "wander_angle", 0.0)
-        cap = getattr(world, "mana_density_cap", 2500.0)
+        cap = getattr(world.mana_layer, "mana_density_cap", 2500.0)
         position = entity.position
-        current_density = world.get_mana_density(position.x, position.y)
+        current_density = world.mana_layer.get_mana_density(position.x, position.y)
         escape = ManaSystem.should_escape(entity, world, params) or (
             current_density < cap * float(params.get("depleted_ratio", 0.12))
         )
@@ -246,7 +246,7 @@ class ManaSystem:
                 tx = max(0, min(world.width, tx))
                 ty = max(0, min(world.height, ty))
 
-                sample_density = world.get_mana_density(tx, ty)
+                sample_density = world.mana_layer.get_mana_density(tx, ty)
                 gradient = sample_density - current_density
                 angle_diff = min(abs((angle - wander_angle + 180) % 360 - 180), 90)
                 crowd_penalty = ManaSystem._crowd_penalty_at(

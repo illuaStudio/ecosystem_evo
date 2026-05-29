@@ -1,4 +1,4 @@
-"""アリコロニー（巣・持ち帰り）のスモークテスト。"""
+"""???????????????????????????????????????????????????????????"""
 import unittest
 
 from src.entities.creature_factory import CreatureFactory
@@ -17,7 +17,7 @@ from src.utils.position_helpers import entity_xy
 
 class TestAntNest(unittest.TestCase):
     def _empty_world(self) -> World:
-        """初期個体なし（blue_ant 巣の干渉を避ける）。"""
+        """????????????????blue_ant ???????????????????"""
         return World.from_json(
             {
                 "name": "AntNestTest",
@@ -211,10 +211,10 @@ class TestAntNest(unittest.TestCase):
         nest.stored_food = reserve + 500.0
         food_before = nest.stored_food
 
-        mana_before = world.get_mana_density(nest.x, nest.y)
+        mana_before = world.mana_layer.get_mana_density(nest.x, nest.y)
         for _ in range(200):
             world.nest_system.update(1.0)
-        mana_after = world.get_mana_density(nest.x, nest.y)
+        mana_after = world.mana_layer.get_mana_density(nest.x, nest.y)
 
         self.assertLess(nest.stored_food, food_before)
         self.assertGreater(mana_after, mana_before)
@@ -427,12 +427,12 @@ class TestAntNest(unittest.TestCase):
         nest.stored_food = needed - 1
         ok, msg = world.nest_system.spawn_readiness(nest)
         self.assertFalse(ok)
-        self.assertIn("備蓄不足", msg)
+        self.assertIn("????????", msg)
 
         nest.stored_food = needed
         ok, msg = world.nest_system.spawn_readiness(nest)
         self.assertTrue(ok)
-        self.assertIn("繁殖可能", msg)
+        self.assertIn("???????", msg)
 
     def test_deposit_clears_carry_when_nest_full(self):
         world = self._empty_world()

@@ -1,4 +1,9 @@
 from src.ai.actions.base import Action
+from src.ai.actions.tracking import (
+    CreatureTargetMixin,
+    NestLeashMixin,
+    TerritoryOnlyMixin,
+)
 from src.combat.target_damage import apply_damage_to_target
 from src.combat.target_query import (
     find_nearest_hostile_creature,
@@ -22,12 +27,11 @@ from src.utils.creature_helpers import (
     move_toward_contact,
     move_toward_point,
     needs_self_feed,
-    return_toward_nest,
     try_attack_only,
 )
 
 
-class CombatAction(Action):
+class CombatAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action):
     """視界内の敵対種を追跡し攻撃のみ（死骸の拾い・食事は行わない）。"""
 
     DEFAULT_PARAMS = {
@@ -51,9 +55,6 @@ class CombatAction(Action):
             raw.extend(expand_faction_species(creature.world, colony_ids))
         return tuple(raw)
 
-    def _territory_only(self) -> bool:
-        return bool(self.params.get("territory_only"))
-
     def _find_hostile(self, creature, enemies: tuple[str, ...]):
         ref = find_nearest_hostile_creature(
             creature,
@@ -71,12 +72,6 @@ class CombatAction(Action):
             territory_only=self._territory_only(),
         )
 
-    def _nest_leash(self):
-        raw = self.params.get("nest_leash_radius")
-        if raw is None:
-            return None
-        return float(raw)
-
     def execute(self, creature) -> bool:
         if not creature.world or is_creature_colony_defeated(creature):
             return False
@@ -84,13 +79,7 @@ class CombatAction(Action):
         if colony is not None and colony.is_carrying:
             return False
 
-        leash = self._nest_leash()
-        if is_beyond_nest_leash(creature, leash):
-            self._target = None
-            return_toward_nest(
-                creature,
-                speed_multiplier=float(self.params["speed_multiplier"]),
-            )
+        if self._abort_if_beyond_nest_leash(creature):
             return False
 
         enemies = self._enemies(creature)
@@ -113,7 +102,7 @@ class CombatAction(Action):
                 attack_power=float(self.params["attack_power"]),
             )
             if not self._trackable(creature, target, enemies):
-                self._target = None
+                self._clear_target()
 
         return False
 
@@ -140,13 +129,14 @@ class CombatAction(Action):
         return min(1.0, 0.55 + closeness * 0.45)
 
     def _resolve_target(self, creature, enemies: tuple[str, ...]):
-        if self._trackable(creature, self._target, enemies):
-            return self._target
-        self._target = self._find_hostile(creature, enemies)
-        return self._target
+        return self._resolve_creature_target(
+            creature,
+            find_fn=lambda c: self._find_hostile(c, enemies),
+            trackable_fn=lambda c, t: self._trackable(c, t, enemies),
+        )
 
 
-class AttackHoleAction(Action):
+class AttackHoleAction(NestLeashMixin, Action):
     """敵勢力の巣穴を攻撃。
 
     ignore_territory=False: 自テリ内の敵穴 or 敵テリへの侵攻時のみ。
@@ -181,12 +171,6 @@ class AttackHoleAction(Action):
         if creature is None or creature.world is None:
             return ()
         return expand_faction_species(creature.world, self._hostile_colonies(creature))
-
-    def _nest_leash(self):
-        raw = self.params.get("nest_leash_radius")
-        if raw is None:
-            return None
-        return float(raw)
 
     def _ignore_territory(self) -> bool:
         return bool(self.params.get("ignore_territory"))
@@ -255,10 +239,7 @@ class AttackHoleAction(Action):
         if not creature.world or is_creature_colony_defeated(creature):
             return False
 
-        if is_beyond_nest_leash(creature, self._nest_leash()):
-            return_toward_nest(
-                creature, speed_multiplier=float(self.params["speed_multiplier"])
-            )
+        if self._abort_if_beyond_nest_leash(creature):
             return False
 
         max_d = self._max_search_distance(creature)

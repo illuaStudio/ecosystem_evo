@@ -44,7 +44,7 @@ class WorldMana:
             cy = row * cell + cell * 0.5
             for col in range(self._mana_cols):
                 cx = col * cell + cell * 0.5
-                mult = world.get_mana_regen_multiplier(cx, cy)
+                mult = world.biome.get_mana_regen_multiplier(cx, cy)
                 base = rng.uniform(initial_min, initial_max)
                 row_data.append(min(self.mana_density_cap, base * (0.85 + 0.15 * mult)))
             self.mana_density.append(row_data)
@@ -91,7 +91,7 @@ class WorldMana:
                 if current >= cap:
                     continue
                 cx = col * cell + cell * 0.5
-                mult = world.get_mana_regen_multiplier(cx, cy)
+                mult = world.biome.get_mana_regen_multiplier(cx, cy)
                 delta = base_per_cell * mult
                 new_value = min(cap, current + delta)
                 regen_total += new_value - current

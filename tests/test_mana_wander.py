@@ -12,8 +12,9 @@ class TestManaWanderAction(unittest.TestCase):
         creature.alive = True
         creature.position = Position(100.0, 100.0)
         creature.world = MagicMock()
-        creature.world.mana_density_cap = cap
-        creature.world.get_mana_density.return_value = density
+        creature.world.mana_layer = MagicMock()
+        creature.world.mana_layer.mana_density_cap = cap
+        creature.world.mana_layer.get_mana_density = MagicMock(return_value=density)
         creature.get_current_speed.return_value = 1.0
         return creature
 
