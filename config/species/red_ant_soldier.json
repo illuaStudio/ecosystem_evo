@@ -1,6 +1,6 @@
 {
   "name": "red_ant_soldier",
-  "description": "赤コロニーの兵隊蟻。テリトリー内の他勢力・クモを襲う。",
+  "description": "赤コロニーの防衛蟻。自テリトリー内の侵入者・クモを排除する。",
   "color": [180, 30, 30],
   "colony": {
     "enabled": true,
@@ -48,8 +48,8 @@
       },
       {
         "name": "CombatAction",
-        "weight": 4.5,
-        "description": "テリトリー内の他勢力を攻撃",
+        "weight": 5.0,
+        "description": "テリトリー内の侵入した他勢力を排除（最優先）",
         "params": {
           "hostile_colony_ids": ["blue_ant", "yellow_ant"],
           "speed_multiplier": 1.35,

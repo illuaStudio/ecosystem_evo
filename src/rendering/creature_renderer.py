@@ -8,10 +8,13 @@ from src.utils.position_helpers import entity_xy
 COLONY_SPECIES_LABELS: dict[str, str] = {
     "red_ant": "R",
     "red_ant_soldier": "R",
+    "red_ant_vanguard": "R>",
     "blue_ant": "B",
     "blue_ant_soldier": "B",
+    "blue_ant_vanguard": "B>",
     "yellow_ant": "Y",
     "yellow_ant_soldier": "Y",
+    "yellow_ant_vanguard": "Y>",
 }
 
 

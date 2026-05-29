@@ -94,6 +94,8 @@ class World:
         self.faction_styles = dict(colony_block.pop("factions", {}))
         self.faction_species = dict(colony_block.pop("faction_species", {}))
         self.colony_settings = colony_block
+        self.defeated_colonies: set[str] = set()
+        self.last_defeat_message: str = ""
 
         self.nest_system = NestSystem(self)
         self.spawner = WorldSpawner(self)

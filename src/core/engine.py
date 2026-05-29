@@ -101,6 +101,10 @@ class SimulationEngine:
             self._render_ticks_until_sim -= 1
             return
         self.world.update(self._sim_dt())
+        defeat_msg = getattr(self.world, "last_defeat_message", "")
+        if defeat_msg:
+            self.user_message = defeat_msg
+            self.world.last_defeat_message = ""
         self._render_ticks_until_sim = self.sim_ticks_per_step - 1
 
     def _update_camera_pan_insets(self) -> None:

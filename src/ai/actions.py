@@ -18,7 +18,6 @@ from src.utils.creature_helpers import (
     find_nearest_field_carcass_among,
     find_nearest_flee_threat_among,
     expand_faction_species,
-    find_nearest_hostile_among,
     find_nearest_hostile_in_territory_among,
     has_edible_carcass,
     hunger_ratio,
@@ -281,11 +280,15 @@ class CombatAction(Action):
         return bool(self.params.get("territory_only"))
 
     def _find_hostile(self, creature, enemies: tuple[str, ...]):
-        if self._territory_only():
-            return find_nearest_hostile_in_territory_among(
-                creature, enemies, exclude=creature
-            )
-        return find_nearest_hostile_among(creature, enemies, exclude=creature)
+        from src.combat.target_query import find_nearest_hostile_creature
+
+        ref = find_nearest_hostile_creature(
+            creature,
+            enemies,
+            territory_only=self._territory_only(),
+            exclude=creature,
+        )
+        return ref.as_creature() if ref else None
 
     def _trackable(self, creature, target, enemies: tuple[str, ...]) -> bool:
         if not is_trackable_hostile(creature, target, enemies):
@@ -301,7 +304,9 @@ class CombatAction(Action):
         return float(raw)
 
     def execute(self, creature) -> bool:
-        if not creature.world:
+        from src.utils.colony_helpers import is_creature_colony_defeated
+
+        if not creature.world or is_creature_colony_defeated(creature):
             return False
         colony = getattr(creature, "colony", None)
         if colony is not None and colony.is_carrying:
@@ -341,6 +346,10 @@ class CombatAction(Action):
         return False
 
     def calculate_utility(self, creature) -> float:
+        from src.utils.colony_helpers import is_creature_colony_defeated
+
+        if is_creature_colony_defeated(creature):
+            return 0.0
         colony = getattr(creature, "colony", None)
         if colony is not None and colony.is_carrying:
             return 0.0
@@ -365,6 +374,172 @@ class CombatAction(Action):
             return self._target
         self._target = self._find_hostile(creature, enemies)
         return self._target
+
+
+class AttackHoleAction(Action):
+    """敵勢力の巣穴を攻撃。
+
+    ignore_territory=False: 自テリ内の敵穴 or 敵テリへの侵攻時のみ。
+    ignore_territory=True（先兵）: 視界内の敵穴をどこでも攻撃。
+    yield_to_intruders=True かつ防衛時: 自テリ侵入者がいれば utility 0。
+    """
+
+    DEFAULT_PARAMS = {
+        "hostile_colony_ids": (),
+        "speed_multiplier": 1.25,
+        "attack_power": 1.15,
+        "contact_padding": 14.0,
+        "nest_leash_radius": None,
+        "max_search_radius": None,
+        "ignore_territory": False,
+        "yield_to_intruders": True,
+    }
+
+    def __init__(self, **params):
+        super().__init__(**params)
+        self._target_ref = None
+
+    def _hostile_colonies(self, creature) -> tuple[str, ...]:
+        from src.utils.colony_helpers import get_creature_colony_id, get_rival_colony_ids
+
+        raw = list(self.params.get("hostile_colony_ids") or ())
+        if not raw and creature is not None and creature.world is not None:
+            cid = get_creature_colony_id(creature)
+            if cid:
+                raw = list(get_rival_colony_ids(creature.world, cid))
+        return tuple(raw)
+
+    def _enemy_species(self, creature) -> tuple[str, ...]:
+        if creature is None or creature.world is None:
+            return ()
+        return expand_faction_species(creature.world, self._hostile_colonies(creature))
+
+    def _nest_leash(self):
+        raw = self.params.get("nest_leash_radius")
+        if raw is None:
+            return None
+        return float(raw)
+
+    def _ignore_territory(self) -> bool:
+        return bool(self.params.get("ignore_territory"))
+
+    def _yield_to_intruders(self) -> bool:
+        return bool(self.params.get("yield_to_intruders"))
+
+    def _max_search_distance(self, creature) -> float:
+        """敵穴を認識できる距離。既定は視界（全マップ把握はしない）。"""
+        raw = self.params.get("max_search_radius")
+        if raw is not None:
+            return float(raw)
+        if hasattr(creature, "get_current_vision"):
+            return float(creature.get_current_vision())
+        return float(creature.traits.get("base_vision", 200))
+
+    def _spawn_filter_kwargs(self, creature) -> dict:
+        return {
+            "hostile_colony_ids": self._hostile_colonies(creature),
+            "unrestricted": self._ignore_territory(),
+        }
+
+    def _find_spawn_target(self, creature):
+        from src.combat.target_query import find_nearest_spawn_node
+
+        colonies = self._hostile_colonies(creature)
+        if not colonies:
+            return None
+        return find_nearest_spawn_node(
+            creature,
+            colonies,
+            unrestricted=self._ignore_territory(),
+            max_distance=self._max_search_distance(creature),
+        )
+
+    def _spawn_target_valid(self, creature, ref) -> bool:
+        from src.combat.target_query import is_valid_spawn_node
+
+        if ref is None:
+            return False
+        return is_valid_spawn_node(creature, ref, **self._spawn_filter_kwargs(creature))
+
+    def calculate_utility(self, creature) -> float:
+        from src.utils.colony_helpers import is_creature_colony_defeated
+
+        if is_creature_colony_defeated(creature):
+            return 0.0
+        if is_beyond_nest_leash(creature, self._nest_leash()):
+            return 0.0
+
+        if self._yield_to_intruders():
+            enemy_species = self._enemy_species(creature)
+            if enemy_species:
+                from src.combat.target_query import find_nearest_hostile_creature
+
+                intruder_ref = find_nearest_hostile_creature(
+                    creature,
+                    enemy_species,
+                    territory_only=True,
+                    exclude=creature,
+                )
+                if intruder_ref is not None:
+                    return 0.0
+
+        ref = self._find_spawn_target(creature)
+        if ref is None:
+            return 0.0
+        from src.combat.target_query import target_closeness
+
+        max_d = max(self._max_search_distance(creature), 1.0)
+        closeness = target_closeness(creature, ref, max_distance=max_d)
+        return min(1.0, 0.4 + closeness * 0.5)
+
+    def execute(self, creature) -> bool:
+        from src.combat.target_damage import apply_damage_to_target
+        from src.combat.target_query import spawn_node_in_range, target_position
+        from src.utils.colony_helpers import (
+            get_creature_colony_id,
+            is_creature_colony_defeated,
+        )
+
+        if not creature.world or is_creature_colony_defeated(creature):
+            return False
+
+        if is_beyond_nest_leash(creature, self._nest_leash()):
+            return_toward_nest(
+                creature, speed_multiplier=float(self.params["speed_multiplier"])
+            )
+            return False
+
+        max_d = self._max_search_distance(creature)
+        if self._target_ref and not self._spawn_target_valid(creature, self._target_ref):
+            self._target_ref = None
+        if self._target_ref and not spawn_node_in_range(
+            creature, self._target_ref, max_d
+        ):
+            self._target_ref = None
+
+        ref = self._target_ref if self._target_ref else self._find_spawn_target(creature)
+        if ref is None or not self._spawn_target_valid(creature, ref):
+            self._target_ref = None
+            return False
+
+        self._target_ref = ref
+        tx, ty = target_position(ref)
+
+        pad = float(self.params["contact_padding"])
+        reach = pad + 12.0
+        dist = move_toward_point(
+            creature, tx, ty, float(self.params["speed_multiplier"])
+        )
+        if dist <= reach:
+            apply_damage_to_target(
+                creature,
+                ref,
+                float(self.params["attack_power"]),
+                attacker_colony_id=get_creature_colony_id(creature) or "",
+            )
+            if not self._spawn_target_valid(creature, self._target_ref):
+                self._target_ref = None
+        return False
 
 
 class FleeAction(Action):
@@ -466,11 +641,15 @@ class HuntAction(Action):
         return bool(self.params.get("territory_only"))
 
     def _find_prey(self, creature, species: tuple[str, ...]):
-        if self._territory_only():
-            return find_nearest_edible_in_territory_among(
-                creature, species, exclude=creature
-            )
-        return find_nearest_edible_among(creature, species, exclude=creature)
+        from src.combat.target_query import find_nearest_prey_creature
+
+        ref = find_nearest_prey_creature(
+            creature,
+            species,
+            territory_only=self._territory_only(),
+            exclude=creature,
+        )
+        return ref.as_creature() if ref else None
 
     def _trackable_prey(self, creature, target, species: tuple[str, ...]) -> bool:
         if not is_trackable_prey(creature, target, species):

@@ -28,15 +28,75 @@ def get_faction_style(world, colony_id: str) -> dict:
     return out
 
 
+def _clamp_channel(value) -> int:
+    return max(0, min(255, int(value)))
+
+
+def _rgb_tuple(raw, default: tuple) -> tuple:
+    if isinstance(raw, (list, tuple)) and len(raw) >= 3:
+        return (
+            _clamp_channel(raw[0]),
+            _clamp_channel(raw[1]),
+            _clamp_channel(raw[2]),
+        )
+    return default[:3]
+
+
 def _rgba_tuple(raw, default: tuple) -> tuple:
     if isinstance(raw, (list, tuple)) and len(raw) >= 3:
         if len(raw) >= 4:
-            return (int(raw[0]), int(raw[1]), int(raw[2]), int(raw[3]))
-        return (int(raw[0]), int(raw[1]), int(raw[2]), default[3])
+            return (
+                _clamp_channel(raw[0]),
+                _clamp_channel(raw[1]),
+                _clamp_channel(raw[2]),
+                _clamp_channel(raw[3]),
+            )
+        return (
+            _clamp_channel(raw[0]),
+            _clamp_channel(raw[1]),
+            _clamp_channel(raw[2]),
+            default[3],
+        )
     return default
 
 
 class NestRenderer:
+    @staticmethod
+    def _hole_hp_bar_color(ratio: float) -> tuple[int, int, int]:
+        ratio = max(0.0, min(1.0, ratio))
+        if ratio > 0.55:
+            return (90, 220, 110)
+        if ratio > 0.25:
+            return (240, 200, 60)
+        return (240, 90, 70)
+
+    @staticmethod
+    def _draw_hole_hp(screen, hx: int, hy: int, hp: float, max_hp: float) -> None:
+        """巣穴の体力バーと数値（常時表示）。"""
+        if max_hp <= 0:
+            return
+        ratio = max(0.0, min(1.0, hp / max_hp))
+        bar_w = 18
+        bar_h = 4
+        bar_x = hx - bar_w // 2
+        bar_y = hy - 16
+        pygame.draw.rect(screen, (30, 30, 30), (bar_x - 1, bar_y - 1, bar_w + 2, bar_h + 2))
+        pygame.draw.rect(screen, (50, 50, 50), (bar_x, bar_y, bar_w, bar_h))
+        fill_w = max(0, int(bar_w * ratio))
+        if fill_w > 0:
+            pygame.draw.rect(
+                screen,
+                NestRenderer._hole_hp_bar_color(ratio),
+                (bar_x, bar_y, fill_w, bar_h),
+            )
+        font = pygame.font.SysFont("msgothic", 9)
+        if 0 < hp < 1.0:
+            hp_text = f"{hp:.1f}"
+        else:
+            hp_text = str(max(0, int(round(hp))))
+        label = font.render(f"{hp_text}/{int(max_hp)}", True, (235, 235, 220))
+        screen.blit(label, (hx - label.get_width() // 2, bar_y - 11))
+
     @staticmethod
     def _draw_territory_circle(
         screen,
@@ -164,12 +224,15 @@ class NestRenderer:
 
             fill = nest.food_ratio
             faction = get_faction_style(world, nest.colony_id)
-            outer = tuple(faction["nest_outer"])
-            ib = tuple(faction["nest_inner_base"])
+            outer = _rgb_tuple(faction.get("nest_outer"), DEFAULT_FACTION_STYLE["nest_outer"])
+            ib = _rgb_tuple(
+                faction.get("nest_inner_base"),
+                DEFAULT_FACTION_STYLE["nest_inner_base"],
+            )
             inner = (
-                int(ib[0] + fill * 60),
-                int(ib[1] + fill * 100),
-                int(ib[2] + fill * 30),
+                _clamp_channel(ib[0] + fill * 60),
+                _clamp_channel(ib[1] + fill * 100),
+                _clamp_channel(ib[2] + fill * 30),
             )
             radius = 14 + int(fill * 10)
             selected = selected_nest_id is not None and nest.id == selected_nest_id
@@ -178,25 +241,33 @@ class NestRenderer:
             pygame.draw.circle(screen, outer, (sx, sy), radius + 4, 2)
             pygame.draw.circle(screen, inner, (sx, sy), radius)
             center_dot = (
-                int(min(255, ib[0] + 75)),
-                int(min(255, ib[1] + 110)),
-                int(min(255, ib[2] + 80)),
+                _clamp_channel(ib[0] + 75),
+                _clamp_channel(ib[1] + 110),
+                _clamp_channel(ib[2] + 80),
             )
             pygame.draw.circle(screen, center_dot, (sx, sy), 5)
 
-            hole_fill = tuple(faction["nest_hole"])
+            hole_fill = _rgb_tuple(
+                faction.get("nest_hole"), DEFAULT_FACTION_STYLE["nest_hole"]
+            )
             for h in getattr(nest, "holes", []) or []:
                 hx = int(h.x - camera.x)
                 hy = int(h.y - camera.y)
+                max_hp = float(getattr(h, "max_hp", 0) or 1)
+                hp = float(getattr(h, "hp", max_hp))
                 pygame.draw.circle(screen, hole_fill, (hx, hy), 4)
                 pygame.draw.circle(screen, outer, (hx, hy), 6, 1)
+                NestRenderer._draw_hole_hp(screen, hx, hy, hp, max_hp)
 
             if fill > 0.05:
-                gb = tuple(faction["nest_glow_base"])
+                gb = _rgb_tuple(
+                    faction.get("nest_glow_base"),
+                    DEFAULT_FACTION_STYLE["nest_glow_base"],
+                )
                 leak_glow = (
-                    int(gb[0] + fill * 40),
-                    int(gb[1] + fill * 80),
-                    int(gb[2] + fill * 50),
+                    _clamp_channel(gb[0] + fill * 40),
+                    _clamp_channel(gb[1] + fill * 80),
+                    _clamp_channel(gb[2] + fill * 50),
                 )
                 pygame.draw.circle(
                     screen, leak_glow, (sx, sy), radius + 8, 1

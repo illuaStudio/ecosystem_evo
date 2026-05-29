@@ -16,10 +16,13 @@
     "Amoeba": 50,
     "red_ant": 2,
     "red_ant_soldier": 2,
+    "red_ant_vanguard": 1,
     "blue_ant": 2,
     "blue_ant_soldier": 2,
+    "blue_ant_vanguard": 1,
     "yellow_ant": 2,
     "yellow_ant_soldier": 2,
+    "yellow_ant_vanguard": 1,
     "Spider": 3
   },
 
@@ -27,10 +30,13 @@
     "Amoeba": 50,
     "red_ant": 10,
     "red_ant_soldier": 6,
+    "red_ant_vanguard": 4,
     "blue_ant": 10,
     "blue_ant_soldier": 6,
+    "blue_ant_vanguard": 4,
     "yellow_ant": 10,
     "yellow_ant_soldier": 6,
+    "yellow_ant_vanguard": 4,
     "Spider": 30
   },
 
@@ -39,10 +45,13 @@
     "max_holes": 8,
     "min_hole_spacing": 120,
     "hole_min_food_reserve": 72,
+    "hole_max_hp": 120,
+    "hole_damage_mana_cost": 0.35,
+    "hole_destroy_mana_return_ratio": 0.25,
     "faction_species": {
-      "red_ant": ["red_ant", "red_ant_soldier"],
-      "blue_ant": ["blue_ant", "blue_ant_soldier"],
-      "yellow_ant": ["yellow_ant", "yellow_ant_soldier"]
+      "red_ant": ["red_ant", "red_ant_soldier", "red_ant_vanguard"],
+      "blue_ant": ["blue_ant", "blue_ant_soldier", "blue_ant_vanguard"],
+      "yellow_ant": ["yellow_ant", "yellow_ant_soldier", "yellow_ant_vanguard"]
     },
     "factions": {
       "red_ant": {

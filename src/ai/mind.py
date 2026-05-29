@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 
 from src.utils.creature_helpers import needs_self_feed
 from src.ai.actions import (
+    AttackHoleAction,
     ChaseAction,
     CombatAction,
     FeedAtNestAction,
@@ -23,6 +24,7 @@ ACTION_BY_NAME = {
     "ManaGradientWanderAction": ManaGradientWanderAction,
     "ChaseAction": ChaseAction,
     "CombatAction": CombatAction,
+    "AttackHoleAction": AttackHoleAction,
     "FleeAction": FleeAction,
     "HuntAction": HuntAction,
     "ReturnToNestAction": ReturnToNestAction,

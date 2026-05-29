@@ -34,10 +34,13 @@ class TestThreeFactions(unittest.TestCase):
         for species in (
             "red_ant",
             "red_ant_soldier",
+            "red_ant_vanguard",
             "blue_ant",
             "blue_ant_soldier",
+            "blue_ant_vanguard",
             "yellow_ant",
             "yellow_ant_soldier",
+            "yellow_ant_vanguard",
         ):
             alive = sum(1 for c in world.creatures if c.species.name == species)
             self.assertGreaterEqual(alive, 1, species)

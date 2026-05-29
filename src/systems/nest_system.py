@@ -22,11 +22,16 @@ from src.utils.position_helpers import entity_xy
 if TYPE_CHECKING:
     from src.systems.world import World
 
+# この値以下で破壊（int 表示の 0/120 とマナ回復の「復活」見えを防ぐ）
+HOLE_DESTROY_HP = 1.0
+
 
 @dataclass
 class NestHole:
     x: float
     y: float
+    hp: float = 0.0
+    max_hp: float = 100.0
 
 
 @dataclass
@@ -62,6 +67,7 @@ class NestSystem:
         self.world = world
         self.nests: dict[int, Nest] = {}
         self._next_id = 1
+        self._sim_time = 0.0
 
     def create_nest(
         self,
@@ -85,7 +91,7 @@ class NestSystem:
             max_food=cap,
         )
         # 既定で「巣穴=作成地点」を1つ持つ（巣=備蓄、巣穴=出入口・テリトリー核）。
-        nest.holes.append(NestHole(x=float(x), y=float(y)))
+        nest.holes.append(self._new_hole(float(x), float(y)))
         self._next_id += 1
         self.nests[nest.id] = nest
         return nest
@@ -93,9 +99,86 @@ class NestSystem:
     def _colony_settings(self) -> dict:
         return getattr(self.world, "colony_settings", {}) or {}
 
+    def _hole_max_hp(self) -> float:
+        return float(self._colony_settings().get("hole_max_hp", 120.0))
+
+    def _new_hole(self, x: float, y: float) -> NestHole:
+        max_hp = self._hole_max_hp()
+        return NestHole(x=x, y=y, hp=max_hp, max_hp=max_hp)
+
     def add_hole(self, nest: Nest, x: float, y: float) -> None:
         x, y = self._clamp_to_world(float(x), float(y))
-        nest.holes.append(NestHole(x=x, y=y))
+        nest.holes.append(self._new_hole(x, y))
+
+    def damage_hole(
+        self, nest: Nest, hole: NestHole, amount: float, *, attacker_colony_id: str
+    ) -> float:
+        """敵勢力兵隊のみ。実際に与えたダメージ量。"""
+        from src.utils.colony_helpers import is_colony_defeated, is_rival_colony
+
+        if nest is None or hole is None or amount <= 0:
+            return 0.0
+        if hole not in (nest.holes or []):
+            return 0.0
+        if is_colony_defeated(self.world, nest.colony_id):
+            return 0.0
+        if not is_rival_colony(self.world, attacker_colony_id, nest.colony_id):
+            return 0.0
+        if float(hole.hp) <= 0:
+            return 0.0
+
+        dealt = min(float(hole.hp), float(amount))
+        hole.hp = max(0.0, hole.hp - dealt)
+
+        cfg = self._colony_settings()
+        mana_cost = float(cfg.get("hole_damage_mana_cost", 0.35))
+        if mana_cost > 0 and dealt > 0:
+            self.world.consume_mana(dealt * mana_cost, hole.x, hole.y)
+
+        if hole.hp <= HOLE_DESTROY_HP:
+            hole.hp = 0.0
+            self._remove_hole(nest, hole)
+        return dealt
+
+    def _remove_hole(self, nest: Nest, hole: NestHole) -> None:
+        cfg = self._colony_settings()
+        ratio = float(cfg.get("hole_destroy_mana_return_ratio", 0.25))
+        if ratio > 0 and hole.max_hp > 0:
+            self.world.return_mana_from_decomposition(
+                hole.max_hp * ratio, hole.x, hole.y
+            )
+        try:
+            nest.holes.remove(hole)
+        except ValueError:
+            pass
+        if len(nest.holes) == 0:
+            self.defeat_colony(nest.colony_id)
+
+    def defeat_colony(self, colony_id: str) -> None:
+        """最後の巣穴破壊＝勢力敗北。個体はワールドに残す（巣のみ消滅）。"""
+        if not colony_id:
+            return
+        defeated = getattr(self.world, "defeated_colonies", None)
+        if defeated is None:
+            self.world.defeated_colonies = set()
+        if colony_id in self.world.defeated_colonies:
+            return
+
+        self.world.defeated_colonies.add(colony_id)
+        nest = self.get_colony_nest(colony_id)
+        if nest is not None:
+            del self.nests[nest.id]
+
+        for creature in self.world.creatures:
+            colony = getattr(creature, "colony", None)
+            if colony is None or colony.colony_id != colony_id:
+                continue
+            colony.defeated = True
+            colony.nest_id = None
+            colony.carried_biomass = 0.0
+            colony.carried_carcass = None
+
+        self.world.last_defeat_message = f"勢力 {colony_id} が敗北しました"
 
     def can_place_hole(self, nest: Nest, x: float, y: float) -> tuple[bool, str]:
         """新規巣穴を置けるか（標準ルール: 自テリトリー内・間隔・上限・食料）。"""
@@ -110,6 +193,11 @@ class NestSystem:
         x, y = self._clamp_to_world(float(x), float(y))
         if not is_point_in_nest_territory(self.world, nest, x, y):
             return False, "既存テリトリー外です"
+
+        from src.utils.colony_helpers import is_point_in_rival_territory
+
+        if is_point_in_rival_territory(self.world, nest.colony_id, x, y):
+            return False, "敵テリトリーと重なります"
 
         min_spacing = float(cfg.get("min_hole_spacing", 120))
         for h in nest.holes or []:
@@ -262,6 +350,13 @@ class NestSystem:
             join_radius = float(cfg.get("join_radius", self.DEFAULT_JOIN_RADIUS))
             existing = self.find_nearest_nest(cx, cy, colony_id, join_radius)
 
+        from src.utils.colony_helpers import is_colony_defeated
+
+        if colony_id and is_colony_defeated(self.world, colony_id):
+            colony.defeated = True
+            colony.nest_id = None
+            return
+
         if existing is not None:
             colony.nest_id = existing.id
             colony.colony_id = existing.colony_id
@@ -287,11 +382,12 @@ class NestSystem:
         colony.colony_id = colony_id
 
     def update(self, dt: float = 1.0) -> None:
-        """巣の更新（食料漏洩→マナ還流、巣からのスポーン等）。"""
+        """巣の更新（食料漏洩→マナ還流、スポーン等）。"""
         from src.config import config
 
         dt = float(dt)
-        for nest in self.nests.values():
+        self._sim_time += dt
+        for nest in list(self.nests.values()):
             species_data = config.get_species(nest.owner_species) or {}
             colony_cfg = species_data.get("colony", {})
             if nest.stored_food > 0:
