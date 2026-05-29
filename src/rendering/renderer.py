@@ -53,7 +53,9 @@ class Renderer:
         paused,
         show_debug=False,
         map_view_mode="biome",
+        show_territory=False,
     ):
+        self._show_territory_hud = show_territory
         # 毎フレーム必ず全画面クリア（未描画領域に UI が残るのを防ぐ）
         self.screen.fill(self.UI_MARGIN_COLOR)
 
@@ -62,6 +64,13 @@ class Renderer:
 
         if world is not None:
             nest_id = selected_nest.id if selected_nest is not None else None
+            NestRenderer.draw_territories(
+                world,
+                self.screen,
+                camera,
+                show_territory=show_territory,
+                selected_nest_id=nest_id,
+            )
             NestRenderer.draw(world, self.screen, camera, nest_id)
 
         for c in creatures:
@@ -194,7 +203,12 @@ class Renderer:
                         "（余剰はマナへ漏洩）"
                     )
                     texts.append(
-                        f"コロニー: {world.nest_system.member_count(nest.id, sc.species.name)} 匹"
+                        f"コロニー: {world.nest_system.total_member_count(nest.id)} 匹"
+                    )
+                    from src.utils.creature_helpers import get_territory_radius_for_nest
+
+                    texts.append(
+                        f"テリトリー半径: {get_territory_radius_for_nest(world, nest):.0f} px"
                     )
                 carry_line = format_carry_status(sc)
                 if carry_line is not None:
@@ -252,9 +266,11 @@ class Renderer:
             w = world
             mult = getattr(w, "avg_mana_regen_multiplier", 1.0)
             view_name = "マナ密度" if map_view_mode == "mana" else "バイオーム"
+            territory_on = getattr(self, "_show_territory_hud", False)
+            territory_label = "  テリトリー: ON" if territory_on else ""
             mana_label = (
                 f"    Mana: {w.mana:.0f}/{w.max_mana:.0f}  (回復×{mult:.2f})"
-                f"    表示: {view_name}"
+                f"    表示: {view_name}{territory_label}"
             )
         self.screen.blit(
             self.font.render(f"生き物: {len(creatures):3d} 匹{mana_label}", True, (230, 245, 210)),
@@ -266,7 +282,7 @@ class Renderer:
 
         self.screen.blit(
             self.small_font.render(
-                "Space:停止/再開  R:リセット  M:表示切替  A:アメーバ  S:クモ  P:味方アリ  H:巣穴  右クリック:個体/巣",
+                "Space:停止/再開  R:リセット  M:表示切替  T:テリトリー  A:アメーバ  S:クモ  P:味方アリ  H:巣穴  右クリック:個体/巣",
                 True,
                 (160, 200, 255),
             ),

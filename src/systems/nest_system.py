@@ -145,17 +145,29 @@ class NestSystem:
         return best
 
     def get_colony_nest(self, species_name: str) -> Nest | None:
-        """種族のコロニー巣を1つ返す（現状は単一巣モデル用）。"""
+        """種族のコロニー巣を1つ返す（owner_species が一致する巣）。"""
         for nest in self.nests.values():
             if nest.owner_species == species_name:
                 return nest
         return None
 
+    def _colony_lookup_key(self, species_name: str, colony_cfg: dict | None) -> str:
+        cfg = colony_cfg or {}
+        return str(cfg.get("join_species", species_name))
+
+    def get_colony_nest_for_creature(
+        self, species_name: str, colony_cfg: dict | None = None
+    ) -> Nest | None:
+        """join_species を考慮してコロニー巣を返す。"""
+        key = self._colony_lookup_key(species_name, colony_cfg)
+        return self.get_colony_nest(key)
+
     def spawn_position(self, species_name: str, colony_cfg: dict | None = None) -> tuple[float, float]:
         """巣の位置付近にスポーン座標を返す（初期配置・P 追加用）。"""
         cfg = colony_cfg or {}
         spread = float(cfg.get("spawn_spread", self.DEFAULT_SPAWN_SPREAD))
-        nest = self.get_colony_nest(species_name)
+        colony_key = self._colony_lookup_key(species_name, cfg)
+        nest = self.get_colony_nest(colony_key)
         if nest is not None:
             hole = random.choice(nest.holes) if nest.holes else None
             hx, hy = (hole.x, hole.y) if hole is not None else (nest.x, nest.y)
@@ -195,16 +207,22 @@ class NestSystem:
         species_name = creature.species.name
         max_food = float(cfg.get("max_food", cfg.get("max_storage", 400.0)))
         single_colony = cfg.get("single_colony", True)
+        colony_key = self._colony_lookup_key(species_name, cfg)
+        join_species = cfg.get("join_species")
 
         if single_colony:
-            existing = self.get_colony_nest(species_name)
+            existing = self.get_colony_nest(colony_key)
         else:
             cx, cy = entity_xy(creature)
             join_radius = float(cfg.get("join_radius", self.DEFAULT_JOIN_RADIUS))
-            existing = self.find_nearest_nest(cx, cy, species_name, join_radius)
+            existing = self.find_nearest_nest(cx, cy, colony_key, join_radius)
 
         if existing is not None:
             colony.nest_id = existing.id
+            return
+
+        if join_species is not None:
+            # 兵隊蟻など: 働きアリの巣がまだ無い場合は新設しない
             return
 
         cx, cy = entity_xy(creature)
@@ -402,6 +420,17 @@ class NestSystem:
             if not getattr(c, "alive", True):
                 continue
             if c.species.name != species_name:
+                continue
+            colony = getattr(c, "colony", None)
+            if colony is not None and colony.nest_id == nest_id:
+                count += 1
+        return count
+
+    def total_member_count(self, nest_id: int) -> int:
+        """巣に所属する全種の生存個体数。"""
+        count = 0
+        for c in self.world.creatures:
+            if not getattr(c, "alive", True):
                 continue
             colony = getattr(c, "colony", None)
             if colony is not None and colony.nest_id == nest_id:

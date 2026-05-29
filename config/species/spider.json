@@ -33,7 +33,7 @@
         "weight": 1.0,
         "description": "満腹時・獲物なし時の徘徊",
         "params": {
-          "angle_range": 28,
+          "angle_range": 10,
           "speed_multiplier": 0.9
         }
       }

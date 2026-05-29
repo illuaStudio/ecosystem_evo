@@ -331,6 +331,45 @@ def is_trackable_hostile(creature, target, species_names) -> bool:
     )
 
 
+DEFAULT_TERRITORY_RADIUS = 180.0
+
+
+def get_territory_radius_for_nest(world, nest) -> float:
+    """巣の owner 種の colony.territory_radius（未設定時は既定 180）。"""
+    if world is None or nest is None:
+        return DEFAULT_TERRITORY_RADIUS
+    from src.config import config
+
+    species_data = config.get_species(nest.owner_species) or {}
+    cfg = species_data.get("colony", {})
+    return float(cfg.get("territory_radius", DEFAULT_TERRITORY_RADIUS))
+
+
+def distance_from_nest_center(world, nest, x: float, y: float) -> float:
+    """巣中心からワールド座標までの距離。"""
+    return math.hypot(float(x) - nest.x, float(y) - nest.y)
+
+
+def is_point_in_creature_territory(creature, x: float, y: float) -> bool:
+    """個体の所属巣テリトリー内か（巣中心・半径）。"""
+    world = getattr(creature, "world", None)
+    if world is None:
+        return False
+    nest = world.nest_system.get_creature_nest(creature)
+    if nest is None:
+        return False
+    radius = get_territory_radius_for_nest(world, nest)
+    return distance_from_nest_center(world, nest, x, y) <= radius
+
+
+def is_in_creature_territory(creature, other) -> bool:
+    """他個体が自分のコロニーテリトリー内にいるか。"""
+    if other is None:
+        return False
+    ox, oy = entity_xy(other)
+    return is_point_in_creature_territory(creature, ox, oy)
+
+
 def find_nearest_hostile_among(creature, species_names, exclude=None):
     """視界内で最も近い敵対生体。"""
     if not creature.world:
@@ -343,6 +382,148 @@ def find_nearest_hostile_among(creature, species_names, exclude=None):
 
     for other in creature.world.creatures:
         if other is exclude or not is_hostile_target(creature, other, names):
+            continue
+        dist = distance_between(creature, other)
+        if dist <= vision and dist < min_dist:
+            min_dist = dist
+            best = other
+    return best
+
+
+def find_nearest_hostile_in_territory_among(creature, species_names, exclude=None):
+    """テリトリー内にいる敵対生体のうち、視界内で最も近いもの。"""
+    if not creature.world:
+        return None
+
+    names = tuple(species_names)
+    best = None
+    min_dist = float("inf")
+    vision = creature.get_current_vision()
+
+    for other in creature.world.creatures:
+        if other is exclude or not is_hostile_target(creature, other, names):
+            continue
+        if not is_in_creature_territory(creature, other):
+            continue
+        dist = distance_between(creature, other)
+        if dist <= vision and dist < min_dist:
+            min_dist = dist
+            best = other
+    return best
+
+
+def is_flee_threat(creature, other, species_names) -> bool:
+    """逃走対象（指定種の生存個体）。"""
+    if other is None or other is creature:
+        return False
+    names = species_names if isinstance(species_names, (list, tuple, set)) else (species_names,)
+    if other.species.name not in names:
+        return False
+    return bool(getattr(other, "alive", True))
+
+
+def find_nearest_flee_threat_among(creature, species_names, exclude=None):
+    """視界内で最も近い逃走対象。"""
+    if not creature.world:
+        return None
+
+    names = tuple(species_names)
+    best = None
+    min_dist = float("inf")
+    vision = creature.get_current_vision()
+
+    for other in creature.world.creatures:
+        if other is exclude or not is_flee_threat(creature, other, names):
+            continue
+        dist = distance_between(creature, other)
+        if dist <= vision and dist < min_dist:
+            min_dist = dist
+            best = other
+    return best
+
+
+def get_flee_safe_distance(creature) -> float:
+    """この距離より脅威が近い間は逃走ラッチを維持する。"""
+    custom = creature.traits.get("flee_safe_distance")
+    if custom is not None:
+        return float(custom)
+    vision = max(creature.get_current_vision(), 1.0)
+    return max(120.0, vision * 0.55)
+
+
+def update_flee_latch(creature, threat_species) -> None:
+    """視界内の脅威でラッチ ON。解除は safe 距離外まで。"""
+    names = tuple(threat_species)
+    if find_nearest_flee_threat_among(creature, names, exclude=creature) is not None:
+        creature.flee_latch = True
+        return
+    if not getattr(creature, "flee_latch", False) or not creature.world:
+        creature.flee_latch = False
+        return
+    safe = get_flee_safe_distance(creature)
+    for other in creature.world.creatures:
+        if other is creature or not is_flee_threat(creature, other, names):
+            continue
+        if distance_between(creature, other) < safe:
+            return
+    creature.flee_latch = False
+
+
+def refresh_flee_latch_from_species(creature) -> None:
+    """種定義の FleeAction から threat_species を集めてラッチを更新。"""
+    if not getattr(creature, "alive", True):
+        creature.flee_latch = False
+        return
+    threats: list[str] = []
+    for action_def in creature.species.mind_data.get("actions", []):
+        if action_def.get("name") != "FleeAction":
+            continue
+        raw = action_def.get("params", {}).get("threat_species") or ()
+        threats.extend(raw)
+    if threats:
+        update_flee_latch(creature, tuple(dict.fromkeys(threats)))
+    else:
+        creature.flee_latch = False
+
+
+def is_flee_latch_active(creature) -> bool:
+    return bool(getattr(creature, "flee_latch", False))
+
+
+def distance_to_creature_nest(creature) -> float:
+    world = getattr(creature, "world", None)
+    if world is None or getattr(creature, "colony", None) is None:
+        return float("inf")
+    return world.nest_system.distance_to_nest(creature)
+
+
+def is_beyond_nest_leash(creature, leash_radius) -> bool:
+    if leash_radius is None:
+        return False
+    return distance_to_creature_nest(creature) > float(leash_radius)
+
+
+def return_toward_nest(creature, speed_multiplier: float = 1.0) -> float:
+    """所属巣（最寄り巣穴）へ向かう。"""
+    ns = creature.world.nest_system
+    tx, ty = ns.nest_target_xy(creature)
+    return move_toward_point(creature, tx, ty, speed_multiplier)
+
+
+def find_nearest_edible_in_territory_among(creature, species_names, exclude=None):
+    """テリトリー内の獲物／死骸のうち視界内で最も近いもの。"""
+    if not creature.world:
+        return None
+
+    names = tuple(species_names)
+    best = None
+    min_dist = float("inf")
+    vision = creature.get_current_vision()
+
+    for other in creature.world.creatures:
+        if other is exclude or not is_edible_prey(creature, other, names):
+            continue
+        if not is_in_creature_territory(creature, other):
             continue
         dist = distance_between(creature, other)
         if dist <= vision and dist < min_dist:
@@ -482,6 +663,31 @@ def _sim_dt(creature, dt: float | None = None) -> float:
     if world is None:
         return 1.0
     return float(getattr(world, "sim_dt", 1.0))
+
+
+def move_away_from(
+    creature,
+    target,
+    speed_multiplier: float = 1.0,
+    dt: float | None = None,
+) -> float:
+    """脅威から離れる方向へ移動し、移動後の距離を返す。"""
+    from src.systems.movement_system import MovementSystem
+
+    position = MovementSystem._require_position(creature)
+    tx, ty = entity_xy(target)
+    dx = position.x - tx
+    dy = position.y - ty
+    dist = math.hypot(dx, dy)
+    if dist > 1e-6:
+        creature.wander_angle = math.degrees(math.atan2(dy, dx)) % 360
+    step = creature.get_current_speed() * speed_multiplier * _sim_dt(creature, dt)
+    position.x += math.cos(math.radians(creature.wander_angle)) * step
+    position.y += math.sin(math.radians(creature.wander_angle)) * step
+    from src.utils.position_helpers import sync_legacy_pos
+
+    sync_legacy_pos(creature)
+    return math.hypot(tx - position.x, ty - position.y)
 
 
 def move_toward(

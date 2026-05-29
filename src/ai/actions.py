@@ -14,12 +14,21 @@ from src.utils.creature_helpers import (
     distance_to_point,
     find_nearest_edible,
     find_nearest_edible_among,
+    find_nearest_edible_in_territory_among,
     find_nearest_field_carcass_among,
+    find_nearest_flee_threat_among,
     find_nearest_hostile_among,
+    find_nearest_hostile_in_territory_among,
     has_edible_carcass,
     hunger_ratio,
+    is_beyond_nest_leash,
+    is_flee_latch_active,
+    is_in_creature_territory,
     needs_self_feed,
+    return_toward_nest,
+    update_flee_latch,
     is_trackable_target,
+    move_away_from,
     move_toward,
     move_toward_contact,
     move_toward_point,
@@ -72,6 +81,9 @@ class WanderAction(Action):
         return False
 
     def calculate_utility(self, creature) -> float:
+        colony = getattr(creature, "colony", None)
+        if colony is not None and needs_self_feed(creature):
+            return 0.0
         return 0.6
 
 
@@ -248,6 +260,8 @@ class CombatAction(Action):
         "speed_multiplier": 1.4,
         "contact_padding": 8.0,
         "attack_power": 1.3,
+        "territory_only": False,
+        "nest_leash_radius": None,
     }
 
     def __init__(self, **params):
@@ -258,11 +272,43 @@ class CombatAction(Action):
         raw = self.params.get("hostile_species") or ()
         return tuple(raw)
 
+    def _territory_only(self) -> bool:
+        return bool(self.params.get("territory_only"))
+
+    def _find_hostile(self, creature, enemies: tuple[str, ...]):
+        if self._territory_only():
+            return find_nearest_hostile_in_territory_among(
+                creature, enemies, exclude=creature
+            )
+        return find_nearest_hostile_among(creature, enemies, exclude=creature)
+
+    def _trackable(self, creature, target, enemies: tuple[str, ...]) -> bool:
+        if not is_trackable_hostile(creature, target, enemies):
+            return False
+        if self._territory_only() and not is_in_creature_territory(creature, target):
+            return False
+        return True
+
+    def _nest_leash(self):
+        raw = self.params.get("nest_leash_radius")
+        if raw is None:
+            return None
+        return float(raw)
+
     def execute(self, creature) -> bool:
         if not creature.world:
             return False
         colony = getattr(creature, "colony", None)
         if colony is not None and colony.is_carrying:
+            return False
+
+        leash = self._nest_leash()
+        if is_beyond_nest_leash(creature, leash):
+            self._target = None
+            return_toward_nest(
+                creature,
+                speed_multiplier=float(self.params["speed_multiplier"]),
+            )
             return False
 
         enemies = self._enemies()
@@ -284,7 +330,7 @@ class CombatAction(Action):
                 target,
                 attack_power=float(self.params["attack_power"]),
             )
-            if not is_trackable_hostile(creature, target, enemies):
+            if not self._trackable(creature, target, enemies):
                 self._target = None
 
         return False
@@ -293,12 +339,16 @@ class CombatAction(Action):
         colony = getattr(creature, "colony", None)
         if colony is not None and colony.is_carrying:
             return 0.0
+        if is_beyond_nest_leash(creature, self._nest_leash()):
+            return 0.0
+        if self._territory_only() and needs_self_feed(creature):
+            return 0.0
 
         enemies = self._enemies()
         if not enemies:
             return 0.0
 
-        foe = find_nearest_hostile_among(creature, enemies, exclude=creature)
+        foe = self._find_hostile(creature, enemies)
         if foe is None:
             return 0.0
 
@@ -306,12 +356,80 @@ class CombatAction(Action):
         return min(1.0, 0.55 + closeness * 0.45)
 
     def _resolve_target(self, creature, enemies: tuple[str, ...]):
-        if is_trackable_hostile(creature, self._target, enemies):
+        if self._trackable(creature, self._target, enemies):
             return self._target
-        self._target = find_nearest_hostile_among(
-            creature, enemies, exclude=creature
-        )
+        self._target = self._find_hostile(creature, enemies)
         return self._target
+
+
+class FleeAction(Action):
+    """指定種（兵隊蟻・クモ等）から離れる。"""
+
+    DEFAULT_PARAMS = {
+        "threat_species": (),
+        "speed_multiplier": 1.5,
+        "safe_distance_ratio": 0.55,
+    }
+
+    def __init__(self, **params):
+        super().__init__(**params)
+        self._threat = None
+
+    def _threats(self) -> tuple[str, ...]:
+        raw = self.params.get("threat_species") or ()
+        return tuple(raw)
+
+    def execute(self, creature) -> bool:
+        threats = self._threats()
+        if not threats or not creature.world:
+            return False
+
+        update_flee_latch(creature, threats)
+        if not is_flee_latch_active(creature):
+            return False
+
+        threat = self._resolve_threat(creature, threats)
+        if threat is None:
+            return False
+
+        move_away_from(
+            creature,
+            threat,
+            speed_multiplier=float(self.params["speed_multiplier"]),
+        )
+        return False
+
+    def calculate_utility(self, creature) -> float:
+        threats = self._threats()
+        if not threats:
+            return 0.0
+
+        update_flee_latch(creature, threats)
+        if is_flee_latch_active(creature):
+            return 1.0
+
+        threat = find_nearest_flee_threat_among(
+            creature, threats, exclude=creature
+        )
+        if threat is None:
+            return 0.0
+
+        closeness = closeness_ratio(creature, threat)
+        return min(1.0, 0.7 + closeness * 0.3)
+
+    def _resolve_threat(self, creature, threats: tuple[str, ...]):
+        from src.utils.creature_helpers import is_flee_threat, is_in_vision
+
+        if (
+            self._threat is not None
+            and is_flee_threat(creature, self._threat, threats)
+            and is_in_vision(creature, self._threat)
+        ):
+            return self._threat
+        self._threat = find_nearest_flee_threat_among(
+            creature, threats, exclude=creature
+        )
+        return self._threat
 
 
 class HuntAction(Action):
@@ -328,6 +446,8 @@ class HuntAction(Action):
         "colony_hoard_strength": 0.8,
         "min_usable_food_ratio": 0.01,
         "min_usable_satiety_gain": 1.0,
+        "territory_only": False,
+        "nest_leash_radius": None,
     }
 
     def __init__(self, **params):
@@ -336,6 +456,29 @@ class HuntAction(Action):
 
     def _prey_species(self) -> tuple[str, ...]:
         return _hunt_prey_species(self.params)
+
+    def _territory_only(self) -> bool:
+        return bool(self.params.get("territory_only"))
+
+    def _find_prey(self, creature, species: tuple[str, ...]):
+        if self._territory_only():
+            return find_nearest_edible_in_territory_among(
+                creature, species, exclude=creature
+            )
+        return find_nearest_edible_among(creature, species, exclude=creature)
+
+    def _trackable_prey(self, creature, target, species: tuple[str, ...]) -> bool:
+        if not is_trackable_prey(creature, target, species):
+            return False
+        if self._territory_only() and not is_in_creature_territory(creature, target):
+            return False
+        return True
+
+    def _nest_leash(self):
+        raw = self.params.get("nest_leash_radius")
+        if raw is None:
+            return None
+        return float(raw)
 
     def is_completed(self) -> bool:
         return self.completed
@@ -346,6 +489,15 @@ class HuntAction(Action):
         colony = creature.colony
         if colony.is_carrying:
             self.completed = True
+            return False
+
+        leash = self._nest_leash()
+        if is_beyond_nest_leash(creature, leash):
+            self._target = None
+            return_toward_nest(
+                creature,
+                speed_multiplier=float(self.params["speed_multiplier"]),
+            )
             return False
 
         target = self._resolve_target(creature)
@@ -382,7 +534,7 @@ class HuntAction(Action):
                             angle_range=40.0,
                             speed_multiplier=0.55,
                         )
-            if not is_trackable_prey(creature, target, self._prey_species()):
+            if not self._trackable_prey(creature, target, self._prey_species()):
                 self._target = None
             return False
 
@@ -399,12 +551,14 @@ class HuntAction(Action):
                 target,
                 attack_power=float(self.params["attack_power"]),
             )
-            if not is_trackable_prey(creature, target, self._prey_species()):
+            if not self._trackable_prey(creature, target, self._prey_species()):
                 self._target = None
 
         return False
 
     def _nest_blocks_hunt(self, creature) -> bool:
+        if self._territory_only():
+            return False
         return nest_has_usable_food(
             creature,
             min_food_ratio=float(self.params["min_usable_food_ratio"]),
@@ -426,7 +580,12 @@ class HuntAction(Action):
         return float(self.params.get("nest_hunt_dampen_factor", 0.2))
 
     def _hunt_drive(self, creature) -> float:
-        """飢餓時: 巣で食べられるなら狩らない。通常・満腹帯: 備蓄狩り。"""
+        """飢餓時: 巣で食べられるなら狩らない。通常・満腹帯: 備蓄狩り。テリトリー防衛は満腹時のみ。"""
+        if self._territory_only():
+            if needs_self_feed(creature):
+                return 0.0
+            return 1.0
+
         if needs_self_feed(creature):
             if self._nest_blocks_hunt(creature):
                 return 0.0
@@ -442,13 +601,17 @@ class HuntAction(Action):
         return float(self.params["colony_hoard_strength"])
 
     def calculate_utility(self, creature) -> float:
+        if is_flee_latch_active(creature):
+            return 0.0
         colony = getattr(creature, "colony", None)
-        if colony is None or colony.is_carrying:
+        if colony is not None and colony.is_carrying:
+            return 0.0
+        if not self._territory_only() and colony is None:
+            return 0.0
+        if is_beyond_nest_leash(creature, self._nest_leash()):
             return 0.0
 
-        prey = find_nearest_edible_among(
-            creature, self._prey_species(), exclude=creature
-        )
+        prey = self._find_prey(creature, self._prey_species())
         if prey is None:
             return 0.0
 
@@ -458,15 +621,15 @@ class HuntAction(Action):
 
         closeness = closeness_ratio(creature, prey)
         score = min(1.0, drive * (0.4 + closeness * 0.6))
+        if self._territory_only():
+            return score
         return score * self._nest_hunt_dampening(creature)
 
     def _resolve_target(self, creature):
         species = self._prey_species()
-        if is_trackable_prey(creature, self._target, species):
+        if self._trackable_prey(creature, self._target, species):
             return self._target
-        self._target = find_nearest_edible_among(
-            creature, species, exclude=creature
-        )
+        self._target = self._find_prey(creature, species)
         return self._target
 
 
@@ -566,6 +729,7 @@ class FeedAtNestAction(Action):
         "min_usable_satiety_gain": 1.0,
         "scavenge_species": None,
         "scavenge_contact_padding": 10.0,
+        "approach_when_hungry": False,
     }
 
     def _has_usable_food(self, creature) -> bool:
@@ -626,7 +790,11 @@ class FeedAtNestAction(Action):
 
         feed_radius = float(self.params["feed_radius"])
         if not ns.is_at_nest(creature, feed_radius):
-            if needs_self_feed(creature) and self._has_usable_food(creature):
+            should_approach = needs_self_feed(creature) and (
+                self._has_usable_food(creature)
+                or bool(self.params.get("approach_when_hungry"))
+            )
+            if should_approach:
                 move_toward_point(
                     creature,
                     tx,
@@ -672,6 +840,12 @@ class FeedAtNestAction(Action):
             closeness = max(0.0, min(1.0, 1.0 - dist / vision))
             return min(1.0, 0.45 + closeness * 0.55)
 
+        if needs_self_feed(creature) and bool(self.params.get("approach_when_hungry")):
+            dist = ns.distance_to_nest(creature)
+            vision = max(creature.get_current_vision(), 1.0)
+            closeness = max(0.0, min(1.0, 1.0 - dist / vision))
+            return min(0.85, 0.4 + closeness * 0.45)
+
         return 0.0
 
 
@@ -683,6 +857,8 @@ class NestPatrolAction(Action):
         "speed_multiplier": 0.75,
         "patrol_radius": 130.0,
         "nest_pull_strength": 0.55,
+        "guard_mode": False,
+        "return_speed_multiplier": 1.15,
     }
 
     def execute(self, creature) -> bool:
@@ -709,20 +885,26 @@ class NestPatrolAction(Action):
         tx, ty = ns.nest_target_xy(creature)
         dist = math.hypot(tx - cx, ty - cy)
         patrol_r = float(self.params["patrol_radius"])
+        hungry = needs_self_feed(creature)
+        guard = bool(self.params.get("guard_mode"))
 
-        if dist > patrol_r * 1.15:
-            pull = float(self.params["nest_pull_strength"])
+        if dist > patrol_r * 1.05 or (hungry and guard and dist > patrol_r * 0.75):
+            pull = min(0.95, float(self.params["nest_pull_strength"]) + 0.25)
+            if hungry and guard:
+                pull = 0.95
             to_nest = math.degrees(math.atan2(ty - cy, tx - cx)) % 360
             creature.wander_angle = (
                 creature.wander_angle * (1.0 - pull) + to_nest * pull
             ) % 360
-            wander_step(creature, self.params["angle_range"] * 0.5, self.params["speed_multiplier"])
-        else:
-            wander_step(
-                creature,
-                self.params["angle_range"],
-                self.params["speed_multiplier"],
+            speed = float(
+                self.params.get("return_speed_multiplier", self.params["speed_multiplier"])
             )
+            angle = self.params["angle_range"] * (0.25 if hungry and guard else 0.35)
+            wander_step(creature, angle, speed)
+        else:
+            angle = self.params["angle_range"] * (0.5 if hungry and guard else 1.0)
+            speed = self.params["speed_multiplier"] * (0.7 if hungry and guard else 1.0)
+            wander_step(creature, angle, speed)
         return False
 
     def calculate_utility(self, creature) -> float:
@@ -731,7 +913,13 @@ class NestPatrolAction(Action):
             return 0.0
 
         if needs_self_feed(creature):
-            return 0.0
+            if not bool(self.params.get("guard_mode")):
+                return 0.0
+            dist = creature.world.nest_system.distance_to_nest(creature)
+            patrol_r = float(self.params["patrol_radius"])
+            if dist > patrol_r * 1.05:
+                return 0.96
+            return 0.55
 
         hunger = hunger_ratio(creature)
         nest = creature.world.nest_system.get_creature_nest(creature)
@@ -740,13 +928,21 @@ class NestPatrolAction(Action):
 
         dist = creature.world.nest_system.distance_to_nest(creature)
         patrol_r = float(self.params["patrol_radius"])
+        guard = bool(self.params.get("guard_mode"))
+
+        if guard and dist > patrol_r * 1.05:
+            return 0.98
+        if guard and dist > patrol_r * 0.88:
+            return 0.88
+
         if dist <= patrol_r:
             members = creature.world.nest_system.member_count(
                 nest.id, creature.species.name
             )
             social = min(0.25, (members - 1) * 0.08)
-            return 0.35 + social + (1.0 - hunger) * 0.2
-        return 0.15
+            base = 0.55 if guard else 0.35
+            return base + social + (1.0 - hunger) * 0.2
+        return 0.15 if not guard else 0.25
 
 
 class ReproductionAction(Action):

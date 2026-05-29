@@ -1,10 +1,11 @@
 {
   "name": "Ant",
-  "description": "コロニー型アリ。満腹時はアメーバ・クモを狩って巣へ貯蔵。飢餓時は巣の餌優先・不足時は狩り。",
+  "description": "働きアリ。アメーバを狩って巣へ貯蔵。兵隊蟻・クモからは逃げる。",
   "color": [220, 60, 60],
   "colony": {
     "enabled": true,
     "single_colony": true,
+    "territory_radius": 180,
     "nest_x": 100,
     "nest_y": 100,
     "spawn_spread": 28,
@@ -16,7 +17,7 @@
     "food_leak_reserve_ratio": 0.15,
     "spawn_food_cost": 55,
     "spawn_interval_ticks": 900,
-    "max_workers": 12,
+    "max_workers": 10,
     "min_food_reserve": 72
   },
   "traits": {
@@ -34,13 +35,12 @@
     "type": "utility",
     "actions": [
       {
-        "name": "CombatAction",
-        "weight": 4.5,
-        "description": "視界内の敵アリを攻撃",
+        "name": "FleeAction",
+        "weight": 5.0,
+        "description": "兵隊蟻・クモから逃げる",
         "params": {
-          "hostile_species": ["EnemyAnt"],
-          "speed_multiplier": 1.4,
-          "attack_power": 1.3
+          "threat_species": ["EnemyAntSoldier", "Spider"],
+          "speed_multiplier": 1.55
         }
       },
       {
@@ -59,15 +59,15 @@
           "feed_radius": 38,
           "min_usable_food_ratio": 0.01,
           "min_usable_satiety_gain": 1.0,
-          "scavenge_species": ["Amoeba", "Spider"]
+          "scavenge_species": ["Amoeba"]
         }
       },
       {
         "name": "HuntAction",
         "weight": 3.0,
-        "description": "満腹時は獲物を狩って巣へ。飢餓時は巣で足りなければ狩り",
+        "description": "アメーバを狩って巣へ貯蔵",
         "params": {
-          "target_types": ["Amoeba", "Spider"],
+          "target_types": ["Amoeba"],
           "speed_multiplier": 1.35,
           "attack_power": 1.25,
           "pickup_on_kill": true,
@@ -90,7 +90,7 @@
       {
         "name": "NestPatrolAction",
         "weight": 1.0,
-        "description": "巣周辺を巡回（空腹が低いとき）",
+        "description": "巣周辺を巡回",
         "params": {
           "patrol_radius": 140,
           "speed_multiplier": 0.8,

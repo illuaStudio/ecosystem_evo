@@ -59,8 +59,9 @@ class TestPopulationCap(unittest.TestCase):
 
     def test_world_loads_population_limits(self):
         world = World()
-        self.assertEqual(world.get_population_cap("Amoeba"), 35)
-        self.assertEqual(world.get_population_cap("Ant"), 15)
+        self.assertEqual(world.get_population_cap("Amoeba"), 50)
+        self.assertEqual(world.get_population_cap("Ant"), 10)
+        self.assertEqual(world.get_population_cap("AntSoldier"), 6)
         self.assertIsNone(world.get_population_cap("Unknown"))
 
 

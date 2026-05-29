@@ -14,7 +14,11 @@ from src.components.velocity import Velocity
 from src.entities.entity import BaseEntity
 from src.entities.species import Species
 from src.rendering.creature_renderer import CreatureRenderer
-from src.utils.creature_helpers import current_size, get_life_stage
+from src.utils.creature_helpers import (
+    current_size,
+    get_life_stage,
+    refresh_flee_latch_from_species,
+)
 from src.utils.position_helpers import sync_legacy_pos
 
 
@@ -41,6 +45,7 @@ class Creature(BaseEntity):
         self.max_satiety = float(self.traits.get("max_satiety", 80))
         self.satiety = self.max_satiety
         self.nutrition_recovery = False
+        self.flee_latch = False
 
         self.world = None
         self.last_pos = self.pos.copy()
@@ -156,6 +161,7 @@ class Creature(BaseEntity):
             self.become_corpse()
             return
 
+        refresh_flee_latch_from_species(self)
         self.current_action = self.mind.decide_next_action(self)
         self.current_action.execute(self)
 

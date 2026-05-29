@@ -15,14 +15,18 @@
   "initial_entities": {
     "Amoeba": 50,
     "Ant": 3,
+    "AntSoldier": 2,
     "EnemyAnt": 3,
+    "EnemyAntSoldier": 2,
     "Spider": 3
   },
 
   "population_limits": {
     "Amoeba": 50,
-    "Ant": 12,
-    "EnemyAnt": 12,
+    "Ant": 10,
+    "AntSoldier": 6,
+    "EnemyAnt": 10,
+    "EnemyAntSoldier": 6,
     "Spider": 30
   },
 
