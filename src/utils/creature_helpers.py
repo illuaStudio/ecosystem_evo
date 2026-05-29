@@ -95,6 +95,63 @@ def format_life_stage_line(creature) -> str | None:
     return f"ライフステージ: {stage} (Age: {creature.age})"
 
 
+TRAIT_DISPLAY_LABELS = {
+    "base_size": "サイズ(base)",
+    "max_size": "サイズ上限",
+    "growth_rate": "成長率",
+    "base_speed": "基礎速度",
+    "base_vision": "視界",
+    "max_hp": "最大HP",
+    "max_satiety": "最大満腹",
+    "metabolism_rate": "代謝",
+    "corpse_decompose_rate": "死骸分解",
+    "satiety_hungry_below": "飢餓閾値",
+    "satiety_full_above": "満腹閾値",
+}
+
+
+def _format_trait_number(value: float) -> str:
+    av = abs(value)
+    if av >= 100:
+        return f"{value:.0f}"
+    if av >= 10:
+        return f"{value:.1f}"
+    if av >= 1:
+        return f"{value:.2f}"
+    return f"{value:.4f}"
+
+
+def _format_trait_delta(delta: float) -> str:
+    if abs(delta) < 1e-9:
+        return "±0"
+    sign = "+" if delta > 0 else ""
+    return f"{sign}{_format_trait_number(delta)}"
+
+
+def format_individual_trait_lines(creature) -> list[str]:
+    """選択個体 UI 用: trait_variance 対象の実値・種基本値・差分（全種同一順）。"""
+    from src.entities.species import INDIVIDUAL_TRAIT_DISPLAY_ORDER
+
+    variance = getattr(creature.species, "trait_variance", None) or {}
+    if not variance:
+        return []
+
+    base_traits = creature.species.traits
+    lines: list[str] = []
+    for key in INDIVIDUAL_TRAIT_DISPLAY_ORDER:
+        if key not in variance or key not in creature.traits:
+            continue
+        actual = float(creature.traits[key])
+        base = float(base_traits.get(key, actual))
+        label = TRAIT_DISPLAY_LABELS.get(key, key)
+        delta_str = _format_trait_delta(actual - base)
+        lines.append(
+            f"  {label}: {_format_trait_number(actual)}"
+            f" (基本 {_format_trait_number(base)}, Δ{delta_str})"
+        )
+    return lines
+
+
 def satiety_ratio(creature) -> float:
     """満腹度の割合（0〜1）"""
     if creature.max_satiety <= 0:

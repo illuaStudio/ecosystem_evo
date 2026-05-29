@@ -8,6 +8,7 @@ from src.utils.creature_helpers import (
     count_alive_by_species,
     current_size,
     format_carry_status,
+    format_individual_trait_lines,
     format_nutrition_status,
     format_life_stage_line,
     get_haul_max_carry,
@@ -110,6 +111,10 @@ class Renderer:
             life_line = format_life_stage_line(sc)
             if life_line:
                 texts.insert(4, life_line)
+            trait_lines = format_individual_trait_lines(sc)
+            if trait_lines:
+                texts.append("個体特性 (基本値との差):")
+                texts.extend(trait_lines)
             if not sc.alive:
                 texts.insert(
                     3,

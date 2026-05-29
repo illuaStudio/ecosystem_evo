@@ -2,6 +2,7 @@
 import random
 
 from src.entities.creature import Creature
+from src.entities.species import sample_individual_traits
 
 
 class CreatureFactory:
@@ -10,7 +11,23 @@ class CreatureFactory:
     """
 
     @staticmethod
-    def create(species_name: str = "Amoeba", world=None, x: float = None, y: float = None):
+    def _apply_individual_traits(creature, rng: random.Random | None = None) -> None:
+        creature.traits = sample_individual_traits(
+            creature.species.traits,
+            creature.species.trait_variance,
+            rng=rng,
+        )
+        creature.sync_derived_stats()
+
+    @staticmethod
+    def create(
+        species_name: str = "Amoeba",
+        world=None,
+        x: float = None,
+        y: float = None,
+        *,
+        rng: random.Random | None = None,
+    ):
         """Worldを必須で受け取る"""
         if world is None:
             raise ValueError("CreatureFactory.create() には 'world' 引数が必須です。")
@@ -23,7 +40,8 @@ class CreatureFactory:
             y = random.randint(margin, int(world.height) - margin)
 
         creature = Creature(x, y, species_name)
-        creature.world = world  # World参照を設定
+        creature.world = world
+        CreatureFactory._apply_individual_traits(creature, rng=rng)
 
         return creature
 
@@ -36,6 +54,7 @@ class CreatureFactory:
         base_size: float,
         satiety: float,
         age: int = 0,
+        rng: random.Random | None = None,
     ):
         """親個体から子を生成（無性分裂・将来的な卵生/有性生殖の共通入口）。"""
         if parent.world is None:
@@ -43,7 +62,13 @@ class CreatureFactory:
 
         child = Creature(x, y, parent.species.name)
         child.world = parent.world
+        CreatureFactory._apply_individual_traits(child, rng=rng)
         child.traits["base_size"] = float(base_size)
+        child.traits["max_size"] = max(
+            float(child.traits["base_size"]),
+            float(child.traits["max_size"]),
+        )
+        child.sync_derived_stats()
         child.satiety = max(0.0, min(child.max_satiety, float(satiety)))
         child.age = age
         return child

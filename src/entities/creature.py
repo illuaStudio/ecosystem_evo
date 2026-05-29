@@ -34,7 +34,7 @@ class Creature(BaseEntity):
         super().__init__(x, y)
 
         self.species = Species.create(species_name)
-        self.traits = self.species.traits
+        self.traits = dict(self.species.traits)
 
         self.mind = UtilityMind(self.species.mind_data)
         self.current_action = None
@@ -63,6 +63,13 @@ class Creature(BaseEntity):
         self.colony: ColonyComponent | None = None
         if self.species.colony_data.get("enabled"):
             self.colony = ColonyComponent()
+
+    def sync_derived_stats(self) -> None:
+        """traits の max_hp / max_satiety を個体ステータスへ反映（生成時用）。"""
+        self.max_hp = float(self.traits.get("max_hp", 100))
+        self.hp = self.max_hp
+        self.max_satiety = float(self.traits.get("max_satiety", 80))
+        self.satiety = self.max_satiety
 
     def _init_mana_affinity_from_species(self) -> None:
         """種の mind 定義からマナ親和性コンポーネントを構築する。"""
