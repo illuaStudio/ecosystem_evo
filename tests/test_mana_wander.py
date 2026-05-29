@@ -27,7 +27,7 @@ class TestManaWanderAction(unittest.TestCase):
         sparse = self._creature(density=0.0)
         dense = self._creature(density=2500.0)
 
-        with patch("src.ai.actions.wander_step") as wander:
+        with patch("src.ai.actions.movement.wander_step") as wander:
             action.execute(sparse)
             sparse_speed = wander.call_args[0][2]
             wander.reset_mock()
@@ -48,7 +48,7 @@ class TestManaWanderAction(unittest.TestCase):
         sparse = self._creature(density=0.0)
         dense = self._creature(density=2500.0)
 
-        with patch("src.ai.actions.wander_step") as wander:
+        with patch("src.ai.actions.movement.wander_step") as wander:
             action.execute(sparse)
             sparse_angle = wander.call_args[0][1]
             wander.reset_mock()

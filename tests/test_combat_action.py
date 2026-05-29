@@ -2,9 +2,10 @@
 import unittest
 
 from src.ai.actions import CombatAction
+from src.combat.target_query import find_nearest_hostile_creature
 from src.entities.creature_factory import CreatureFactory
 from src.systems.world import World
-from src.utils.creature_helpers import find_nearest_hostile_among, try_attack_only
+from src.utils.creature_helpers import try_attack_only
 
 
 def _isolated_world() -> World:
@@ -28,7 +29,8 @@ class TestCombatAction(unittest.TestCase):
         world.add_creature(red)
         world.add_creature(blue)
 
-        foe = find_nearest_hostile_among(red, ["blue_ant"])
+        ref = find_nearest_hostile_creature(red, ("blue_ant",))
+        foe = ref.as_creature() if ref else None
         self.assertIs(foe, blue)
 
     def test_combat_utility_when_rival_in_vision(self):

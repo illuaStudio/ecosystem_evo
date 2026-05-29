@@ -488,45 +488,29 @@ def is_in_creature_territory(creature, other) -> bool:
 
 
 def find_nearest_hostile_among(creature, species_names, exclude=None):
-    """視界内で最も近い敵対生体。"""
-    if not creature.world:
-        return None
+    """視界内で最も近い敵対生体（combat/target_query に委譲）。"""
+    from src.combat.target_query import find_nearest_hostile_creature
 
-    names = tuple(species_names)
-    best = None
-    min_dist = float("inf")
-    vision = creature.get_current_vision()
-
-    for other in creature.world.creatures:
-        if other is exclude or not is_hostile_target(creature, other, names):
-            continue
-        dist = distance_between(creature, other)
-        if dist <= vision and dist < min_dist:
-            min_dist = dist
-            best = other
-    return best
+    ref = find_nearest_hostile_creature(
+        creature,
+        tuple(species_names),
+        territory_only=False,
+        exclude=exclude,
+    )
+    return ref.as_creature() if ref else None
 
 
 def find_nearest_hostile_in_territory_among(creature, species_names, exclude=None):
-    """テリトリー内にいる敵対生体のうち、視界内で最も近いもの。"""
-    if not creature.world:
-        return None
+    """テリトリー内にいる敵対生体のうち、視界内で最も近いもの（combat/target_query に委譲）。"""
+    from src.combat.target_query import find_nearest_hostile_creature
 
-    names = tuple(species_names)
-    best = None
-    min_dist = float("inf")
-    vision = creature.get_current_vision()
-
-    for other in creature.world.creatures:
-        if other is exclude or not is_hostile_target(creature, other, names):
-            continue
-        if not is_in_creature_territory(creature, other):
-            continue
-        dist = distance_between(creature, other)
-        if dist <= vision and dist < min_dist:
-            min_dist = dist
-            best = other
-    return best
+    ref = find_nearest_hostile_creature(
+        creature,
+        tuple(species_names),
+        territory_only=True,
+        exclude=exclude,
+    )
+    return ref.as_creature() if ref else None
 
 
 def is_flee_threat(creature, other, species_names) -> bool:
@@ -628,45 +612,29 @@ def return_toward_nest(creature, speed_multiplier: float = 1.0) -> float:
 
 
 def find_nearest_edible_in_territory_among(creature, species_names, exclude=None):
-    """テリトリー内の獲物／死骸のうち視界内で最も近いもの。"""
-    if not creature.world:
-        return None
+    """テリトリー内の獲物／死骸のうち視界内で最も近いもの（combat/target_query に委譲）。"""
+    from src.combat.target_query import find_nearest_prey_creature
 
-    names = tuple(species_names)
-    best = None
-    min_dist = float("inf")
-    vision = creature.get_current_vision()
-
-    for other in creature.world.creatures:
-        if other is exclude or not is_edible_prey(creature, other, names):
-            continue
-        if not is_in_creature_territory(creature, other):
-            continue
-        dist = distance_between(creature, other)
-        if dist <= vision and dist < min_dist:
-            min_dist = dist
-            best = other
-    return best
+    ref = find_nearest_prey_creature(
+        creature,
+        tuple(species_names),
+        territory_only=True,
+        exclude=exclude,
+    )
+    return ref.as_creature() if ref else None
 
 
 def find_nearest_edible_among(creature, species_names, exclude=None):
-    """複数種のうち視界内で最も近い獲物／死骸。"""
-    if not creature.world:
-        return None
+    """複数種のうち視界内で最も近い獲物／死骸（combat/target_query に委譲）。"""
+    from src.combat.target_query import find_nearest_prey_creature
 
-    names = tuple(species_names)
-    best = None
-    min_dist = float("inf")
-    vision = creature.get_current_vision()
-
-    for other in creature.world.creatures:
-        if other is exclude or not is_edible_prey(creature, other, names):
-            continue
-        dist = distance_between(creature, other)
-        if dist <= vision and dist < min_dist:
-            min_dist = dist
-            best = other
-    return best
+    ref = find_nearest_prey_creature(
+        creature,
+        tuple(species_names),
+        territory_only=False,
+        exclude=exclude,
+    )
+    return ref.as_creature() if ref else None
 
 
 def find_nearest_field_carcass_among(creature, species_names, exclude=None):
