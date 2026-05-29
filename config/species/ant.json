@@ -4,6 +4,7 @@
   "color": [220, 60, 60],
   "colony": {
     "enabled": true,
+    "colony_id": "ant",
     "single_colony": true,
     "territory_radius": 180,
     "nest_x": 100,

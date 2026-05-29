@@ -11,7 +11,9 @@ from src.utils.creature_helpers import (
     count_alive_by_species,
     distance_to_point,
     get_species_population_cap,
+    is_point_in_nest_territory,
     is_species_at_population_cap,
+    resolve_colony_id,
     satiety_feed_target,
     satiety_room_until_feed_target,
 )
@@ -33,6 +35,7 @@ class Nest:
     x: float
     y: float
     owner_species: str
+    colony_id: str = ""
     stored_food: float = 0.0
     max_food: float = 400.0
     spawn_timer: float = 0.0
@@ -66,6 +69,7 @@ class NestSystem:
         y: float,
         species_name: str,
         *,
+        colony_id: str,
         max_food: float = 400.0,
         stored_food: float = 0.0,
     ) -> Nest:
@@ -76,18 +80,63 @@ class NestSystem:
             x=float(x),
             y=float(y),
             owner_species=species_name,
+            colony_id=str(colony_id),
             stored_food=food,
             max_food=cap,
         )
-        # 既定で「巣穴=作成地点」を1つ持つ（巣=備蓄、巣穴=出入口座標）。
+        # 既定で「巣穴=作成地点」を1つ持つ（巣=備蓄、巣穴=出入口・テリトリー核）。
         nest.holes.append(NestHole(x=float(x), y=float(y)))
         self._next_id += 1
         self.nests[nest.id] = nest
         return nest
 
+    def _colony_settings(self) -> dict:
+        return getattr(self.world, "colony_settings", {}) or {}
+
     def add_hole(self, nest: Nest, x: float, y: float) -> None:
         x, y = self._clamp_to_world(float(x), float(y))
         nest.holes.append(NestHole(x=x, y=y))
+
+    def can_place_hole(self, nest: Nest, x: float, y: float) -> tuple[bool, str]:
+        """新規巣穴を置けるか（標準ルール: 自テリトリー内・間隔・上限・食料）。"""
+        if nest is None:
+            return False, "巣が選択されていません"
+
+        cfg = self._colony_settings()
+        max_holes = int(cfg.get("max_holes", 8))
+        if len(nest.holes or []) >= max_holes:
+            return False, f"巣穴上限 ({max_holes} 個)"
+
+        x, y = self._clamp_to_world(float(x), float(y))
+        if not is_point_in_nest_territory(self.world, nest, x, y):
+            return False, "既存テリトリー外です"
+
+        min_spacing = float(cfg.get("min_hole_spacing", 120))
+        for h in nest.holes or []:
+            if math.hypot(h.x - x, h.y - y) < min_spacing:
+                return False, f"既存の巣穴に近すぎます (要 {min_spacing:.0f}px 以上)"
+
+        cost = float(cfg.get("hole_food_cost", 250))
+        reserve = float(cfg.get("hole_min_food_reserve", 72))
+        needed = reserve + cost
+        if nest.stored_food < needed:
+            return (
+                False,
+                f"食料不足 (要 {needed:.0f}, 現在 {nest.stored_food:.0f})",
+            )
+
+        return True, ""
+
+    def try_place_hole(self, nest: Nest, x: float, y: float) -> tuple[bool, str]:
+        """条件を満たせば巣穴を追加し食料を消費する。"""
+        ok, reason = self.can_place_hole(nest, x, y)
+        if not ok:
+            return False, reason
+
+        cost = float(self._colony_settings().get("hole_food_cost", 250))
+        nest.stored_food -= cost
+        self.add_hole(nest, x, y)
+        return True, "巣穴を設置しました"
 
     def _nearest_hole_xy(self, nest: Nest, x: float, y: float) -> tuple[float, float]:
         if not nest.holes:
@@ -130,13 +179,13 @@ class NestSystem:
         self,
         x: float,
         y: float,
-        species_name: str,
+        colony_id: str,
         max_dist: float,
     ) -> Nest | None:
         best = None
         min_dist = float("inf")
         for nest in self.nests.values():
-            if nest.owner_species != species_name:
+            if nest.colony_id != colony_id:
                 continue
             dist = ((nest.x - x) ** 2 + (nest.y - y) ** 2) ** 0.5
             if dist <= max_dist and dist < min_dist:
@@ -144,30 +193,26 @@ class NestSystem:
                 best = nest
         return best
 
-    def get_colony_nest(self, species_name: str) -> Nest | None:
-        """種族のコロニー巣を1つ返す（owner_species が一致する巣）。"""
+    def get_colony_nest(self, colony_id: str) -> Nest | None:
+        """勢力 ID のコロニー巣を1つ返す。"""
         for nest in self.nests.values():
-            if nest.owner_species == species_name:
+            if nest.colony_id == colony_id:
                 return nest
         return None
-
-    def _colony_lookup_key(self, species_name: str, colony_cfg: dict | None) -> str:
-        cfg = colony_cfg or {}
-        return str(cfg.get("join_species", species_name))
 
     def get_colony_nest_for_creature(
         self, species_name: str, colony_cfg: dict | None = None
     ) -> Nest | None:
-        """join_species を考慮してコロニー巣を返す。"""
-        key = self._colony_lookup_key(species_name, colony_cfg)
-        return self.get_colony_nest(key)
+        """colony_id / join_species を考慮してコロニー巣を返す。"""
+        cid = resolve_colony_id(species_name, colony_cfg)
+        return self.get_colony_nest(cid)
 
     def spawn_position(self, species_name: str, colony_cfg: dict | None = None) -> tuple[float, float]:
         """巣の位置付近にスポーン座標を返す（初期配置・P 追加用）。"""
         cfg = colony_cfg or {}
         spread = float(cfg.get("spawn_spread", self.DEFAULT_SPAWN_SPREAD))
-        colony_key = self._colony_lookup_key(species_name, cfg)
-        nest = self.get_colony_nest(colony_key)
+        colony_id = resolve_colony_id(species_name, cfg)
+        nest = self.get_colony_nest(colony_id)
         if nest is not None:
             hole = random.choice(nest.holes) if nest.holes else None
             hx, hy = (hole.x, hole.y) if hole is not None else (nest.x, nest.y)
@@ -207,18 +252,19 @@ class NestSystem:
         species_name = creature.species.name
         max_food = float(cfg.get("max_food", cfg.get("max_storage", 400.0)))
         single_colony = cfg.get("single_colony", True)
-        colony_key = self._colony_lookup_key(species_name, cfg)
+        colony_id = resolve_colony_id(species_name, cfg)
         join_species = cfg.get("join_species")
 
         if single_colony:
-            existing = self.get_colony_nest(colony_key)
+            existing = self.get_colony_nest(colony_id)
         else:
             cx, cy = entity_xy(creature)
             join_radius = float(cfg.get("join_radius", self.DEFAULT_JOIN_RADIUS))
-            existing = self.find_nearest_nest(cx, cy, colony_key, join_radius)
+            existing = self.find_nearest_nest(cx, cy, colony_id, join_radius)
 
         if existing is not None:
             colony.nest_id = existing.id
+            colony.colony_id = existing.colony_id
             return
 
         if join_species is not None:
@@ -233,10 +279,12 @@ class NestSystem:
             cx,
             cy,
             species_name,
+            colony_id=colony_id,
             max_food=max_food,
             stored_food=initial_food,
         )
         colony.nest_id = nest.id
+        colony.colony_id = colony_id
 
     def update(self, dt: float = 1.0) -> None:
         """巣の更新（食料漏洩→マナ還流、巣からのスポーン等）。"""

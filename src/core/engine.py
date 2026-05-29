@@ -36,6 +36,7 @@ class SimulationEngine:
         self.show_debug = config.game.get("debug_mode", False)
         self.map_view_mode = "biome"  # "biome" | "mana"
         self.show_territory = False
+        self.user_message = ""
 
         # レンダラーとインプットハンドラ
         font_size = config.game.get("ui_font_size", 24)
@@ -131,6 +132,7 @@ class SimulationEngine:
             self.show_debug,
             self.map_view_mode,
             self.show_territory,
+            user_message=getattr(self, "user_message", ""),
         )
 
     def run(self):

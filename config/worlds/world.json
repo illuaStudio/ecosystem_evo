@@ -30,6 +30,33 @@
     "Spider": 30
   },
 
+  "colony": {
+    "hole_food_cost": 250,
+    "max_holes": 8,
+    "min_hole_spacing": 120,
+    "hole_min_food_reserve": 72,
+    "factions": {
+      "ant": {
+        "label": "A",
+        "territory_fill": [220, 70, 70, 38],
+        "territory_line": [255, 130, 130, 150],
+        "nest_outer": [90, 45, 30],
+        "nest_inner_base": [180, 90, 40],
+        "nest_glow_base": [40, 120, 180],
+        "nest_hole": [255, 230, 180]
+      },
+      "enemy_ant": {
+        "label": "E",
+        "territory_fill": [70, 90, 220, 38],
+        "territory_line": [130, 160, 255, 150],
+        "nest_outer": [35, 45, 95],
+        "nest_inner_base": [70, 100, 200],
+        "nest_glow_base": [50, 80, 200],
+        "nest_hole": [180, 210, 255]
+      }
+    }
+  },
+
   "world": {
     "biome_map_cell_size": 64,
     "biomes": [

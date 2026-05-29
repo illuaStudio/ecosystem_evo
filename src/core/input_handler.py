@@ -113,5 +113,6 @@ class InputHandler:
         if nest is None:
             return
 
-        nest_system.add_hole(nest, wx, wy)
+        _ok, msg = nest_system.try_place_hole(nest, wx, wy)
+        self.engine.user_message = msg
         self.engine.selected_nest = nest

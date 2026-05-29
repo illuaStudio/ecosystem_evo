@@ -90,6 +90,10 @@ class World:
             world_data.get("population_limits", {})
         )
 
+        colony_block = dict(world_data.get("colony", {}))
+        self.faction_styles = dict(colony_block.pop("factions", {}))
+        self.colony_settings = colony_block
+
         self.nest_system = NestSystem(self)
         self.spawner = WorldSpawner(self)
         self.spawner.spawn_initial_entities(world_data)

@@ -60,7 +60,7 @@ class TestAntNest(unittest.TestCase):
 
         preds = [c for c in world.creatures if c.species.name == "Ant"]
         self.assertGreaterEqual(len(preds), 1)
-        nest = world.nest_system.get_colony_nest("Ant")
+        nest = world.nest_system.get_colony_nest("ant")
         self.assertIsNotNone(nest)
         for p in preds:
             px, py = entity_xy(p)

@@ -55,6 +55,7 @@ class Renderer:
         show_debug=False,
         map_view_mode="biome",
         show_territory=False,
+        user_message: str = "",
     ):
         self._show_territory_hud = show_territory
         # 毎フレーム必ず全画面クリア（未描画領域に UI が残るのを防ぐ）
@@ -73,6 +74,18 @@ class Renderer:
                 selected_nest_id=nest_id,
             )
             NestRenderer.draw(world, self.screen, camera, nest_id)
+            if show_territory and selected_nest is not None:
+                import pygame as _pg
+
+                mx, my = _pg.mouse.get_pos()
+                NestRenderer.draw_hole_placement_preview(
+                    world,
+                    self.screen,
+                    camera,
+                    selected_nest,
+                    mx + camera.x,
+                    my + camera.y,
+                )
 
         for c in creatures:
             if hasattr(c, "draw"):
@@ -212,8 +225,10 @@ class Renderer:
                     )
                     from src.utils.creature_helpers import get_territory_radius_for_nest
 
+                    hole_n = len(getattr(nest, "holes", []) or [])
                     texts.append(
-                        f"テリトリー半径: {get_territory_radius_for_nest(world, nest):.0f} px"
+                        f"勢力 {nest.colony_id} | テリトリー半径 "
+                        f"{get_territory_radius_for_nest(world, nest):.0f} px | 巣穴 {hole_n}"
                     )
                 carry_line = format_carry_status(sc)
                 if carry_line is not None:
@@ -284,6 +299,12 @@ class Renderer:
 
         if world is not None:
             self._draw_population_panel(world)
+
+        if user_message:
+            self.screen.blit(
+                self.font.render(user_message, True, (255, 230, 140)),
+                (15, 118),
+            )
 
         self.screen.blit(
             self.small_font.render(
@@ -396,10 +417,15 @@ class Renderer:
         )
         y += 35
 
+        colony_world = getattr(world, "colony_settings", {}) or {}
+        hole_cost = float(colony_world.get("hole_food_cost", 250))
+        max_holes = int(colony_world.get("max_holes", 8))
+        hole_count = len(getattr(nest, "holes", []) or [])
+
         texts = [
-            f"巣 #{nest.id}  ({nest.owner_species})",
+            f"巣 #{nest.id}  勢力:{nest.colony_id}  種:{nest.owner_species}",
             f"位置: ({nest.x:.0f}, {nest.y:.0f})",
-            f"巣穴: {len(getattr(nest, 'holes', []) or [])} 個  (H:カーソル位置に追加)",
+            f"巣穴: {hole_count}/{max_holes}  (H:カーソルに設置 / 費用 {hole_cost:.0f})",
             f"食料: {nest.stored_food:.1f} / {nest.max_food:.0f}",
             f"備蓄率: {nest.food_ratio * 100:.1f}%",
             f"コロニー: {members} 匹",
