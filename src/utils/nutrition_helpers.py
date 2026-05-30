@@ -116,34 +116,17 @@ def format_nutrition_status(creature) -> str:
     return f"栄養: {label} ({satiety_ratio(creature) * 100:.0f}%)"
 
 def format_carry_status(creature) -> str | None:
-    """HUD 用: コロニー運搬チャンクの状態。運搬していなければ None。"""
-    colony = getattr(creature, "colony", None)
-    if colony is None:
-        return None
-    if not colony.is_carrying:
-        return "運搬: なし"
-    max_carry = get_haul_max_carry(creature)
-    src = ""
-    carcass = colony.carried_carcass
-    if carcass is not None:
-        src = f"（元: {carcass.species.name}"
-        if has_edible_carcass(carcass):
-            src += f", 現場残 {carcass.remaining_biomass:.1f}"
-        src += "）"
-    return (
-        f"運搬: {colony.carried_biomass:.1f} / 上限 {max_carry:.1f}{src}"
-    )
+    """HUD 用: インベントリ状態（後方互換名）。"""
+    from src.utils.inventory_helpers import format_inventory_status
+
+    return format_inventory_status(creature)
+
 
 def get_haul_max_carry(creature, default: float = 50.0) -> float:
-    """巣持ち帰り（ReturnToNestAction）の base_max_carry を種定義から取得。"""
-    mind_data = getattr(creature.species, "mind_data", {}) or {}
-    for action_def in mind_data.get("actions", []):
-        if action_def.get("name") != "ReturnToNestAction":
-            continue
-        params = action_def.get("params", {}) or {}
-        if "base_max_carry" in params:
-            return max(0.0, float(params["base_max_carry"]))
-    return default
+    """先頭スロットのバイオマス上限（後方互換）。"""
+    from src.utils.inventory_helpers import get_haul_max_carry as _max
+
+    return _max(creature, default=default)
 
 def nest_stored_food(creature, default: float = 0.0) -> float:
     world = getattr(creature, "world", None)

@@ -32,6 +32,12 @@
     "satiety_full_above": 0.85,
     "corpse_decompose_rate": 0.01
   },
+  "inventory": {
+    "slot_count": 1,
+    "slots": [{ "max_mass": 100, "allowed_kinds": ["biomass"] }],
+    "biomass_weight_per_unit": 1.0,
+    "carry_speed_reference_weight": 80
+  },
   "mind": {
     "type": "utility",
     "actions": [
@@ -89,8 +95,7 @@
         "weight": 3.2,
         "params": {
           "speed_multiplier": 1.15,
-          "deposit_radius": 30,
-          "base_max_carry": 100
+          "deposit_radius": 30
         }
       },
       {

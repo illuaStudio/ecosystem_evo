@@ -238,4 +238,5 @@ class Species:
         self.life_cycle = normalize_life_cycle(data.get("life_cycle", {}))
         self.mind_data = data.get("mind", {"type": "priority", "actions": []})
         self.colony_data = data.get("colony", {})
+        self.inventory_data = data.get("inventory", {})
         self.description = data.get("description", "")

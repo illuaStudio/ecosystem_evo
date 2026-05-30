@@ -45,7 +45,9 @@ class TestHuntCarcassStuck(unittest.TestCase):
                 hunt._target = spider
                 hunt.execute(ant)
 
-        carriers = [a for a in ants if a.colony.is_carrying]
+        from src.utils.inventory_helpers import inventory_is_loaded
+
+        carriers = [a for a in ants if inventory_is_loaded(a)]
         self.assertGreaterEqual(len(carriers), 1)
         self.assertTrue(carcass_on_field(world, spider) or len(carriers) >= 2)
 

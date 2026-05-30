@@ -177,8 +177,9 @@ class NestSystem:
                 continue
             colony.defeated = True
             colony.nest_id = None
-            colony.carried_biomass = 0.0
-            colony.carried_carcass = None
+            from src.utils.inventory_helpers import clear_inventory_biomass
+
+            clear_inventory_biomass(creature)
             if is_creature_sheltered(creature):
                 creature.hp = 0.0
                 clear_creature_shelter(creature)
@@ -496,23 +497,21 @@ class NestSystem:
         return max(0.0, nest.max_food - nest.stored_food)
 
     def deposit_carried(self, creature) -> float:
-        """運搬中チャンクを巣の食料備蓄へ移す。移した食料量を返す。
+        """インベントリ内バイオマスを巣の食料備蓄へ移す。移した食料量を返す。
 
-        備蓄が満杯で入らない分は巣付近でマナ還元し、運搬状態を解く
-        （満タン巣で持ち帰りループしないようにする）。
+        備蓄が満杯で入らない分は巣付近でマナ還元し、インベントリを空にする。
         """
-        colony = getattr(creature, "colony", None)
-        if colony is None or not colony.is_carrying:
+        from src.utils.inventory_helpers import clear_inventory_biomass, inventory_is_loaded
+
+        if not inventory_is_loaded(creature):
             return 0.0
 
         nest = self.get_creature_nest(creature)
         if nest is None:
             return 0.0
 
-        amount = float(colony.carried_biomass)
+        amount = clear_inventory_biomass(creature)
         if amount <= 0:
-            colony.carried_biomass = 0.0
-            colony.carried_carcass = None
             return 0.0
 
         space = self.deposit_space(nest)
@@ -520,17 +519,10 @@ class NestSystem:
         nest.stored_food += deposited
         leftover = amount - deposited
 
-        if leftover > 0:
-            overflow = leftover
-            if self.world is not None:
-                self.world.mana_layer.return_from_decomposition(
-                    overflow * 0.65, nest.x, nest.y
-                )
-            colony.carried_biomass = 0.0
-            colony.carried_carcass = None
-        else:
-            colony.carried_biomass = 0.0
-            colony.carried_carcass = None
+        if leftover > 0 and self.world is not None:
+            self.world.mana_layer.return_from_decomposition(
+                leftover * 0.65, nest.x, nest.y
+            )
         return deposited
 
     def feed_creature(

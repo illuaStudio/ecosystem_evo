@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 
 from src.shelter.state import SHELTER_ALLOWED_ACTION_NAMES, is_creature_sheltered
+from src.utils.inventory_helpers import inventory_is_loaded
 from src.utils.creature_helpers import needs_self_feed
 from src.ai.actions import (
     AttackHoleAction,
@@ -54,7 +55,7 @@ class UtilityMind(Mind):
     def decide_next_action(self, creature):
         colony = getattr(creature, "colony", None)
         current = creature.current_action
-        if colony is not None and colony.is_carrying:
+        if inventory_is_loaded(creature):
             # 運搬中は帰巣を維持（毎ティック再評価による Hunt 等へのチャタリング防止）
             if not needs_self_feed(creature) and isinstance(
                 current, ReturnToNestAction

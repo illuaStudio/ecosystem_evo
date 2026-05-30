@@ -1,10 +1,6 @@
 """攻撃・捕食・死骸・運搬チャンクの処理。"""
 
-from src.utils.geo_helpers import distance_between
-from src.utils.movement_helpers import contact_range
-from src.utils.nutrition_helpers import get_haul_max_carry
 from src.utils.position_helpers import entity_xy
-from src.utils.target_helpers import has_edible_carcass
 
 def hp_ratio(creature) -> float:
     """HPの割合（0〜1）"""
@@ -82,87 +78,21 @@ def _remove_depleted_carcass(world, carcass) -> None:
         world.remove_creature(carcass)
 
 def release_carried_carcass(carrier) -> None:
-    """運搬チャンクをやめ、採取元の死骸にバイオマスを戻す（なければマナ還元）。"""
-    colony = getattr(carrier, "colony", None)
-    if colony is None or not colony.is_carrying:
-        return
+    """インベントリ内バイオマスをやめる（後方互換名）。"""
+    from src.utils.inventory_helpers import release_inventory_biomass
 
-    chunk = float(colony.carried_biomass)
-    carcass = colony.carried_carcass
-    colony.carried_biomass = 0.0
-    colony.carried_carcass = None
-    if chunk <= 0:
-        return
+    release_inventory_biomass(carrier)
 
-    world = carrier.world
-    if world is None:
-        return
-
-    if carcass is not None:
-        carcass.remaining_biomass += chunk
-        if carcass not in world.creatures:
-            carcass.world = world
-            world.add_creature(carcass)
-        return
-
-    cx, cy = entity_xy(carrier)
-    world.mana_layer.return_from_decomposition(chunk * 0.65, cx, cy)
 
 def try_pickup_carcass(carrier, carcass, contact_padding: float = 8.0) -> bool:
-    """接触した死骸からチャンクを切り出して運搬する（死骸は現場に残る）。"""
-    colony = getattr(carrier, "colony", None)
-    if colony is None or colony.is_carrying:
-        return False
-    world = carrier.world
-    if not has_edible_carcass(carcass):
-        return False
+    """接触した死骸からチャンクを切り出す（後方互換名）。"""
+    from src.utils.inventory_helpers import try_pickup_carcass as _pickup
 
-    dist = distance_between(carrier, carcass)
-    reach = contact_range(carrier, carcass, contact_padding)
-    if dist > reach * 1.05:
-        return False
+    return _pickup(carrier, carcass, contact_padding=contact_padding)
 
-    max_carry = get_haul_max_carry(carrier)
-    if max_carry <= 0:
-        return False
-
-    chunk = min(float(carcass.remaining_biomass), max_carry)
-    if chunk <= 0:
-        return False
-
-    carcass.remaining_biomass -= chunk
-    colony.carried_biomass = chunk
-    colony.carried_carcass = carcass
-
-    if world is not None:
-        _remove_depleted_carcass(world, carcass)
-
-    return True
 
 def consume_carried_biomass(predator, bite_gain: float = 1.35) -> float:
-    """運搬中チャンクをその場で消費して満腹度を回復。"""
-    colony = getattr(predator, "colony", None)
-    if colony is None or colony.carried_biomass <= 0:
-        return 0.0
+    """インベントリ内バイオマスをその場で消費（後方互換名）。"""
+    from src.utils.inventory_helpers import consume_inventory_biomass
 
-    base_size = float(predator.traits.get("base_size", 9.0))
-    bite_gain = float(bite_gain)
-    amount = min(
-        colony.carried_biomass * 0.45,
-        base_size * bite_gain * 1.6,
-    )
-    colony.carried_biomass = max(0.0, colony.carried_biomass - amount * 0.9)
-
-    gained = amount * bite_gain
-    predator.satiety = min(predator.max_satiety, predator.satiety + gained)
-
-    if colony.carried_biomass <= 1.0:
-        leftover = colony.carried_biomass
-        colony.carried_biomass = 0.0
-        colony.carried_carcass = None
-        world = predator.world
-        if world is not None and leftover > 0:
-            cx, cy = entity_xy(predator)
-            world.mana_layer.return_from_decomposition(leftover * 0.8, cx, cy)
-
-    return gained
+    return consume_inventory_biomass(predator, bite_gain=bite_gain)

@@ -76,7 +76,9 @@ class CombatAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Acti
         if not creature.world or is_creature_colony_defeated(creature):
             return False
         colony = getattr(creature, "colony", None)
-        if colony is not None and colony.is_carrying:
+        from src.utils.inventory_helpers import inventory_is_loaded
+
+        if inventory_is_loaded(creature):
             return False
 
         if self._abort_if_beyond_nest_leash(creature):
@@ -110,7 +112,9 @@ class CombatAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Acti
         if is_creature_colony_defeated(creature):
             return 0.0
         colony = getattr(creature, "colony", None)
-        if colony is not None and colony.is_carrying:
+        from src.utils.inventory_helpers import inventory_is_loaded
+
+        if inventory_is_loaded(creature):
             return 0.0
         if is_beyond_nest_leash(creature, self._nest_leash()):
             return 0.0

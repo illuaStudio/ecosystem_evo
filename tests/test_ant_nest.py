@@ -3,6 +3,8 @@ import unittest
 
 from src.entities.creature_factory import CreatureFactory
 from src.systems.world import World
+from src.components.inventory import BiomassItem
+from src.utils.inventory_helpers import inventory_is_loaded, total_biomass_amount
 from src.utils.creature_helpers import (
     get_haul_max_carry,
     has_edible_carcass,
@@ -176,14 +178,14 @@ class TestAntNest(unittest.TestCase):
 
         initial_biomass = prey.remaining_biomass
         self.assertTrue(try_pickup_carcass(predator, prey))
-        self.assertTrue(predator.colony.is_carrying)
-        self.assertGreater(predator.colony.carried_biomass, 0)
+        self.assertTrue(inventory_is_loaded(predator))
+        self.assertGreater(total_biomass_amount(predator), 0)
         self.assertLess(prey.remaining_biomass, initial_biomass)
 
         deposited = world.nest_system.deposit_carried(predator)
         self.assertGreater(deposited, 0)
         self.assertGreater(nest.stored_food, 0)
-        self.assertFalse(predator.colony.is_carrying)
+        self.assertFalse(inventory_is_loaded(predator))
 
     def test_feed_at_nest_reduces_hunger(self):
         world = World()
@@ -332,7 +334,7 @@ class TestAntNest(unittest.TestCase):
                 break
             try_attack_only(carrier, prey, attack_power=2.5)
         self.assertTrue(try_pickup_carcass(carrier, prey))
-        first_chunk = carrier.colony.carried_biomass
+        first_chunk = total_biomass_amount(carrier)
         remaining_after_first = prey.remaining_biomass
 
         other.pos[0] = prey.pos[0]
@@ -342,7 +344,7 @@ class TestAntNest(unittest.TestCase):
             other.position.y = prey.pos[1]
 
         self.assertTrue(try_pickup_carcass(other, prey))
-        self.assertGreater(other.colony.carried_biomass, 0)
+        self.assertGreater(total_biomass_amount(other), 0)
         self.assertLess(prey.remaining_biomass, remaining_after_first)
         self.assertGreater(first_chunk, 0)
 
@@ -367,13 +369,12 @@ class TestAntNest(unittest.TestCase):
                 break
             try_attack_only(predator, prey, attack_power=2.5)
         self.assertTrue(try_pickup_carcass(predator, prey))
-        carried = predator.colony.carried_biomass
+        carried = total_biomass_amount(predator)
         deposited = world.nest_system.deposit_carried(predator)
         self.assertGreater(deposited, 0)
         self.assertAlmostEqual(deposited, carried)
-        self.assertFalse(predator.colony.is_carrying)
+        self.assertFalse(inventory_is_loaded(predator))
         nest.stored_food = 0.0
-        predator.colony.carried_biomass = 0.0
         second = world.nest_system.deposit_carried(predator)
         self.assertEqual(second, 0.0)
 
@@ -441,8 +442,7 @@ class TestAntNest(unittest.TestCase):
         nest = world.nest_system.get_creature_nest(ant)
         nest.stored_food = nest.max_food
 
-        ant.colony.carried_biomass = 42.0
-        ant.colony.carried_carcass = None
+        ant.inventory.slots[0].item = BiomassItem(amount=42.0)
         px, py = entity_xy(ant)
         ant.pos[0] = nest.x
         ant.pos[1] = nest.y
@@ -452,7 +452,7 @@ class TestAntNest(unittest.TestCase):
 
         deposited = world.nest_system.deposit_carried(ant)
         self.assertEqual(deposited, 0.0)
-        self.assertFalse(ant.colony.is_carrying)
+        self.assertFalse(inventory_is_loaded(ant))
         self.assertAlmostEqual(nest.stored_food, nest.max_food)
 
 

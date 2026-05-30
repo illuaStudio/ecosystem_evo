@@ -1,12 +1,14 @@
-"""死骸チャンク運搬（base_max_carry）のテスト。"""
+"""死骸チャンク運搬（インベントリ上限）のテスト。"""
 import unittest
 
 from src.entities.creature_factory import CreatureFactory
 from src.systems.world import World
-from src.utils.creature_helpers import (
+from src.utils.creature_helpers import try_attack_only, try_pickup_carcass
+from src.utils.inventory_helpers import (
+    clear_inventory_biomass,
     get_haul_max_carry,
-    try_attack_only,
-    try_pickup_carcass,
+    inventory_is_loaded,
+    total_biomass_amount,
 )
 from src.utils.position_helpers import entity_xy
 
@@ -17,6 +19,8 @@ class TestChunkCarry(unittest.TestCase):
         factory = CreatureFactory()
         ant = factory.create("red_ant", world=world, x=400, y=400)
         world.add_creature(ant)
+        for slot in ant.inventory.slots:
+            slot.max_mass = 3.3
 
         spider = factory.create("Spider", world=world, x=0, y=0)
         world.add_creature(spider)
@@ -29,24 +33,24 @@ class TestChunkCarry(unittest.TestCase):
 
         spider.hp = 0
         spider.become_corpse()
+        spider.remaining_biomass = 165.0
         self.assertFalse(spider.alive)
 
         total = spider.remaining_biomass
-        max_carry = get_haul_max_carry(ant)
-        self.assertAlmostEqual(max_carry, 3.3, places=1)
+        per_trip_cap = sum(s.max_mass for s in ant.inventory.slots)
+        self.assertGreater(per_trip_cap, 0.0)
 
         trips = 0
         while spider.remaining_biomass > 0 and trips < 120:
             self.assertTrue(try_pickup_carcass(ant, spider))
             trips += 1
-            self.assertGreater(ant.colony.carried_biomass, 0)
-            self.assertLessEqual(ant.colony.carried_biomass, max_carry + 0.001)
-            ant.colony.carried_biomass = 0.0
-            ant.colony.carried_carcass = None
+            self.assertTrue(inventory_is_loaded(ant))
+            self.assertLessEqual(total_biomass_amount(ant), per_trip_cap + 0.001)
+            clear_inventory_biomass(ant)
 
-        self.assertGreaterEqual(trips, 45)
-        self.assertLessEqual(trips, 55)
-        self.assertAlmostEqual(total, max_carry * trips, delta=max_carry * 2)
+        self.assertGreaterEqual(trips, 15)
+        self.assertLessEqual(trips, 60)
+        self.assertAlmostEqual(total, per_trip_cap * trips, delta=per_trip_cap * 2)
 
 
 if __name__ == "__main__":

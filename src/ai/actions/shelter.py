@@ -12,6 +12,7 @@ from src.shelter.helpers import (
     shelter_distance,
 )
 from src.shelter.state import clear_creature_shelter, is_creature_sheltered
+from src.utils.inventory_helpers import inventory_is_loaded
 from src.utils.movement_helpers import (
     is_flee_latch_active,
     update_flee_latch,
@@ -46,7 +47,7 @@ class SeekShelterAction(Action):
             return False
 
         colony = getattr(creature, "colony", None)
-        if colony is None or colony.is_carrying:
+        if colony is None or inventory_is_loaded(creature):
             return False
 
         update_flee_latch(creature, threats)
@@ -95,7 +96,7 @@ class SeekShelterAction(Action):
             return 0.0
 
         colony = getattr(creature, "colony", None)
-        if colony is None or colony.is_carrying or not creature.world:
+        if colony is None or inventory_is_loaded(creature) or not creature.world:
             return 0.0
 
         if creature.world.nest_system.get_creature_nest(creature) is None:

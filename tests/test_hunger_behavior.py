@@ -25,6 +25,7 @@ from src.utils.creature_helpers import (
     try_pickup_carcass,
     update_nutrition_recovery,
 )
+from src.utils.inventory_helpers import inventory_is_loaded, total_biomass_amount
 from src.utils.position_helpers import entity_xy
 
 
@@ -143,7 +144,8 @@ class TestHungerBehavior(unittest.TestCase):
                 break
             try_attack_only(ant, prey, attack_power=2.5)
         try_pickup_carcass(ant, prey)
-        carried_before = ant.colony.carried_biomass
+
+        carried_before = total_biomass_amount(ant)
         satiety_before = ant.satiety
         self.assertGreater(carried_before, 0)
 
@@ -151,7 +153,32 @@ class TestHungerBehavior(unittest.TestCase):
         action.execute(ant)
 
         self.assertGreater(ant.satiety, satiety_before)
-        self.assertLess(ant.colony.carried_biomass, carried_before)
+        self.assertLess(total_biomass_amount(ant), carried_before)
+
+    def test_scavenge_keeps_remainder_for_nest_after_recovery(self):
+        """回復ラッチ終了後も運搬分を手放さず、帰巣行動に戻れる。"""
+        world = World()
+        ant, prey = self._ant_and_prey(world, ant_satiety_ratio=0.10)
+        for _ in range(12):
+            if not prey.alive:
+                break
+            try_attack_only(ant, prey, attack_power=2.5)
+        try_pickup_carcass(ant, prey)
+        self.assertTrue(inventory_is_loaded(ant))
+
+        scavenge = ScavengeCarriedAction()
+        ret = ReturnToNestAction()
+        for _ in range(80):
+            if not needs_self_feed(ant):
+                break
+            scavenge.execute(ant)
+            if not inventory_is_loaded(ant):
+                break
+
+        self.assertFalse(needs_self_feed(ant))
+        self.assertTrue(inventory_is_loaded(ant))
+        self.assertEqual(scavenge.calculate_utility(ant), 0.0)
+        self.assertGreater(ret.calculate_utility(ant), 0.0)
 
     def test_hungry_does_not_approach_empty_nest(self):
         world = World()

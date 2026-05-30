@@ -1,7 +1,9 @@
 # creature_renderer.py
 import pygame
 
-from src.utils.creature_helpers import get_haul_max_carry, hp_ratio, satiety_ratio
+from src.components.inventory import BiomassItem
+from src.utils.creature_helpers import hp_ratio, satiety_ratio
+from src.utils.inventory_helpers import get_haul_max_carry, inventory_is_loaded, total_biomass_amount
 from src.utils.position_helpers import entity_xy
 
 # コロニー種の頭上ラベル（勢力色）
@@ -26,6 +28,9 @@ class CreatureRenderer:
         from src.shelter.state import is_creature_sheltered
 
         if is_creature_sheltered(creature):
+            return
+
+        if not creature.alive and creature.remaining_biomass <= 0:
             return
 
         cx, cy = entity_xy(creature)
@@ -92,14 +97,23 @@ class CreatureRenderer:
             font = pygame.font.SysFont("msgothic", 12)
             label = colony_label
             label_color = tuple(creature.species.color)
-            if colony is not None and colony.is_carrying:
+            if inventory_is_loaded(creature):
                 label = "↩"
-                max_carry = max(get_haul_max_carry(creature), 0.001)
-                chunk_ratio = min(1.0, colony.carried_biomass / max_carry)
-                carcass = colony.carried_carcass
+                inv = creature.inventory
+                cap = sum(s.max_mass for s in inv.slots) if inv.slots else get_haul_max_carry(creature)
+                max_carry = max(cap, 0.001)
+                chunk_ratio = min(1.0, total_biomass_amount(creature) / max_carry)
                 prey_color = (120, 90, 70)
-                if carcass is not None:
-                    prey_color = tuple(max(0, c // 2) for c in carcass.species.color)
+                slot = inv.first_biomass_slot()
+                if (
+                    slot is not None
+                    and isinstance(slot.item, BiomassItem)
+                    and slot.item.source_carcass is not None
+                ):
+                        prey_color = tuple(
+                            max(0, c // 2)
+                            for c in slot.item.source_carcass.species.color
+                        )
                 csize = max(3, int(size * 0.35 + chunk_ratio * size * 0.45))
                 pygame.draw.circle(
                     screen, prey_color, (sx + size + 6, sy), csize

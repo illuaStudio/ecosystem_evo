@@ -1,5 +1,5 @@
 # colony.py
-"""コロニー（巣）所属と獲物運搬の状態。"""
+"""コロニー（巣）所属の状態。持ち物は InventoryComponent が管理する。"""
 
 
 class ColonyComponent:
@@ -7,9 +7,3 @@ class ColonyComponent:
         self.nest_id = nest_id
         self.colony_id = colony_id
         self.defeated = False
-        self.carried_biomass = 0.0
-        self.carried_carcass = None
-
-    @property
-    def is_carrying(self) -> bool:
-        return self.carried_biomass > 0

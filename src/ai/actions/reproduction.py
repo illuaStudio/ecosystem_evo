@@ -129,7 +129,9 @@ class SpawnWorkerAction(ReproductionAction):
             return False
         if getattr(creature, "colony", None) is None:
             return False
-        if creature.colony.is_carrying:
+        from src.utils.inventory_helpers import inventory_is_loaded
+
+        if inventory_is_loaded(creature):
             return False
         if creature.repro_cooldown > 0:
             return False

@@ -19,6 +19,7 @@ from src.utils.creature_helpers import (
     get_life_stage,
     refresh_flee_latch_from_species,
 )
+from src.utils.inventory_helpers import build_inventory_from_species
 from src.utils.position_helpers import sync_legacy_pos
 
 
@@ -61,6 +62,7 @@ class Creature(BaseEntity):
         self.metabolism = MetabolismComponent(self)
         self.corpse = CorpseComponent(self)
         self.reproduction = ReproductionComponent(self)
+        self.inventory = build_inventory_from_species(self.species)
         self.colony: ColonyComponent | None = None
         if self.species.colony_data.get("enabled"):
             self.colony = ColonyComponent()
@@ -118,7 +120,11 @@ class Creature(BaseEntity):
         self.reproduction.cooldown = value
 
     def get_current_speed(self) -> float:
-        return float(self.traits.get("base_speed", 1.0))
+        base = float(self.traits.get("base_speed", 1.0))
+        inv = getattr(self, "inventory", None)
+        if inv is None:
+            return base
+        return base * inv.carry_speed_multiplier()
 
     def get_current_vision(self) -> float:
         return self.traits["base_vision"]

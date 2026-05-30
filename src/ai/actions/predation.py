@@ -10,6 +10,7 @@ from src.combat.target_query import (
 )
 from src.utils.creature_helpers import is_creature_threatening_territory
 from src.utils.movement_helpers import is_beyond_nest_leash
+from src.utils.inventory_helpers import inventory_is_loaded
 from src.utils.creature_helpers import (
     carcass_on_field,
     closeness_ratio,
@@ -261,7 +262,7 @@ class HuntAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action
         if not creature.world or getattr(creature, "colony", None) is None:
             return False
         colony = creature.colony
-        if colony.is_carrying:
+        if inventory_is_loaded(creature):
             self.completed = True
             return False
 
@@ -388,7 +389,7 @@ class HuntAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action
         if is_flee_latch_active(creature):
             return 0.0
         colony = getattr(creature, "colony", None)
-        if colony is not None and colony.is_carrying:
+        if inventory_is_loaded(creature):
             return 0.0
         if not self._territory_only() and colony is None:
             return 0.0

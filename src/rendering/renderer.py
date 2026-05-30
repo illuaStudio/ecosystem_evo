@@ -253,10 +253,14 @@ class Renderer:
                 carry_line = format_carry_status(sc)
                 if carry_line is not None:
                     texts.append(carry_line)
-                if sc.alive and not colony.is_carrying:
-                    texts.append(
-                        f"持ち帰り上限(base_max_carry): {get_haul_max_carry(sc):.1f}"
-                    )
+                from src.utils.inventory_helpers import inventory_is_loaded
+
+                if sc.alive and not inventory_is_loaded(sc) and getattr(sc, "inventory", None):
+                    inv = sc.inventory
+                    if inv.slot_count > 0:
+                        texts.append(
+                            f"インベントリ先頭枠上限: {inv.slot_max_mass(0):.1f}"
+                        )
 
             hunt_target = get_hunt_target(sc)
             combat_target = get_combat_target(sc)

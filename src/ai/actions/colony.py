@@ -2,6 +2,7 @@ import math
 
 from src.ai.actions.base import Action
 from src.shelter.state import is_creature_sheltered
+from src.utils.inventory_helpers import inventory_is_loaded
 from src.utils.creature_helpers import (
     consume_carcass,
     consume_carried_biomass,
@@ -15,14 +16,13 @@ from src.utils.creature_helpers import (
     needs_nest_feed,
     needs_self_feed,
     nest_has_usable_food,
-    release_carried_carcass,
     wander_step,
 )
 from src.utils.position_helpers import entity_xy
 
 
 class ScavengeCarriedAction(Action):
-    """飢餓時: 運搬中チャンクをその場で食べる（巣へ持ち帰らない）。"""
+    """回復中かつ運搬中: 持ち帰り予定のバイオマスをその場で1口食べる。残りは巣へ運ぶ。"""
 
     DEFAULT_PARAMS = {
         "bite_gain": 1.35,
@@ -30,22 +30,18 @@ class ScavengeCarriedAction(Action):
 
     def execute(self, creature) -> bool:
         colony = getattr(creature, "colony", None)
-        if colony is None or not colony.is_carrying:
+        if colony is None or not inventory_is_loaded(creature):
             return False
 
         consume_carried_biomass(
             creature,
             bite_gain=float(self.params["bite_gain"]),
         )
-        if not colony.is_carrying:
-            return False
-        if not needs_self_feed(creature):
-            release_carried_carcass(creature)
         return False
 
     def calculate_utility(self, creature) -> float:
         colony = getattr(creature, "colony", None)
-        if colony is None or not colony.is_carrying or not needs_self_feed(creature):
+        if colony is None or not inventory_is_loaded(creature) or not needs_self_feed(creature):
             return 0.0
         return 0.85
 
@@ -61,7 +57,7 @@ class ReturnToNestAction(Action):
 
     def execute(self, creature) -> bool:
         colony = getattr(creature, "colony", None)
-        if colony is None or not colony.is_carrying or not creature.world:
+        if colony is None or not inventory_is_loaded(creature) or not creature.world:
             return False
         if needs_self_feed(creature):
             return False
@@ -89,7 +85,7 @@ class ReturnToNestAction(Action):
 
     def calculate_utility(self, creature) -> float:
         colony = getattr(creature, "colony", None)
-        if colony is None or not colony.is_carrying:
+        if colony is None or not inventory_is_loaded(creature):
             return 0.0
         if needs_self_feed(creature) or not creature.world:
             return 0.0
@@ -167,7 +163,7 @@ class FeedAtNestAction(Action):
     def execute(self, creature) -> bool:
         if not creature.world or getattr(creature, "colony", None) is None:
             return False
-        if creature.colony.is_carrying:
+        if inventory_is_loaded(creature):
             return False
 
         ns = creature.world.nest_system
@@ -224,7 +220,7 @@ class FeedAtNestAction(Action):
 
     def calculate_utility(self, creature) -> float:
         colony = getattr(creature, "colony", None)
-        if colony is None or colony.is_carrying or not creature.world:
+        if colony is None or inventory_is_loaded(creature) or not creature.world:
             return 0.0
 
         ns = creature.world.nest_system
@@ -324,7 +320,7 @@ class NestPatrolAction(Action):
 
     def calculate_utility(self, creature) -> float:
         colony = getattr(creature, "colony", None)
-        if colony is None or colony.is_carrying or not creature.world:
+        if colony is None or inventory_is_loaded(creature) or not creature.world:
             return 0.0
 
         if needs_self_feed(creature):
