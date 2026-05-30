@@ -23,6 +23,11 @@ class CreatureRenderer:
 
     @staticmethod
     def draw(creature, screen, camera, *, is_selected: bool = False):
+        from src.shelter.state import is_creature_sheltered
+
+        if is_creature_sheltered(creature):
+            return
+
         cx, cy = entity_xy(creature)
         sx = int(cx - camera.x)
         sy = int(cy - camera.y)

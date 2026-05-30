@@ -36,9 +36,9 @@
     "type": "utility",
     "actions": [
       {
-        "name": "FleeAction",
+        "name": "SeekShelterAction",
         "weight": 5.0,
-        "description": "他勢力の兵隊・クモから逃げる",
+        "description": "他勢力の兵隊・クモから巣穴に逃げて隠れる",
         "params": {
           "threat_species": [
             "blue_ant_soldier",

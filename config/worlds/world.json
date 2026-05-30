@@ -15,14 +15,14 @@
   "initial_entities": {
     "Amoeba": 0,
     "red_ant": 2,
-    "red_ant_soldier": 5,
-    "red_ant_vanguard": 5,
+    "red_ant_soldier": 0,
+    "red_ant_vanguard": 0,
     "blue_ant": 2,
-    "blue_ant_soldier": 5,
-    "blue_ant_vanguard": 5,
+    "blue_ant_soldier": 0,
+    "blue_ant_vanguard": 0,
     "yellow_ant": 2,
-    "yellow_ant_soldier": 5,
-    "yellow_ant_vanguard": 5,
+    "yellow_ant_soldier": 0,
+    "yellow_ant_vanguard": 0,
     "Spider": 3
   },
 

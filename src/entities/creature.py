@@ -46,6 +46,7 @@ class Creature(BaseEntity):
         self.satiety = self.max_satiety
         self.nutrition_recovery = False
         self.flee_latch = False
+        self.shelter = None
 
         self.world = None
         self.last_pos = self.pos.copy()

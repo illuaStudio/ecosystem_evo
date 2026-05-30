@@ -1,6 +1,7 @@
 import math
 
 from src.ai.actions.base import Action
+from src.shelter.state import is_creature_sheltered
 from src.utils.creature_helpers import (
     consume_carcass,
     consume_carried_biomass,
@@ -168,6 +169,25 @@ class FeedAtNestAction(Action):
             return False
         if creature.colony.is_carrying:
             return False
+
+        ns = creature.world.nest_system
+        if ns.get_creature_nest(creature) is None:
+            return False
+
+        feed_radius = float(self.params["feed_radius"])
+
+        if is_creature_sheltered(creature):
+            if not needs_nest_feed(creature) or not self._has_usable_food(creature):
+                return False
+            if not ns.is_at_nest(creature, feed_radius):
+                return False
+            ns.feed_creature(
+                creature,
+                bite_gain=float(self.params["bite_gain"]),
+                max_take_ratio=float(self.params["max_take_ratio"]),
+            )
+            return False
+
         if not self._wants_nest_feed(creature):
             return False
         if not needs_nest_feed(creature):
@@ -176,12 +196,8 @@ class FeedAtNestAction(Action):
         if self._try_scavenge_on_path(creature):
             return False
 
-        ns = creature.world.nest_system
-        if ns.get_creature_nest(creature) is None:
-            return False
         tx, ty = ns.nest_target_xy(creature)
 
-        feed_radius = float(self.params["feed_radius"])
         if not ns.is_at_nest(creature, feed_radius):
             should_approach = needs_self_feed(creature) and (
                 self._has_usable_food(creature)
@@ -210,10 +226,6 @@ class FeedAtNestAction(Action):
         colony = getattr(creature, "colony", None)
         if colony is None or colony.is_carrying or not creature.world:
             return 0.0
-        if not self._wants_nest_feed(creature):
-            return 0.0
-        if not needs_nest_feed(creature):
-            return 0.0
 
         ns = creature.world.nest_system
         nest = ns.get_creature_nest(creature)
@@ -223,6 +235,16 @@ class FeedAtNestAction(Action):
         usable = self._has_usable_food(creature)
         feed_radius = float(self.params["feed_radius"])
         at_nest = ns.is_at_nest(creature, feed_radius)
+
+        if is_creature_sheltered(creature):
+            if not needs_nest_feed(creature) or not usable or not at_nest:
+                return 0.0
+            return 1.0
+
+        if not self._wants_nest_feed(creature):
+            return 0.0
+        if not needs_nest_feed(creature):
+            return 0.0
 
         if at_nest and usable:
             fill = nest.food_ratio

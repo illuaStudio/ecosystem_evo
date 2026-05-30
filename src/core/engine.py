@@ -131,12 +131,20 @@ class SimulationEngine:
         self.camera.set_pan_insets(top=top, left=left, right=right, bottom=bottom)
 
     def clear_selection_if_creature_hidden(self) -> None:
+        from src.shelter.state import is_creature_sheltered
+
         sc = self.selected_creature
-        if sc is not None and not self.species_visibility.is_creature_visible(sc):
+        if sc is None:
+            return
+        if is_creature_sheltered(sc):
+            self.selected_creature = None
+            return
+        if not self.species_visibility.is_creature_visible(sc):
             self.selected_creature = None
 
     def draw(self):
         """描画"""
+        self.clear_selection_if_creature_hidden()
         self._update_camera_pan_insets()
         self.renderer.draw(
             self.world.creatures,

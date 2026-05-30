@@ -5,6 +5,12 @@ import random
 from src.utils.geo_helpers import PointTarget, distance_between
 from src.utils.position_helpers import entity_xy
 
+def _movement_blocked_in_shelter(creature) -> bool:
+    from src.shelter.state import is_creature_sheltered
+
+    return is_creature_sheltered(creature)
+
+
 def move_toward_point(
     creature,
     x: float,
@@ -13,6 +19,9 @@ def move_toward_point(
     dt: float | None = None,
 ) -> float:
     """座標へ移動し、移動後の距離を返す。"""
+    if _movement_blocked_in_shelter(creature):
+        cx, cy = entity_xy(creature)
+        return math.hypot(x - cx, y - cy)
     return move_toward(creature, PointTarget(x, y), speed_multiplier, dt)
 
 def is_flee_threat(creature, other, species_names) -> bool:
@@ -69,18 +78,15 @@ def update_flee_latch(creature, threat_species) -> None:
     creature.flee_latch = False
 
 def refresh_flee_latch_from_species(creature) -> None:
-    """種定義の FleeAction から threat_species を集めてラッチを更新。"""
+    """種定義の FleeAction / SeekShelterAction から threat_species を集めてラッチを更新。"""
     if not getattr(creature, "alive", True):
         creature.flee_latch = False
         return
-    threats: list[str] = []
-    for action_def in creature.species.mind_data.get("actions", []):
-        if action_def.get("name") != "FleeAction":
-            continue
-        raw = action_def.get("params", {}).get("threat_species") or ()
-        threats.extend(raw)
+    from src.shelter.helpers import collect_threat_species_from_mind
+
+    threats = collect_threat_species_from_mind(creature)
     if threats:
-        update_flee_latch(creature, tuple(dict.fromkeys(threats)))
+        update_flee_latch(creature, threats)
     else:
         creature.flee_latch = False
 
@@ -126,6 +132,10 @@ def move_away_from(
     dt: float | None = None,
 ) -> float:
     """脅威から離れる方向へ移動し、移動後の距離を返す。"""
+    if _movement_blocked_in_shelter(creature):
+        tx, ty = entity_xy(target)
+        cx, cy = entity_xy(creature)
+        return math.hypot(tx - cx, ty - cy)
     from src.systems.movement_system import MovementSystem
 
     position = MovementSystem._require_position(creature)
@@ -151,6 +161,10 @@ def move_toward(
     min_distance: float | None = None,
 ) -> float:
     """ターゲット方向へ移動し、移動後の距離を返す。"""
+    if _movement_blocked_in_shelter(creature):
+        tx, ty = entity_xy(target)
+        cx, cy = entity_xy(creature)
+        return math.hypot(tx - cx, ty - cy)
     from src.systems.movement_system import MovementSystem
 
     return MovementSystem.move_toward(
@@ -184,6 +198,8 @@ def wander_step(
     speed_multiplier: float,
     dt: float | None = None,
 ) -> None:
+    if _movement_blocked_in_shelter(creature):
+        return
     from src.systems.movement_system import MovementSystem
 
     MovementSystem.wander_step(

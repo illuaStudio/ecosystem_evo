@@ -14,6 +14,7 @@ from src.ai.actions.movement import (
 )
 from src.ai.actions.predation import ChaseAction, HuntAction
 from src.ai.actions.reproduction import ReproductionAction, SpawnWorkerAction, SplitAction
+from src.ai.actions.shelter import SeekShelterAction
 
 ACTION_BY_NAME = {
     "WanderAction": WanderAction,
@@ -23,6 +24,7 @@ ACTION_BY_NAME = {
     "CombatAction": CombatAction,
     "AttackHoleAction": AttackHoleAction,
     "FleeAction": FleeAction,
+    "SeekShelterAction": SeekShelterAction,
     "HuntAction": HuntAction,
     "ReturnToNestAction": ReturnToNestAction,
     "ScavengeCarriedAction": ScavengeCarriedAction,
@@ -40,6 +42,7 @@ __all__ = [
     "CombatAction",
     "FeedAtNestAction",
     "FleeAction",
+    "SeekShelterAction",
     "HuntAction",
     "ManaGradientWanderAction",
     "ManaWanderAction",

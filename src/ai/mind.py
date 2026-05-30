@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 
+from src.shelter.state import SHELTER_ALLOWED_ACTION_NAMES, is_creature_sheltered
 from src.utils.creature_helpers import needs_self_feed
 from src.ai.actions import (
     AttackHoleAction,
@@ -13,6 +14,7 @@ from src.ai.actions import (
     NestPatrolAction,
     ReturnToNestAction,
     ScavengeCarriedAction,
+    SeekShelterAction,
     SpawnWorkerAction,
     SplitAction,
     WanderAction,
@@ -26,6 +28,7 @@ ACTION_BY_NAME = {
     "CombatAction": CombatAction,
     "AttackHoleAction": AttackHoleAction,
     "FleeAction": FleeAction,
+    "SeekShelterAction": SeekShelterAction,
     "HuntAction": HuntAction,
     "ReturnToNestAction": ReturnToNestAction,
     "ScavengeCarriedAction": ScavengeCarriedAction,
@@ -61,8 +64,12 @@ class UtilityMind(Mind):
         best_action = None
         best_score = -1.0
 
+        sheltered = is_creature_sheltered(creature)
+
         for action_def in self.action_defs:
             action_name = action_def["name"]
+            if sheltered and action_name not in SHELTER_ALLOWED_ACTION_NAMES:
+                continue
             params = action_def.get("params", {})
             weight = action_def.get("weight", 1.0)
 
@@ -83,7 +90,21 @@ class UtilityMind(Mind):
                 best_action = action
 
         if best_action is None:
-            best_action = WanderAction()
+            if sheltered:
+                best_action = SeekShelterAction(
+                    **(
+                        next(
+                            (
+                                a.get("params", {})
+                                for a in self.action_defs
+                                if a.get("name") == "SeekShelterAction"
+                            ),
+                            {},
+                        )
+                    )
+                )
+            else:
+                best_action = WanderAction()
 
         # 同種の行動が選ばれたら進行中インスタンスを維持（追跡ターゲット等を保持）
         if (

@@ -169,6 +169,8 @@ class NestSystem:
         if nest is not None:
             del self.nests[nest.id]
 
+        from src.shelter.state import clear_creature_shelter, is_creature_sheltered
+
         for creature in self.world.creatures:
             colony = getattr(creature, "colony", None)
             if colony is None or colony.colony_id != colony_id:
@@ -177,6 +179,9 @@ class NestSystem:
             colony.nest_id = None
             colony.carried_biomass = 0.0
             colony.carried_carcass = None
+            if is_creature_sheltered(creature):
+                creature.hp = 0.0
+                clear_creature_shelter(creature)
 
         self.world.last_defeat_message = f"勢力 {colony_id} が敗北しました"
 

@@ -24,6 +24,7 @@ from src.utils.hunt_helpers import (
     get_hunt_target,
 )
 from src.core.species_visibility import SpeciesVisibilityManager, VisibilityToggleRect
+from src.shelter.state import is_creature_sheltered
 from src.utils.position_helpers import entity_xy
 
 
@@ -95,6 +96,8 @@ class Renderer:
         for c in creatures:
             if species_visibility is not None and not species_visibility.is_creature_visible(c):
                 continue
+            if is_creature_sheltered(c):
+                continue
             if hasattr(c, "draw"):
                 c.draw(
                     self.screen,
@@ -107,6 +110,7 @@ class Renderer:
         if (
             world is not None
             and selected_creature is not None
+            and not is_creature_sheltered(selected_creature)
             and (
                 species_visibility is None
                 or species_visibility.is_creature_visible(selected_creature)

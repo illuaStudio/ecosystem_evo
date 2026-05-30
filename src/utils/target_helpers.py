@@ -1,5 +1,6 @@
 """獲物・敵対・死骸の探索と判定。"""
 
+from src.shelter.state import is_creature_sheltered
 from src.utils.geo_helpers import distance_between, is_in_vision
 from src.utils.position_helpers import entity_xy
 
@@ -12,6 +13,8 @@ def is_edible_prey(
     carcass_only_species: tuple[str, ...] | list[str] | None = None,
 ) -> bool:
     if target is None or target is creature:
+        return False
+    if is_creature_sheltered(target):
         return False
     names = species_names if isinstance(species_names, (list, tuple, set)) else (species_names,)
     if target.species.name not in names:
@@ -48,6 +51,8 @@ def is_trackable_prey(
 def is_hostile_target(creature, target, species_names) -> bool:
     """戦闘対象（生きている指定種のみ。死骸は対象外）。"""
     if target is None or target is creature:
+        return False
+    if is_creature_sheltered(target):
         return False
     names = species_names if isinstance(species_names, (list, tuple, set)) else (species_names,)
     if target.species.name not in names:

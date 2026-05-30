@@ -14,7 +14,9 @@ def hp_ratio(creature) -> float:
 
 def bite(predator, prey, attack_power: float = 1.0) -> float:
     """生きている獲物に噛みつきHPダメージを与える。与えたダメージ量を返す。"""
-    if not prey.alive:
+    from src.shelter.state import is_creature_sheltered
+
+    if not prey.alive or is_creature_sheltered(prey):
         return 0.0
 
     damage = float(attack_power) * 12.0

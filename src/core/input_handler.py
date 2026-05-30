@@ -63,10 +63,14 @@ class InputHandler:
         self.engine.selected_creature = None
         self.engine.selected_nest = None
 
+        from src.shelter.state import is_creature_sheltered
+
         vis = getattr(self.engine, "species_visibility", None)
         best = None
         best_dist = float("inf")
         for c in self.engine.world.creatures:
+            if is_creature_sheltered(c):
+                continue
             if vis is not None and not vis.is_creature_visible(c):
                 continue
             dist = distance_to_point(c, wx, wy)
