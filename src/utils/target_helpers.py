@@ -3,21 +3,47 @@
 from src.utils.geo_helpers import distance_between, is_in_vision
 from src.utils.position_helpers import entity_xy
 
-def is_edible_prey(creature, target, species_names) -> bool:
+def is_edible_prey(
+    creature,
+    target,
+    species_names,
+    *,
+    living_only: bool = False,
+    carcass_only_species: tuple[str, ...] | list[str] | None = None,
+) -> bool:
     if target is None or target is creature:
         return False
     names = species_names if isinstance(species_names, (list, tuple, set)) else (species_names,)
     if target.species.name not in names:
         return False
+    carcass_only = set(carcass_only_species or ())
+    if target.species.name in carcass_only:
+        if target.alive:
+            return False
+        world = getattr(creature, "world", None)
+        return carcass_on_field(world, target)
+    if living_only:
+        return bool(target.alive)
     if target.alive:
         return True
     world = getattr(creature, "world", None)
     return carcass_on_field(world, target)
 
-def is_trackable_prey(creature, target, species_names) -> bool:
-    return is_edible_prey(creature, target, species_names) and is_in_vision(
-        creature, target
-    )
+def is_trackable_prey(
+    creature,
+    target,
+    species_names,
+    *,
+    living_only: bool = False,
+    carcass_only_species: tuple[str, ...] | list[str] | None = None,
+) -> bool:
+    return is_edible_prey(
+        creature,
+        target,
+        species_names,
+        living_only=living_only,
+        carcass_only_species=carcass_only_species,
+    ) and is_in_vision(creature, target)
 
 def is_hostile_target(creature, target, species_names) -> bool:
     """戦闘対象（生きている指定種のみ。死骸は対象外）。"""

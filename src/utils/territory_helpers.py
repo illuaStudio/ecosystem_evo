@@ -91,3 +91,37 @@ def is_in_creature_territory(creature, other) -> bool:
         return False
     ox, oy = entity_xy(other)
     return is_point_in_creature_territory(creature, ox, oy)
+
+
+def distance_to_creature_territory_edge(creature, x: float, y: float) -> float:
+    """テリトリー内なら 0。外なら最寄りの境界までの距離。"""
+    world = getattr(creature, "world", None)
+    if world is None:
+        return float("inf")
+    nest = world.nest_system.get_creature_nest(creature)
+    if nest is None:
+        return float("inf")
+    px, py = float(x), float(y)
+    if is_point_in_nest_territory(world, nest, px, py):
+        return 0.0
+    radius = get_territory_radius_for_nest(world, nest)
+    best = float("inf")
+    for cx, cy in iter_territory_centers(nest):
+        dist_center = math.hypot(px - cx, py - cy)
+        best = min(best, max(0.0, dist_center - radius))
+    return best
+
+
+def is_creature_threatening_territory(
+    creature, other, approach_margin: float = 0.0
+) -> bool:
+    """侵入、またはテリトリー境界から approach_margin 以内に接近しているか。"""
+    if other is None:
+        return False
+    if is_in_creature_territory(creature, other):
+        return True
+    margin = float(approach_margin)
+    if margin <= 0.0:
+        return False
+    ox, oy = entity_xy(other)
+    return distance_to_creature_territory_edge(creature, ox, oy) <= margin

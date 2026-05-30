@@ -4,6 +4,7 @@ import pygame
 from src.config import config
 from src.core.camera import Camera
 from src.core.input_handler import InputHandler
+from src.core.species_visibility import SpeciesVisibilityManager
 from src.entities.creature_factory import CreatureFactory
 from src.rendering.renderer import Renderer
 from src.systems.world import World
@@ -37,6 +38,7 @@ class SimulationEngine:
         self.map_view_mode = "biome"  # "biome" | "mana"
         self.show_territory = False
         self.user_message = ""
+        self.species_visibility = SpeciesVisibilityManager()
 
         # レンダラーとインプットハンドラ
         font_size = config.game.get("ui_font_size", 24)
@@ -71,6 +73,7 @@ class SimulationEngine:
         self.world = World(world_name)
         self.selected_creature = None
         self.selected_nest = None
+        self.species_visibility.reset_for_world(self.world)
         self.renderer.invalidate_biome_cache()
 
         # カメラにWorld情報を渡す（重要）
@@ -120,9 +123,17 @@ class SimulationEngine:
             else Renderer.HUD_TOP_HEIGHT
         ) + extra
         left = (min(Renderer.HUD_LEFT_PANEL_WIDTH, sw) if has_selection else 0) + extra
-        right = Renderer.HUD_RIGHT_PANEL_WIDTH + extra
+        right = max(
+            Renderer.HUD_RIGHT_PANEL_WIDTH,
+            Renderer.HUD_VISIBILITY_PANEL_WIDTH,
+        ) + extra
         bottom = extra
         self.camera.set_pan_insets(top=top, left=left, right=right, bottom=bottom)
+
+    def clear_selection_if_creature_hidden(self) -> None:
+        sc = self.selected_creature
+        if sc is not None and not self.species_visibility.is_creature_visible(sc):
+            self.selected_creature = None
 
     def draw(self):
         """描画"""
@@ -137,6 +148,7 @@ class SimulationEngine:
             self.map_view_mode,
             self.show_territory,
             user_message=getattr(self, "user_message", ""),
+            species_visibility=self.species_visibility,
         )
 
     def run(self):

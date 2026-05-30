@@ -8,13 +8,16 @@ from src.combat.target_query import (
     find_nearest_prey_creature,
     is_trackable_prey_creature,
 )
+from src.utils.creature_helpers import is_creature_threatening_territory
 from src.utils.movement_helpers import is_beyond_nest_leash
 from src.utils.creature_helpers import (
     carcass_on_field,
     closeness_ratio,
     consume_carcass,
     contact_range,
+    distance_between,
     find_nearest_edible_among,
+    find_nearest_field_carcass_among,
     is_flee_latch_active,
     is_trackable_prey,
     move_toward,
@@ -146,6 +149,13 @@ class HuntAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action
         "min_usable_food_ratio": 0.01,
         "min_usable_satiety_gain": 1.0,
         "territory_only": False,
+        "territory_threat": False,
+        "territory_approach_margin": 80.0,
+        "territory_threat_score_mult": 1.25,
+        "defense_hunt": False,
+        "living_only": False,
+        "carcass_only_species": None,
+        "carcass_utility_mult": 1.35,
         "nest_leash_radius": None,
     }
 
@@ -153,24 +163,95 @@ class HuntAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action
         super().__init__(**params)
         self._target = None
 
+    def _defense_hunt(self) -> bool:
+        return bool(self.params.get("defense_hunt"))
+
+    def _territory_threat(self) -> bool:
+        return bool(self.params.get("territory_threat"))
+
+    def _territory_approach_margin(self) -> float:
+        return float(self.params.get("territory_approach_margin", 80.0))
+
     def _prey_species(self) -> tuple[str, ...]:
         return hunt_prey_species(self.params)
 
-    def _find_prey(self, creature, species: tuple[str, ...]):
+    def _living_only(self) -> bool:
+        if self._defense_hunt():
+            return True
+        return bool(self.params.get("living_only"))
+
+    def _carcass_only_species(self) -> tuple[str, ...]:
+        raw = self.params.get("carcass_only_species")
+        if not raw:
+            return ()
+        return tuple(raw)
+
+    def _prey_query_kwargs(self) -> dict:
+        return {
+            "territory_only": self._territory_only() and not self._defense_hunt(),
+            "territory_threat": self._territory_threat() and not self._defense_hunt(),
+            "territory_approach_margin": self._territory_approach_margin(),
+            "living_only": self._living_only(),
+            "carcass_only_species": self._carcass_only_species(),
+        }
+
+    def _is_carcass_only_prey(self, target) -> bool:
+        if target is None or target.alive:
+            return False
+        return target.species.name in self._carcass_only_species()
+
+    def _is_field_carcass_prey(self, target) -> bool:
+        """Hunt 対象種の現場死骸（拾い／その場食事。生きた個体の狩りではない）。"""
+        if target is None or target.alive:
+            return False
+        if target.species.name not in self._prey_species():
+            return False
+        return carcass_on_field(getattr(target, "world", None), target)
+
+    def _find_living_prey(self, creature, species: tuple[str, ...]):
+        """生きた獲物のみ（carcass_only_species は狩り対象外）。"""
+        if self._defense_hunt():
+            kwargs = self._prey_query_kwargs()
+        else:
+            kwargs = {
+                **self._prey_query_kwargs(),
+                "living_only": True,
+            }
+        living_species = tuple(s for s in species if s not in self._carcass_only_species())
+        if not living_species:
+            return None
         ref = find_nearest_prey_creature(
             creature,
-            species,
-            territory_only=self._territory_only(),
+            living_species,
             exclude=creature,
+            **kwargs,
         )
         return ref.as_creature() if ref else None
+
+    def _find_prey(self, creature, species: tuple[str, ...]):
+        """視界内: 近い現場死骸を生きた獲物より優先。死骸がなければ狩り（防衛狩りは生きた個体のみ）。"""
+        if self._defense_hunt():
+            return self._find_living_prey(creature, species)
+
+        carcass = find_nearest_field_carcass_among(
+            creature, species, exclude=creature
+        )
+        living = self._find_living_prey(creature, species)
+
+        if carcass is None:
+            return living
+        if living is None:
+            return carcass
+        if distance_between(creature, carcass) <= distance_between(creature, living):
+            return carcass
+        return living
 
     def _trackable_prey(self, creature, target, species: tuple[str, ...]) -> bool:
         return is_trackable_prey_creature(
             creature,
             target,
             species,
-            territory_only=self._territory_only(),
+            **self._prey_query_kwargs(),
         )
 
     def is_completed(self) -> bool:
@@ -184,14 +265,23 @@ class HuntAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action
             self.completed = True
             return False
 
-        if self._abort_if_beyond_nest_leash(creature):
+        if not self._defense_hunt() and self._abort_if_beyond_nest_leash(creature):
             return False
 
         target = self._resolve_target(creature)
         if target is None:
             return False
 
-        if needs_self_feed(creature) and self._nest_blocks_hunt(creature):
+        if self._living_only() and not target.alive:
+            self._target = None
+            return False
+
+        if (
+            not self._defense_hunt()
+            and needs_self_feed(creature)
+            and self._nest_blocks_hunt(creature)
+            and not self._is_field_carcass_prey(target)
+        ):
             self._target = None
             return False
 
@@ -225,7 +315,12 @@ class HuntAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action
                 self._target = None
             return False
 
-        if needs_self_feed(creature) and self._nest_blocks_hunt(creature):
+        if (
+            not self._defense_hunt()
+            and needs_self_feed(creature)
+            and self._nest_blocks_hunt(creature)
+            and not self._is_field_carcass_prey(target)
+        ):
             self._target = None
             return False
 
@@ -244,7 +339,7 @@ class HuntAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action
         return False
 
     def _nest_blocks_hunt(self, creature) -> bool:
-        if self._territory_only():
+        if self._defense_hunt() or self._territory_only():
             return False
         return nest_has_usable_food(
             creature,
@@ -266,15 +361,17 @@ class HuntAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action
             return 1.0
         return float(self.params.get("nest_hunt_dampen_factor", 0.2))
 
-    def _hunt_drive(self, creature) -> float:
-        """飢餓時: 巣で食べられるなら狩らない。通常・満腹帯: 備蓄狩り。テリトリー防衛は満腹時のみ。"""
+    def _hunt_drive(self, creature, prey=None) -> float:
+        """飢餓時: 巣で食べられるなら狩らない。通常・満腹帯: 備蓄狩り。防衛狩りは常に最優先。"""
+        if self._defense_hunt():
+            return 1.0
         if self._territory_only():
             if needs_self_feed(creature):
                 return 0.0
             return 1.0
 
         if needs_self_feed(creature):
-            if self._nest_blocks_hunt(creature):
+            if self._nest_blocks_hunt(creature) and not self._is_field_carcass_prey(prey):
                 return 0.0
             return 1.0
 
@@ -295,20 +392,33 @@ class HuntAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action
             return 0.0
         if not self._territory_only() and colony is None:
             return 0.0
-        if is_beyond_nest_leash(creature, self._nest_leash()):
+        if not self._defense_hunt() and is_beyond_nest_leash(creature, self._nest_leash()):
             return 0.0
 
         prey = self._find_prey(creature, self._prey_species())
         if prey is None:
             return 0.0
 
-        drive = self._hunt_drive(creature)
+        drive = self._hunt_drive(creature, prey)
         if drive <= 0.0:
             return 0.0
 
         closeness = closeness_ratio(creature, prey)
-        score = min(1.0, drive * (0.4 + closeness * 0.6))
-        if self._territory_only():
+        base = 0.55 + closeness * 0.45 if self._defense_hunt() else 0.4 + closeness * 0.6
+        score = min(1.0, drive * base)
+        if self._defense_hunt() and self._territory_threat():
+            margin = self._territory_approach_margin()
+            if is_creature_threatening_territory(creature, prey, margin):
+                score = min(
+                    1.0,
+                    score * float(self.params.get("territory_threat_score_mult", 1.25)),
+                )
+        if self._is_field_carcass_prey(prey):
+            return min(
+                1.0,
+                score * float(self.params.get("carcass_utility_mult", 1.35)),
+            )
+        if self._territory_only() or self._defense_hunt():
             return score
         return score * self._nest_hunt_dampening(creature)
 

@@ -66,15 +66,17 @@
           "feed_radius": 38,
           "min_usable_food_ratio": 0.01,
           "min_usable_satiety_gain": 1.0,
-          "scavenge_species": ["Amoeba"]
+          "scavenge_species": ["Amoeba", "Spider"]
         }
       },
       {
         "name": "HuntAction",
-        "weight": 3.0,
-        "description": "アメーバを狩って巣へ貯蔵",
+        "weight": 4.2,
+        "description": "視界内の近い死骸を優先し回収。なければアメーバを狩る（クモは死骸のみ）",
         "params": {
-          "target_types": ["Amoeba"],
+          "target_types": ["Amoeba", "Spider"],
+          "carcass_only_species": ["Spider"],
+          "carcass_utility_mult": 1.4,
           "speed_multiplier": 1.35,
           "attack_power": 1.25,
           "pickup_on_kill": true,

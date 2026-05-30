@@ -9,6 +9,7 @@ from src.utils.creature_helpers import (
     closeness_ratio,
     is_edible_prey,
     is_hostile_target,
+    is_creature_threatening_territory,
     is_in_creature_territory,
     is_in_vision,
     is_trackable_hostile,
@@ -110,11 +111,32 @@ def is_trackable_hostile_creature(
     return True
 
 
+def _prey_passes_territory_filter(
+    creature,
+    other,
+    *,
+    territory_only: bool = False,
+    territory_threat: bool = False,
+    territory_approach_margin: float = 0.0,
+) -> bool:
+    if territory_threat:
+        return is_creature_threatening_territory(
+            creature, other, territory_approach_margin
+        )
+    if territory_only:
+        return is_in_creature_territory(creature, other)
+    return True
+
+
 def find_nearest_prey_creature(
     creature,
     species_names: tuple[str, ...],
     *,
     territory_only: bool = False,
+    territory_threat: bool = False,
+    territory_approach_margin: float = 0.0,
+    living_only: bool = False,
+    carcass_only_species: tuple[str, ...] = (),
     exclude=None,
     max_distance: float | None = None,
 ) -> TargetRef | None:
@@ -126,9 +148,21 @@ def find_nearest_prey_creature(
     best_d = float("inf")
 
     for other in creature.world.creatures:
-        if other is exclude or not is_edible_prey(creature, other, names):
+        if other is exclude or not is_edible_prey(
+            creature,
+            other,
+            names,
+            living_only=living_only,
+            carcass_only_species=carcass_only_species,
+        ):
             continue
-        if territory_only and not is_in_creature_territory(creature, other):
+        if not _prey_passes_territory_filter(
+            creature,
+            other,
+            territory_only=territory_only,
+            territory_threat=territory_threat,
+            territory_approach_margin=territory_approach_margin,
+        ):
             continue
         d = math.hypot(*(a - b for a, b in zip(entity_xy(creature), entity_xy(other))))
         if d > max_d or d >= best_d:
@@ -144,12 +178,28 @@ def is_trackable_prey_creature(
     species_names: tuple[str, ...],
     *,
     territory_only: bool = False,
+    territory_threat: bool = False,
+    territory_approach_margin: float = 0.0,
+    living_only: bool = False,
+    carcass_only_species: tuple[str, ...] = (),
 ) -> bool:
     if target is None:
         return False
-    if not is_trackable_prey(creature, target, species_names):
+    if not is_trackable_prey(
+        creature,
+        target,
+        species_names,
+        living_only=living_only,
+        carcass_only_species=carcass_only_species,
+    ):
         return False
-    if territory_only and not is_in_creature_territory(creature, target):
+    if not _prey_passes_territory_filter(
+        creature,
+        target,
+        territory_only=territory_only,
+        territory_threat=territory_threat,
+        territory_approach_margin=territory_approach_margin,
+    ):
         return False
     return True
 

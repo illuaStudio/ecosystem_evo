@@ -6,7 +6,9 @@ from src.entities.creature_factory import CreatureFactory
 from src.systems.world import World
 from src.utils.creature_helpers import (
     find_nearest_flee_threat_among,
+    is_creature_threatening_territory,
     is_in_creature_territory,
+    needs_self_feed,
 )
 
 
@@ -145,6 +147,43 @@ class TestTerritoryAndCastes(unittest.TestCase):
         )
         prey = hunt._find_prey(soldier, ("Spider",))
         self.assertIs(prey, inside)
+
+    def test_defense_hunt_spider_outside_territory_in_vision(self):
+        world = _colony_world()
+        factory = CreatureFactory()
+        worker = factory.create("red_ant", world=world, x=100, y=100)
+        world.add_creature(worker)
+        soldier = factory.create("red_ant_soldier", world=world, x=105, y=100)
+        world.add_creature(soldier)
+
+        outside = factory.create("Spider", world=world, x=320, y=100)
+        world.add_creature(outside)
+        self.assertFalse(is_in_creature_territory(soldier, outside))
+
+        hunt = HuntAction(
+            target_types=["Spider"],
+            defense_hunt=True,
+            territory_only=False,
+        )
+        self.assertIs(hunt._find_prey(soldier, ("Spider",)), outside)
+        soldier.satiety = soldier.max_satiety * 0.1
+        self.assertTrue(needs_self_feed(soldier))
+        self.assertGreater(hunt.calculate_utility(soldier), 0.0)
+
+    def test_spider_approaching_territory_is_threat(self):
+        world = _colony_world()
+        factory = CreatureFactory()
+        worker = factory.create("red_ant", world=world, x=100, y=100)
+        world.add_creature(worker)
+        soldier = factory.create("red_ant_soldier", world=world, x=105, y=100)
+        world.add_creature(soldier)
+
+        approaching = factory.create("Spider", world=world, x=285, y=100)
+        world.add_creature(approaching)
+        self.assertFalse(is_in_creature_territory(soldier, approaching))
+        self.assertTrue(
+            is_creature_threatening_territory(soldier, approaching, 90.0)
+        )
 
 
 if __name__ == "__main__":
