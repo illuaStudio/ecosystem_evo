@@ -8,7 +8,7 @@ from src.client.rendering.renderer import Renderer
 from src.client.species_visibility import SpeciesVisibilityManager
 from src.game.game_controller import GameController
 from src.game.sim_runner import SimRunner
-from src.sim.entities.creature_factory import CreatureFactory
+from src.sim.bridge import SimBridge
 from src.sim.systems.world import World
 
 
@@ -27,7 +27,6 @@ class GameApp:
 
         self.clock = pygame.time.Clock()
         self.camera = Camera()
-        self.creature_factory = CreatureFactory()
         self.sim_runner = SimRunner()
         self.world = None
         self.paused = False
@@ -39,6 +38,7 @@ class GameApp:
         self.show_territory = False
         self.user_message = ""
         self.game_controller = GameController()
+        self.sim_bridge: SimBridge | None = None
         self.species_visibility = SpeciesVisibilityManager()
 
         font_size = config.client.get("ui_font_size", 24)
@@ -70,15 +70,16 @@ class GameApp:
         debug_sim = config.client.get("debug_sim_events", False) or config.sim.get(
             "debug_events", False
         )
-        self.game_controller = GameController()
-        self.game_controller.debug_sim_events = debug_sim
         self.world = World(world_name)
+        self.sim_bridge = SimBridge(self.world)
+        self.game_controller = GameController(bridge=self.sim_bridge)
+        self.game_controller.debug_sim_events = debug_sim
         self.selected_creature = None
         self.selected_nest = None
         self.species_visibility.reset_for_world(self.world)
         self.renderer.invalidate_biome_cache()
         self.camera.set_world(self.world)
-        self.game_controller.reset_for_world(self.world)
+        self.game_controller.reset_for_world(self.world, bridge=self.sim_bridge)
 
         print(
             f"ワールド「{self.world.display_name}」をロードしました: "
@@ -97,6 +98,25 @@ class GameApp:
 
     def handle_events(self) -> bool:
         return self.input_handler.handle_events()
+
+    def debug_spawn_creature(self, species: str) -> None:
+        """デバッグキー用: Bridge 経由スポーン（ランダム座標）。"""
+        if self.game_controller.bridge is None:
+            return
+        self.game_controller.spawn_creature(species, source="debug")
+
+    def debug_spawn_colony_member(self, species: str = "red_ant") -> None:
+        """巣付近へコロニー種をスポーン。"""
+        if self.world is None or self.game_controller.bridge is None:
+            return
+        from src.config import config
+
+        colony_cfg = (config.get_species(species) or {}).get("colony", {})
+        if colony_cfg.get("enabled"):
+            x, y = self.world.nest_system.spawn_position(species, colony_cfg)
+            self.game_controller.spawn_creature(species, x=x, y=y, source="debug")
+        else:
+            self.game_controller.spawn_creature(species, source="debug")
 
     def update(self):
         if self.paused or self.world is None:

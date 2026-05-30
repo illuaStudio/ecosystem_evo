@@ -1,4 +1,4 @@
-"""ゲーム層: 種別スポーンプロファイル（シミュ JSON とは分離）。"""
+"""ゲーム層: 種別スポーンプロファイル定義の読み込み（適用は command_builder 経由）。"""
 from __future__ import annotations
 
 import json
@@ -27,32 +27,3 @@ class SpawnProfileLoader:
     def get(self, species_name: str) -> dict[str, Any] | None:
         profile = self._profiles.get(species_name)
         return dict(profile) if profile else None
-
-    def apply_to_creature(self, creature) -> None:
-        """スポーンプロファイルを個体に適用（ゲーム層のみ）。"""
-        profile = self.get(creature.species.name)
-        if not profile:
-            return
-
-        if profile.get("starts_sheltered"):
-            self._enter_nest_shelter(creature)
-
-        profile_id = profile.get("reproduction_profile")
-        if profile_id:
-            from src.game.mind_policy import MindPolicy
-
-            MindPolicy().apply_profile(creature, str(profile_id))
-
-    @staticmethod
-    def _enter_nest_shelter(creature) -> None:
-        from src.sim.shelter.helpers import enter_creature_shelter, resolve_nest_shelter
-
-        ref = resolve_nest_shelter(creature)
-        if ref is None:
-            return
-
-        creature.position.x = ref.x
-        creature.position.y = ref.y
-        creature.pos[0] = ref.x
-        creature.pos[1] = ref.y
-        enter_creature_shelter(creature, ref)

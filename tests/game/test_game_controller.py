@@ -6,6 +6,7 @@ from src.sim.entities.creature_factory import CreatureFactory
 from src.game.game_controller import GameController
 from src.game.game_monitor import GameMonitor
 from src.game.mind_policy import MindPolicy
+from src.sim.bridge import SimBridge
 from src.sim.emitters import emit_colony_defeated, emit_combat_started_creature
 from src.sim.systems.world import World
 
@@ -56,8 +57,10 @@ class TestGameMonitor(unittest.TestCase):
 
 
 class TestGameController(unittest.TestCase):
-    def _controller(self) -> GameController:
-        return GameController(
+    def _controller(self, world: World | None = None) -> GameController:
+        world = world or _player_world()
+        bridge = SimBridge(world)
+        ctrl = GameController(
             {
                 "player_colony_id": "red_ant",
                 "monitor": {
@@ -65,13 +68,15 @@ class TestGameController(unittest.TestCase):
                     "high_food_ratio": 0.50,
                     "milestone_workers": 3,
                 },
-            }
+            },
+            bridge=bridge,
         )
+        return ctrl
 
     def test_first_reproduction_message(self):
         world = _player_world()
-        ctrl = self._controller()
-        ctrl.reset_for_world(world)
+        ctrl = self._controller(world)
+        ctrl.reset_for_world(world, bridge=ctrl.bridge)
 
         factory = CreatureFactory()
         queen = factory.create("red_ant_queen", world=world, x=120, y=120)
@@ -100,8 +105,8 @@ class TestGameController(unittest.TestCase):
 
     def test_colony_defeated_sets_user_message(self):
         world = _player_world()
-        ctrl = self._controller()
-        ctrl.reset_for_world(world)
+        ctrl = self._controller(world)
+        ctrl.reset_for_world(world, bridge=ctrl.bridge)
 
         emit_colony_defeated(world, "red_ant", "勢力 red_ant が敗北しました")
         msgs = ctrl.on_tick(world)
@@ -119,8 +124,8 @@ class TestGameController(unittest.TestCase):
         world.add_creature(soldier, spawn_source="initial")
         world.events.drain()
 
-        ctrl = self._controller()
-        ctrl.reset_for_world(world)
+        ctrl = self._controller(world)
+        ctrl.reset_for_world(world, bridge=ctrl.bridge)
         emit_combat_started_creature(world, soldier, worker)
 
         msgs = ctrl.on_tick(world)
@@ -136,8 +141,8 @@ class TestGameController(unittest.TestCase):
         nest = world.nest_system.get_colony_nest("red_ant")
         world.events.drain()
 
-        ctrl = self._controller()
-        ctrl.reset_for_world(world)
+        ctrl = self._controller(world)
+        ctrl.reset_for_world(world, bridge=ctrl.bridge)
         nest.stored_food = nest.max_food * 0.05
 
         msgs = ctrl.on_tick(world)

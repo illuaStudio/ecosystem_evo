@@ -3,8 +3,9 @@ import unittest
 
 from src.sim.ai.actions import ColonyReproduceAction
 from src.sim.entities.creature_factory import CreatureFactory
+from src.game.command_builder import apply_spawn_profile
 from src.game.mind_policy import MindPolicy
-from src.game.spawn_profiles import SpawnProfileLoader
+from src.sim.bridge import SimBridge
 from src.sim.shelter.state import is_creature_sheltered
 from src.sim.systems.world import World
 
@@ -40,7 +41,7 @@ class TestQueenAndMindPolicy(unittest.TestCase):
         factory = CreatureFactory()
         queen = factory.create("red_ant_queen", world=world, x=100, y=100)
         world.add_creature(queen)
-        SpawnProfileLoader().apply_to_creature(queen)
+        apply_spawn_profile(SimBridge(world), queen)
 
         self.assertTrue(is_creature_sheltered(queen))
         names = [a["name"] for a in queen.mind.action_defs]
@@ -60,7 +61,10 @@ class TestQueenAndMindPolicy(unittest.TestCase):
         world.add_creature(queen)
 
         policy = MindPolicy()
-        self.assertTrue(policy.apply_profile(queen, "workers_and_soldiers"))
+        bridge = SimBridge(world)
+        from src.game.command_builder import apply_mind_profile
+
+        self.assertTrue(apply_mind_profile(bridge, queen, "workers_and_soldiers"))
 
         repro = next(
             a for a in queen.mind.action_defs if a["name"] == "ColonyReproduceAction"
@@ -85,7 +89,7 @@ class TestQueenAndMindPolicy(unittest.TestCase):
         factory = CreatureFactory()
         queen = factory.create("red_ant_queen", world=world, x=120, y=120)
         world.add_creature(queen)
-        SpawnProfileLoader().apply_to_creature(queen)
+        apply_spawn_profile(SimBridge(world), queen)
         nest = world.nest_system.get_creature_nest(queen)
 
         self.assertTrue(is_creature_sheltered(queen))

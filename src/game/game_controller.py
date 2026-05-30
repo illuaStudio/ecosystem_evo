@@ -4,9 +4,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from src.game.command_builder import apply_spawn_profile
 from src.game.game_monitor import GameMonitor, MonitorAlert
 from src.game.game_state import GameState
-from src.game.spawn_profiles import SpawnProfileLoader
+from src.sim.bridge import SimBridge
 from src.sim.events import (
     ColonyDefeatedEvent,
     CombatStartedEvent,
@@ -31,7 +32,11 @@ class GameMessage:
 class GameController:
     """World の事実をゲームとして解釈し、UI 向けメッセージを生成する。"""
 
-    def __init__(self, game_config: dict | None = None) -> None:
+    def __init__(
+        self,
+        game_config: dict | None = None,
+        bridge: SimBridge | None = None,
+    ) -> None:
         if game_config is None:
             from src.config import config
 
@@ -40,21 +45,89 @@ class GameController:
         colony_id = str(self._config.get("player_colony_id", "red_ant"))
         self.state = GameState(player_colony_id=colony_id)
         self.monitor = GameMonitor(self._config.get("monitor"))
-        self.spawn_profiles = SpawnProfileLoader()
+        self.bridge = bridge
         self.pending_messages: list[GameMessage] = []
         self.user_message: str = ""
         self.debug_sim_events: bool = False
 
-    def reset_for_world(self, world: "World | None" = None) -> None:
+    def reset_for_world(
+        self, world: "World | None" = None, bridge: SimBridge | None = None
+    ) -> None:
+        if bridge is not None:
+            self.bridge = bridge
         colony_id = str(self._config.get("player_colony_id", "red_ant"))
         self.state = GameState(player_colony_id=colony_id)
         self.pending_messages.clear()
         self.user_message = ""
-        if world is None:
+        if world is None or self.bridge is None:
             return
         for creature in world.creatures:
-            self.spawn_profiles.apply_to_creature(creature)
+            apply_spawn_profile(self.bridge, creature)
         world.events.drain()
+
+    def spawn_creature(
+        self,
+        species: str,
+        *,
+        x: float | None = None,
+        y: float | None = None,
+        source: str = "game",
+    ):
+        """Bridge 経由で生物をスポーン（座標省略時はランダム）。"""
+        from src.game.command_builder import spawn_creature as bridge_spawn
+
+        if self.bridge is None:
+            return None
+        return bridge_spawn(
+            self.bridge, species, x=x, y=y, source=source
+        )
+
+    def apply_mind_profile(self, creature, profile_id: str, *, mode: str = "replace") -> bool:
+        from src.game.command_builder import apply_mind_profile as bridge_apply
+
+        if self.bridge is None:
+            return False
+        return bridge_apply(self.bridge, creature, profile_id, mode=mode)
+
+    def apply_mind_profile_to_species(
+        self,
+        species_name: str,
+        profile_id: str,
+        *,
+        colony_id: str | None = None,
+        mode: str = "replace",
+    ) -> int:
+        from src.game.command_builder import apply_mind_profile_to_species
+
+        if self.bridge is None:
+            return 0
+        return apply_mind_profile_to_species(
+            self.bridge,
+            species_name,
+            profile_id,
+            colony_id=colony_id,
+            mode=mode,
+        )
+
+    def apply_mind_profile_to_colony_caste(
+        self,
+        colony_id: str,
+        caste: str,
+        profile_id: str,
+        *,
+        mode: str = "replace",
+    ) -> int:
+        from src.game.command_builder import apply_mind_profile_to_colony_caste
+
+        if self.bridge is None:
+            return 0
+        return apply_mind_profile_to_colony_caste(
+            self.bridge,
+            colony_id,
+            caste,
+            profile_id,
+            mode=mode,
+        )
 
     def on_tick(self, world: "World") -> list[GameMessage]:
         """1 シミュ tick 分のイベント処理と監視。返値は当 tick の新規メッセージ。"""

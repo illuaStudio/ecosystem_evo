@@ -1,7 +1,6 @@
 # input_handler.py
 import pygame
 
-from src.config import config
 from src.sim.utils.creature_helpers import distance_to_point
 
 
@@ -95,22 +94,11 @@ class InputHandler:
         elif event.key == pygame.K_SPACE:
             self.engine.paused = not self.engine.paused
         elif event.key == pygame.K_a:
-            c = self.engine.creature_factory.create("Amoeba", world=self.engine.world)
-            self.engine.world.add_creature(c)
+            self.engine.debug_spawn_creature("Amoeba")
         elif event.key == pygame.K_s:
-            c = self.engine.creature_factory.create("Spider", world=self.engine.world)
-            self.engine.world.add_creature(c)
+            self.engine.debug_spawn_creature("Spider")
         elif event.key == pygame.K_p:
-            world = self.engine.world
-            colony_cfg = (config.get_species("red_ant") or {}).get("colony", {})
-            if colony_cfg.get("enabled"):
-                x, y = world.nest_system.spawn_position("red_ant", colony_cfg)
-                c = self.engine.creature_factory.create(
-                    "red_ant", world=world, x=x, y=y
-                )
-            else:
-                c = self.engine.creature_factory.create("red_ant", world=world)
-            world.add_creature(c)
+            self.engine.debug_spawn_colony_member("red_ant")
         elif event.key == pygame.K_h:
             self._add_nest_hole_at_cursor()
         elif event.key == pygame.K_d:

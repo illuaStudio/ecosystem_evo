@@ -56,8 +56,19 @@ class UtilityMind(Mind):
         self.action_defs = list(self._base_action_defs)
 
     def set_action_defs(self, action_defs: list) -> None:
-        """ゲーム層から実行時に mind.actions を差し替える。"""
+        """実行時に mind.actions を差し替える（SimBridge 経由）。"""
         self.action_defs = list(action_defs)
+
+    def merge_action_defs(self, extra_defs: list) -> None:
+        """既存 actions に不足分だけ追加（名前で重複排除）。"""
+        existing = {a.get("name") for a in self.action_defs}
+        merged = list(self.action_defs)
+        for action_def in extra_defs:
+            name = action_def.get("name")
+            if name and name not in existing:
+                merged.append(dict(action_def))
+                existing.add(name)
+        self.action_defs = merged
 
     def reset_to_base(self) -> None:
         """種 JSON の既定 actions に戻す。"""
