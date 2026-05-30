@@ -310,7 +310,7 @@ class TestHungerBehavior(unittest.TestCase):
         nest = world.nest_system.get_creature_nest(vanguard)
         nest.stored_food = 500.0
 
-        vanguard.satiety = 84.93
+        vanguard.satiety = vanguard.max_satiety * 0.8493
         vanguard.nutrition_recovery = True
 
         update_nutrition_recovery(vanguard)

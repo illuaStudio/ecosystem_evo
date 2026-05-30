@@ -11,7 +11,7 @@
     "metabolism_rate": 0.12,
     "satiety_hungry_below": 0.55,
     "satiety_full_above": 0.85,
-    "corpse_decompose_rate": 0.00002
+    "corpse_decompose_rate": 0.00003
   },
   "mind": {
     "type": "utility",

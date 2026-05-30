@@ -1,4 +1,5 @@
-"""?????????????????"""
+"""??????????????????"""
+import math
 import unittest
 
 from src.ai.actions import CombatAction, FleeAction, HuntAction
@@ -10,6 +11,7 @@ from src.utils.creature_helpers import (
     is_in_creature_territory,
     needs_self_feed,
 )
+from src.utils.position_helpers import entity_xy
 
 
 def _colony_world() -> World:
@@ -156,9 +158,25 @@ class TestTerritoryAndCastes(unittest.TestCase):
         soldier = factory.create("red_ant_soldier", world=world, x=105, y=100)
         world.add_creature(soldier)
 
-        outside = factory.create("Spider", world=world, x=320, y=100)
+        nest = world.nest_system.get_creature_nest(soldier)
+        territory_r = float(worker.species.colony_data.get("territory_radius", 180))
+        vision = soldier.get_current_vision()
+        sx, sy = entity_xy(soldier)
+        min_outside_x = nest.x + territory_r + 5
+        max_in_vision_x = sx + vision * 0.92
+        self.assertGreater(
+            max_in_vision_x,
+            min_outside_x,
+            "????????????????????????",
+        )
+        spider_x = (min_outside_x + max_in_vision_x) * 0.5
+        outside = factory.create("Spider", world=world, x=spider_x, y=sy)
         world.add_creature(outside)
         self.assertFalse(is_in_creature_territory(soldier, outside))
+        self.assertLessEqual(
+            math.hypot(spider_x - sx, sy - sy),
+            vision,
+        )
 
         hunt = HuntAction(
             target_types=["Spider"],
