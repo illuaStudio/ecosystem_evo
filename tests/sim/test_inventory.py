@@ -31,6 +31,19 @@ class TestInventory(unittest.TestCase):
         ant.inventory.slots[0].item = BiomassItem(amount=80.0)
         loaded = ant.get_current_speed()
         self.assertLess(loaded, base)
+        ref = float(ant.inventory.carry_speed_reference_weight)
+        expected = base / (1.0 + 80.0 / ref)
+        self.assertAlmostEqual(loaded, expected)
+
+    def test_carry_speed_respects_reference_weight(self):
+        inv_ref = 40.0
+        world = World()
+        factory = CreatureFactory()
+        ant = factory.create("red_ant", world=world, x=100, y=100)
+        ant.inventory.carry_speed_reference_weight = inv_ref
+        ant.inventory.slots[0].item = BiomassItem(amount=40.0)
+        mult = ant.inventory.carry_speed_multiplier()
+        self.assertAlmostEqual(mult, 0.5)
 
     def test_multi_slot_pickup_uses_empty_slots(self):
         world = World()

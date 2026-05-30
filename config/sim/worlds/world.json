@@ -46,10 +46,48 @@
     "hole_food_cost": 250.0,
     "max_holes": 8,
     "min_hole_spacing": 120,
-    "hole_min_food_reserve": 72,
+    "min_food_reserve": 72.0,
     "hole_max_hp": 120,
     "hole_damage_mana_cost": 0.35,
     "hole_destroy_mana_return_ratio": 0.25,
+    "profiles": {
+      "red_ant": {
+        "nest_x": 120,
+        "nest_y": 120,
+        "territory_radius": 180.0,
+        "max_food": 5000.0,
+        "initial_stored_food": 80.0,
+        "food_leak_rate": 0.00012,
+        "food_to_mana_ratio": 0.35,
+        "food_leak_reserve_ratio": 0.15,
+        "spawn_spread": 28,
+        "deposit_radius": 30
+      },
+      "blue_ant": {
+        "nest_x": 500,
+        "nest_y": 820,
+        "territory_radius": 180,
+        "max_food": 5000,
+        "initial_stored_food": 80,
+        "food_leak_rate": 0.00012,
+        "food_to_mana_ratio": 0.35,
+        "food_leak_reserve_ratio": 0.15,
+        "spawn_spread": 28,
+        "deposit_radius": 30
+      },
+      "yellow_ant": {
+        "nest_x": 880,
+        "nest_y": 120,
+        "territory_radius": 180,
+        "max_food": 5000,
+        "initial_stored_food": 80,
+        "food_leak_rate": 0.00012,
+        "food_to_mana_ratio": 0.35,
+        "food_leak_reserve_ratio": 0.15,
+        "spawn_spread": 28,
+        "deposit_radius": 30
+      }
+    },
     "territory_effects": {
       "hp_regen_per_dt": 0.012,
       "requires_colony_match": true

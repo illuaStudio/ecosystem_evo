@@ -145,63 +145,22 @@ def nest_has_food(creature, min_food: float = 8.0) -> bool:
     return nest_stored_food(creature) > min_food
 
 
-NEST_FOOD_MIN_USABLE_RATIO = 0.01
-NEST_FOOD_MIN_USABLE_ABSOLUTE = 8.0
-
-
-def is_sub_usable_nest_food(
-    stored: float,
-    max_food: float,
-    *,
-    min_food_ratio: float = NEST_FOOD_MIN_USABLE_RATIO,
-    min_absolute: float = NEST_FOOD_MIN_USABLE_ABSOLUTE,
-) -> bool:
-    """FeedAtNest が使わない塵（>0 かつ食事不能閾値未満）か。"""
-    if stored <= 0:
-        return False
-    if stored <= min_absolute:
-        return True
-    if max_food > 0 and stored / float(max_food) < min_food_ratio:
-        return True
-    return False
-
-
 def nest_has_usable_food(
     creature,
     *,
     min_satiety_gain: float = 1.0,
-    min_food_ratio: float = NEST_FOOD_MIN_USABLE_RATIO,
-    min_absolute: float = NEST_FOOD_MIN_USABLE_ABSOLUTE,
+    min_food_ratio: float = 0.01,
+    min_absolute: float = 8.0,
 ) -> bool:
     """
-    巣の備蓄が「食事として意味がある」か。
-    極端に少ない備蓄（8/5000 など）はなし扱い。
+    巣の備蓄が食事に使えるか。
+    備蓄 > 0 かつ満腹目標まで余地があれば True（端数も食べ切る）。
+    min_* 引数は JSON 互換のため残すが判定には使わない。
     """
-    stored = nest_stored_food(creature)
-    if stored <= min_absolute:
+    _ = (min_satiety_gain, min_food_ratio, min_absolute)
+    if nest_stored_food(creature) <= 0:
         return False
-
-    world = getattr(creature, "world", None)
-    if world is not None:
-        colony = getattr(creature, "colony", None)
-        if colony is not None:
-            nest = world.nest_system.get_creature_nest(creature)
-            if nest is not None and nest.max_food > 0:
-                if stored / float(nest.max_food) < min_food_ratio:
-                    return False
-
-    estimate = nest_feed_satiety_gain_estimate(creature)
-    if estimate <= 0:
-        return False
-
-    room = satiety_room_until_feed_target(creature)
-    if room <= 0:
-        return False
-    # 満腹閾値直前は少量でもトップアップを許可（回復完了・チャタリング防止）
-    if room < min_satiety_gain:
-        return True
-
-    return estimate >= min_satiety_gain
+    return satiety_room_until_feed_target(creature) > 0
 
 
 def nest_feed_satiety_gain_estimate(

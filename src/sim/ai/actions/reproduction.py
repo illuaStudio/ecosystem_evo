@@ -120,13 +120,21 @@ class ColonyReproduceAction(ReproductionAction):
     DEFAULT_PARAMS = {
         "offspring": [],
         "food_cost": 55,
-        "min_food_reserve": 72,
         "max_colony_members": 10,
         "member_species": [],
         "spawn_cooldown": 900,
         "spawn_radius": 40.0,
         "approach_speed_multiplier": 0.9,
     }
+
+    def _min_food_reserve(self, creature) -> float:
+        """最低備蓄は world.json colony.min_food_reserve（巣穴設置と共通）。"""
+        world = getattr(creature, "world", None)
+        if world is not None:
+            from src.sim.utils.colony_config_helpers import get_min_food_reserve
+
+            return get_min_food_reserve(world)
+        return 72.0
 
     def _member_species(self) -> list[str]:
         explicit = self.params.get("member_species") or []
@@ -206,7 +214,7 @@ class ColonyReproduceAction(ReproductionAction):
         if members >= max_members:
             return False, f"個体数上限 ({members}/{max_members})"
 
-        reserve = float(self.params["min_food_reserve"])
+        reserve = self._min_food_reserve(creature)
         needed = reserve + cost
         if nest.stored_food < needed:
             return (
@@ -298,7 +306,7 @@ class ColonyReproduceAction(ReproductionAction):
             return 0.0
 
         cost = float(self.params["food_cost"])
-        reserve = float(self.params["min_food_reserve"])
+        reserve = self._min_food_reserve(creature)
         max_members = max(1, int(self.params["max_colony_members"]))
         member_species = self._member_species()
         if member_species:

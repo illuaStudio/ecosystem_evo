@@ -26,7 +26,7 @@ def _colony_world(**overrides) -> World:
             "hole_food_cost": 250,
             "max_holes": 8,
             "min_hole_spacing": 120,
-            "hole_min_food_reserve": 72,
+            "min_food_reserve": 72,
         },
     }
     data.update(overrides)

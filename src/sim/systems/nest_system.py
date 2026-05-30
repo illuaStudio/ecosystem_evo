@@ -7,6 +7,10 @@ import random
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from src.sim.utils.colony_config_helpers import (
+    get_min_food_reserve,
+    resolve_colony_runtime_cfg,
+)
 from src.sim.utils.creature_helpers import (
     distance_to_point,
     is_point_in_nest_territory,
@@ -210,7 +214,7 @@ class NestSystem:
                 return False, f"既存の巣穴に近すぎます (要 {min_spacing:.0f}px 以上)"
 
         cost = float(cfg.get("hole_food_cost", 250))
-        reserve = float(cfg.get("hole_min_food_reserve", 72))
+        reserve = get_min_food_reserve(self.world)
         needed = reserve + cost
         if nest.stored_food < needed:
             return (
@@ -303,19 +307,20 @@ class NestSystem:
     def spawn_position(self, species_name: str, colony_cfg: dict | None = None) -> tuple[float, float]:
         """巣の位置付近にスポーン座標を返す（初期配置・P 追加用）。"""
         cfg = colony_cfg or {}
-        spread = float(cfg.get("spawn_spread", self.DEFAULT_SPAWN_SPREAD))
         colony_id = resolve_colony_id(species_name, cfg)
+        runtime_cfg = resolve_colony_runtime_cfg(self.world, colony_id, cfg)
+        spread = float(runtime_cfg.get("spawn_spread", self.DEFAULT_SPAWN_SPREAD))
         nest = self.get_colony_nest(colony_id)
         if nest is not None:
             hole = random.choice(nest.holes) if nest.holes else None
             hx, hy = (hole.x, hole.y) if hole is not None else (nest.x, nest.y)
             return self._offset_near(hx, hy, spread)
-        ax, ay = self._nest_anchor(cfg)
+        ax, ay = self._nest_anchor(runtime_cfg)
         return self._offset_near(ax, ay, spread)
 
-    def _nest_anchor(self, colony_cfg: dict) -> tuple[float, float]:
-        if "nest_x" in colony_cfg and "nest_y" in colony_cfg:
-            return float(colony_cfg["nest_x"]), float(colony_cfg["nest_y"])
+    def _nest_anchor(self, runtime_cfg: dict) -> tuple[float, float]:
+        if "nest_x" in runtime_cfg and "nest_y" in runtime_cfg:
+            return float(runtime_cfg["nest_x"]), float(runtime_cfg["nest_y"])
         return self.world.width * 0.5, self.world.height * 0.5
 
     def _offset_near(self, x: float, y: float, spread: float) -> tuple[float, float]:
@@ -343,7 +348,6 @@ class NestSystem:
 
         cfg = colony_cfg or {}
         species_name = creature.species.name
-        max_food = float(cfg.get("max_food", cfg.get("max_storage", 400.0)))
         single_colony = cfg.get("single_colony", True)
         colony_id = resolve_colony_id(species_name, cfg)
         join_species = cfg.get("join_species")
@@ -372,8 +376,13 @@ class NestSystem:
             return
 
         cx, cy = entity_xy(creature)
+        runtime_cfg = resolve_colony_runtime_cfg(self.world, colony_id, cfg)
+        max_food = float(runtime_cfg.get("max_food", cfg.get("max_storage", 400.0)))
         initial_food = float(
-            cfg.get("initial_stored_food", cfg.get("initial_food", 0.0))
+            runtime_cfg.get(
+                "initial_stored_food",
+                runtime_cfg.get("initial_food", 0.0),
+            )
         )
         nest = self.create_nest(
             cx,
@@ -393,28 +402,9 @@ class NestSystem:
         dt = float(dt)
         self._sim_time += dt
         for nest in list(self.nests.values()):
-            species_data = config.get_species(nest.owner_species) or {}
-            colony_cfg = species_data.get("colony", {})
+            runtime_cfg = resolve_colony_runtime_cfg(self.world, nest.colony_id, {})
             if nest.stored_food > 0:
-                self._leak_food_to_mana(nest, colony_cfg, dt)
-                self._flush_sub_usable_food(nest, colony_cfg)
-
-    def _flush_sub_usable_food(self, nest: Nest, colony_cfg: dict) -> None:
-        """食事 AI が使わない塵をマナへ還流して 0 にする（1% 残り見た目対策）。"""
-        from src.sim.utils.nutrition_helpers import is_sub_usable_nest_food
-
-        if not is_sub_usable_nest_food(nest.stored_food, nest.max_food):
-            return
-
-        dust = nest.stored_food
-        nest.stored_food = 0.0
-        mana_ratio = float(
-            colony_cfg.get("food_to_mana_ratio", self.DEFAULT_FOOD_TO_MANA_RATIO)
-        )
-        if dust > 0 and mana_ratio > 0 and self.world is not None:
-            self.world.mana_layer.return_from_decomposition(
-                dust * mana_ratio, nest.x, nest.y
-            )
+                self._leak_food_to_mana(nest, runtime_cfg, dt)
 
     def _leak_food_to_mana(self, nest: Nest, colony_cfg: dict, dt: float) -> None:
         leak_rate = float(
@@ -539,7 +529,11 @@ class NestSystem:
         members = max(1, self.member_count(nest.id, creature.species.name))
         per_member_ratio = float(max_take_ratio) / members
         max_take = nest.stored_food * per_member_ratio
-        take = min(nest.stored_food, max_take, hunger_room / float(bite_gain))
+        ideal = min(nest.stored_food, hunger_room / float(bite_gain))
+        take = min(ideal, max_take)
+        remainder = nest.stored_food - take
+        if remainder > 0 and (remainder <= max_take or nest.stored_food <= ideal):
+            take = nest.stored_food
         if take <= 0:
             return 0.0
 

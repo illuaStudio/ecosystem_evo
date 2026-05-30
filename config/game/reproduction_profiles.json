@@ -40,7 +40,6 @@
             }
           ],
           "food_cost": 55.0,
-          "min_food_reserve": 72.0,
           "max_colony_members": 10,
           "member_species": [
             "red_ant"
@@ -80,7 +79,6 @@
             }
           ],
           "food_cost": 55,
-          "min_food_reserve": 72,
           "max_colony_members": 15,
           "member_species": [
             "red_ant",
@@ -106,7 +104,6 @@
             }
           ],
           "food_cost": 55,
-          "min_food_reserve": 72,
           "max_colony_members": 10,
           "member_species": [
             "red_ant"
@@ -135,7 +132,6 @@
             }
           ],
           "food_cost": 55,
-          "min_food_reserve": 72,
           "max_colony_members": 15,
           "member_species": [
             "red_ant",

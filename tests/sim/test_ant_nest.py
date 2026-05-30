@@ -56,9 +56,12 @@ class TestAntNest(unittest.TestCase):
     def test_initial_predators_spawn_near_nest_anchor(self):
         world = World()
         colony_cfg = config.get_species("red_ant").get("colony", {})
-        anchor_x = float(colony_cfg.get("nest_x", world.width * 0.5))
-        anchor_y = float(colony_cfg.get("nest_y", world.height * 0.5))
-        spread = float(colony_cfg.get("spawn_spread", 28))
+        from src.sim.utils.colony_config_helpers import get_colony_profile
+
+        profile = get_colony_profile(world, "red_ant")
+        anchor_x = float(profile.get("nest_x", world.width * 0.5))
+        anchor_y = float(profile.get("nest_y", world.height * 0.5))
+        spread = float(profile.get("spawn_spread", colony_cfg.get("spawn_spread", 28)))
 
         preds = [c for c in world.creatures if c.species.name == "red_ant"]
         self.assertGreaterEqual(len(preds), 1)
@@ -266,7 +269,9 @@ class TestAntNest(unittest.TestCase):
         queen, nest, _ = self._spawn_colony(world, workers=0)
         params = self._reproduce_params()
         cost = float(params["food_cost"])
-        reserve = float(params["min_food_reserve"])
+        from src.sim.utils.colony_config_helpers import get_min_food_reserve
+
+        reserve = get_min_food_reserve(world)
 
         nest.stored_food = reserve + cost + 10
         members_before = world.nest_system.count_colony_members(
@@ -308,7 +313,9 @@ class TestAntNest(unittest.TestCase):
         queen, nest, _ = self._spawn_colony(world, workers=0)
         params = self._reproduce_params()
         cost = float(params["food_cost"])
-        reserve = float(params["min_food_reserve"])
+        from src.sim.utils.colony_config_helpers import get_min_food_reserve
+
+        reserve = get_min_food_reserve(world)
 
         nest.stored_food = reserve + cost - 1
 
@@ -410,7 +417,9 @@ class TestAntNest(unittest.TestCase):
         queen, nest, _ = self._spawn_colony(world, workers=0)
         params = self._reproduce_params()
         cost = float(params["food_cost"])
-        reserve = float(params["min_food_reserve"])
+        from src.sim.utils.colony_config_helpers import get_min_food_reserve
+
+        reserve = get_min_food_reserve(world)
         nest.stored_food = reserve + cost + 50
 
         queen.pos[0] = nest.x
@@ -447,7 +456,9 @@ class TestAntNest(unittest.TestCase):
         world = self._empty_world()
         queen, nest, _ = self._spawn_colony(world, workers=0)
         params = self._reproduce_params()
-        needed = float(params["min_food_reserve"]) + float(params["food_cost"])
+        from src.sim.utils.colony_config_helpers import get_min_food_reserve
+
+        needed = get_min_food_reserve(world) + float(params["food_cost"])
 
         from src.sim.ai.actions import ColonyReproduceAction
 

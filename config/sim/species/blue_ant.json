@@ -5,17 +5,7 @@
   "colony": {
     "enabled": true,
     "colony_id": "blue_ant",
-    "single_colony": true,
-    "territory_radius": 180,
-    "nest_x": 500,
-    "nest_y": 820,
-    "spawn_spread": 28,
-    "deposit_radius": 30,
-    "max_food": 5000,
-    "initial_stored_food": 80,
-    "food_leak_rate": 0.00012,
-    "food_to_mana_ratio": 0.35,
-    "food_leak_reserve_ratio": 0.15
+    "single_colony": true
   },
   "traits": {
     "base_size": 14.0,

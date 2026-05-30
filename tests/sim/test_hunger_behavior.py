@@ -111,17 +111,15 @@ class TestHungerBehavior(unittest.TestCase):
         )
         self.assertGreater(hunt.calculate_utility(ant), 0.0)
 
-    def test_low_nest_reserve_not_usable_when_hungry(self):
+    def test_low_nest_reserve_usable_when_hungry(self):
         world = World()
         ant, _ = self._ant_and_prey(world, ant_satiety_ratio=0.10)
         nest = world.nest_system.get_creature_nest(ant)
         nest.stored_food = 8.0
         nest.max_food = 5000.0
-        self.assertFalse(nest_has_usable_food(ant))
+        self.assertTrue(nest_has_usable_food(ant))
         feed = FeedAtNestAction()
-        hunt = HuntAction(target_types=["Amoeba", "Spider"])
-        self.assertEqual(feed.calculate_utility(ant), 0.0)
-        self.assertGreater(hunt.calculate_utility(ant), 0.0)
+        self.assertGreater(feed.calculate_utility(ant), 0.0)
 
     def test_hungry_carrying_prefers_scavenge_over_return(self):
         world = World()

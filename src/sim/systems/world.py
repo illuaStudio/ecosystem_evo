@@ -95,6 +95,10 @@ class World:
         colony_block = dict(world_data.get("colony", {}))
         self.faction_styles = dict(colony_block.pop("factions", {}))
         self.faction_species = dict(colony_block.pop("faction_species", {}))
+        self.colony_profiles = {
+            str(k): dict(v)
+            for k, v in (colony_block.pop("profiles", {}) or {}).items()
+        }
         self.colony_settings = colony_block
         self.defeated_colonies: set[str] = set()
         self.last_defeat_message: str = ""

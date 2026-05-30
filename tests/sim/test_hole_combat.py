@@ -30,7 +30,7 @@ def _hole_world(**overrides) -> World:
             "hole_food_cost": 250,
             "max_holes": 8,
             "min_hole_spacing": 120,
-            "hole_min_food_reserve": 72,
+            "min_food_reserve": 72,
             "faction_species": {
                 "red_ant": ["red_ant", "red_ant_soldier", "red_ant_vanguard"],
                 "blue_ant": ["blue_ant", "blue_ant_soldier", "blue_ant_vanguard"],

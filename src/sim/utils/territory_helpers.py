@@ -35,14 +35,13 @@ def resolve_colony_id(species_name: str, colony_cfg: dict | None = None) -> str:
     return str(species_name)
 
 def get_territory_radius_for_nest(world, nest) -> float:
-    """巣の owner 種の colony.territory_radius（未設定時は既定 180）。"""
+    """コロニー profiles[colony_id].territory_radius（未設定時は既定 180）。"""
     if world is None or nest is None:
         return DEFAULT_TERRITORY_RADIUS
-    from src.config import config
+    from src.sim.utils.colony_config_helpers import get_colony_profile
 
-    species_data = config.get_species(nest.owner_species) or {}
-    cfg = species_data.get("colony", {})
-    return float(cfg.get("territory_radius", DEFAULT_TERRITORY_RADIUS))
+    profile = get_colony_profile(world, nest.colony_id)
+    return float(profile.get("territory_radius", DEFAULT_TERRITORY_RADIUS))
 
 def iter_territory_centers(nest) -> list[tuple[float, float]]:
     """テリトリー円の中心（全巣穴。穴が無いときは巣座標）。"""

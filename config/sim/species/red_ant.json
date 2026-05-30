@@ -9,17 +9,7 @@
   "colony": {
     "enabled": true,
     "colony_id": "red_ant",
-    "single_colony": true,
-    "territory_radius": 180,
-    "nest_x": 120,
-    "nest_y": 120,
-    "spawn_spread": 28,
-    "deposit_radius": 30,
-    "max_food": 5000,
-    "initial_stored_food": 2000,
-    "food_leak_rate": 0.00012,
-    "food_to_mana_ratio": 0.35,
-    "food_leak_reserve_ratio": 0.15
+    "single_colony": true
   },
   "traits": {
     "base_size": 14.0,
@@ -33,29 +23,17 @@
     "corpse_decompose_rate": 0.01
   },
   "inventory": {
-    "slot_count": 3,
+    "slot_count": 1,
     "slots": [
       {
-        "max_mass": 100,
-        "allowed_kinds": [
-          "biomass"
-        ]
-      },
-      {
-        "max_mass": 100,
-        "allowed_kinds": [
-          "biomass"
-        ]
-      },
-      {
-        "max_mass": 100,
+        "max_mass": 50.0,
         "allowed_kinds": [
           "biomass"
         ]
       }
     ],
     "biomass_weight_per_unit": 1.0,
-    "carry_speed_reference_weight": 80
+    "carry_speed_reference_weight": 160.0
   },
   "mind": {
     "type": "utility",

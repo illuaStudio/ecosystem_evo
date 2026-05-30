@@ -104,7 +104,9 @@ class TestQueenAndMindPolicy(unittest.TestCase):
             for a in profile["actions"]
             if a["name"] == "ColonyReproduceAction"
         )
-        nest.stored_food = float(params["min_food_reserve"]) + float(params["food_cost"]) + 10
+        from src.sim.utils.colony_config_helpers import get_min_food_reserve
+
+        nest.stored_food = get_min_food_reserve(world) + float(params["food_cost"]) + 10
 
         action = ColonyReproduceAction(**{**params, "spawn_cooldown": 0})
         before = world.nest_system.count_colony_members(nest.id, params["member_species"])

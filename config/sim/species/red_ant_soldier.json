@@ -1,7 +1,11 @@
 {
   "name": "red_ant_soldier",
   "description": "赤コロニーの防衛蟻。自テリトリー内の侵入者・クモを排除する。",
-  "color": [180, 30, 30],
+  "color": [
+    180,
+    30,
+    30
+  ],
   "colony": {
     "enabled": true,
     "join_species": "red_ant",
@@ -11,7 +15,7 @@
   "traits": {
     "base_size": 18.0,
     "base_speed": 0.58,
-    "base_vision": 220,
+    "base_vision": 220.0,
     "max_hp": 160.0,
     "max_satiety": 100.0,
     "metabolism_rate": 0.06,
@@ -39,7 +43,7 @@
         "name": "NestPatrolAction",
         "weight": 6.0,
         "params": {
-          "patrol_radius": 165,
+          "patrol_radius": 165.0,
           "speed_multiplier": 0.85,
           "nest_pull_strength": 0.75,
           "guard_mode": true,
@@ -51,7 +55,10 @@
         "weight": 5.0,
         "description": "テリトリー内の侵入した他勢力を排除（最優先）",
         "params": {
-          "hostile_colony_ids": ["blue_ant", "yellow_ant"],
+          "hostile_colony_ids": [
+            "blue_ant",
+            "yellow_ant"
+          ],
           "speed_multiplier": 1.35,
           "attack_power": 1.45,
           "territory_only": true,
@@ -63,7 +70,9 @@
         "weight": 14.0,
         "description": "視界内のクモを常に排除。テリトリー接近時はさらに優先",
         "params": {
-          "target_types": ["Spider"],
+          "target_types": [
+            "Spider"
+          ],
           "speed_multiplier": 1.45,
           "attack_power": 3.0,
           "pickup_on_kill": false,
@@ -79,7 +88,10 @@
       {
         "name": "WanderAction",
         "weight": 0.2,
-        "params": { "angle_range": 24, "speed_multiplier": 0.55 }
+        "params": {
+          "angle_range": 24,
+          "speed_multiplier": 0.55
+        }
       }
     ]
   }

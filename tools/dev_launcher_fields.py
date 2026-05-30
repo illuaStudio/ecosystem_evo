@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
+PathKey = str | int
 ValueType = Literal["float", "int", "bool"]
 
 
@@ -19,10 +20,11 @@ class FieldSpec:
     help_text: str
     config_relpath: str
     value_type: ValueType
-    json_path: tuple[str, ...] = ()
+    json_path: tuple[PathKey, ...] = ()
     action_name: str = ""
     param_name: str = ""
     profile_id: str = ""
+    handler: str = ""
     min_val: float | None = None
     max_val: float | None = None
 
@@ -48,23 +50,81 @@ def save_json(relpath: str, data: dict) -> None:
         f.write("\n")
 
 
-def _get_nested(data: dict, path: tuple[str, ...]) -> Any:
+def _get_nested(data: Any, path: tuple[PathKey, ...]) -> Any:
     cur: Any = data
     for key in path:
-        if not isinstance(cur, dict):
+        if cur is None:
             return None
-        cur = cur.get(key)
+        if isinstance(key, int):
+            if not isinstance(cur, list) or key < 0 or key >= len(cur):
+                return None
+            cur = cur[key]
+        elif isinstance(cur, dict):
+            cur = cur.get(key)
+        else:
+            return None
     return cur
 
 
-def _set_nested(data: dict, path: tuple[str, ...], value: Any) -> None:
-    cur = data
+def _set_nested(data: dict, path: tuple[PathKey, ...], value: Any) -> None:
+    cur: Any = data
     for key in path[:-1]:
+        if not isinstance(key, str):
+            raise TypeError(f"通常パスは str のみです: {path}")
         nxt = cur.setdefault(key, {})
         if not isinstance(nxt, dict):
             raise TypeError(f"パス {path} の途中が dict ではありません")
         cur = nxt
-    cur[path[-1]] = value
+    last = path[-1]
+    if not isinstance(last, str):
+        raise TypeError(f"通常パスは str のみです: {path}")
+    cur[last] = value
+
+
+def _default_inventory_slot(max_mass: float = 100.0) -> dict:
+    return {"max_mass": max_mass, "allowed_kinds": ["biomass"]}
+
+
+def _read_inventory_handler(data: dict, handler: str) -> Any:
+    inv = data.get("inventory") or {}
+    slots = list(inv.get("slots") or [])
+    if handler == "inventory_slot_count":
+        if "slot_count" in inv:
+            return int(inv["slot_count"])
+        return len(slots)
+    if handler == "inventory_uniform_slot_max_mass":
+        if not slots:
+            return None
+        return float(slots[0].get("max_mass", 100.0))
+    raise KeyError(f"未知の handler: {handler}")
+
+
+def _write_inventory_handler(data: dict, handler: str, value: Any) -> None:
+    inv = data.setdefault("inventory", {})
+    slots = list(inv.get("slots") or [])
+    if handler == "inventory_slot_count":
+        count = max(0, int(value))
+        inv["slot_count"] = count
+        default_mass = 100.0
+        if slots:
+            default_mass = float(slots[0].get("max_mass", 100.0))
+        while len(slots) < count:
+            slots.append(_default_inventory_slot(default_mass))
+        inv["slots"] = slots[:count]
+        return
+    if handler == "inventory_uniform_slot_max_mass":
+        mass = max(0.0, float(value))
+        if not slots:
+            count = int(inv.get("slot_count", 1))
+            slots = [_default_inventory_slot(mass) for _ in range(max(1, count))]
+        else:
+            for slot in slots:
+                slot["max_mass"] = mass
+        inv["slots"] = slots
+        if "slot_count" not in inv:
+            inv["slot_count"] = len(slots)
+        return
+    raise KeyError(f"未知の handler: {handler}")
 
 
 def _find_action(data: dict, action_name: str, *, profile_id: str = "") -> dict | None:
@@ -80,6 +140,8 @@ def _find_action(data: dict, action_name: str, *, profile_id: str = "") -> dict 
 
 def read_field_value(spec: FieldSpec) -> Any:
     data = load_json(spec.config_relpath)
+    if spec.handler:
+        return _read_inventory_handler(data, spec.handler)
     if spec.action_name and spec.param_name:
         action = _find_action(data, spec.action_name, profile_id=spec.profile_id)
         if action is None:
@@ -90,7 +152,9 @@ def read_field_value(spec: FieldSpec) -> Any:
 
 def write_field_value(spec: FieldSpec, value: Any) -> None:
     data = load_json(spec.config_relpath)
-    if spec.action_name and spec.param_name:
+    if spec.handler:
+        _write_inventory_handler(data, spec.handler, value)
+    elif spec.action_name and spec.param_name:
         action = _find_action(data, spec.action_name, profile_id=spec.profile_id)
         if action is None:
             raise KeyError(
@@ -208,9 +272,9 @@ FIELD_SPECS: list[FieldSpec] = [
         "女王",
         "巣の初期備蓄",
         "ゲーム開始時に巣に入っている食料量。少ないと女王がすぐ飢え、進行が遅れます。",
-        "sim/species/red_ant_queen.json",
+        "sim/worlds/world.json",
         "float",
-        ("colony", "initial_stored_food"),
+        ("colony", "profiles", "red_ant", "initial_stored_food"),
         min_val=0,
         max_val=5000,
     ),
@@ -219,9 +283,9 @@ FIELD_SPECS: list[FieldSpec] = [
         "女王",
         "巣の食料上限",
         "巣に貯められる食料の最大量。働きアリの持ち帰り上限にも影響します。",
-        "sim/species/red_ant_queen.json",
+        "sim/worlds/world.json",
         "float",
-        ("colony", "max_food"),
+        ("colony", "profiles", "red_ant", "max_food"),
         min_val=500,
         max_val=20000,
     ),
@@ -230,9 +294,9 @@ FIELD_SPECS: list[FieldSpec] = [
         "女王",
         "食料漏洩率",
         "備蓄が一定以上あるとき、毎 tick マナへ漏れる割合。高いほど余剰食料が消えやすい。",
-        "sim/species/red_ant_queen.json",
+        "sim/worlds/world.json",
         "float",
-        ("colony", "food_leak_rate"),
+        ("colony", "profiles", "red_ant", "food_leak_rate"),
         min_val=0.0,
         max_val=0.01,
     ),
@@ -254,9 +318,9 @@ FIELD_SPECS: list[FieldSpec] = [
         "女王",
         "テリトリー半径",
         "コロニー勢力圏の半径（px）。大きいほど自勢力エリアが広がります。",
-        "sim/species/red_ant_queen.json",
+        "sim/worlds/world.json",
         "float",
-        ("colony", "territory_radius"),
+        ("colony", "profiles", "red_ant", "territory_radius"),
         min_val=50,
         max_val=400,
     ),
@@ -302,13 +366,11 @@ FIELD_SPECS: list[FieldSpec] = [
     FieldSpec(
         "queen_repro_reserve",
         "女王",
-        "産卵の最低備蓄",
-        "産卵後も巣に残しておく必要がある食料。これ以下だと産卵しません。",
-        "game/reproduction_profiles.json",
+        "最低食料備蓄",
+        "巣穴設置・産卵の両方で、操作後も残しておく必要がある食料。",
+        "sim/worlds/world.json",
         "float",
-        action_name="ColonyReproduceAction",
-        param_name="min_food_reserve",
-        profile_id="queen_feed_and_workers",
+        ("colony", "min_food_reserve"),
         min_val=0,
         max_val=500,
     ),
@@ -354,13 +416,58 @@ FIELD_SPECS: list[FieldSpec] = [
     FieldSpec(
         "worker_speed",
         "働きアリ",
-        "移動速度",
-        "基本移動速度。高いほど狩り・帰巣が速くなります。",
+        "移動速度（空荷）",
+        "基本移動速度（traits.base_speed）。運搬中は別パラメータで減速します。",
         "sim/species/red_ant.json",
         "float",
         ("traits", "base_speed"),
         min_val=0.1,
         max_val=2.0,
+    ),
+    FieldSpec(
+        "worker_carry_speed_ref",
+        "働きアリ",
+        "運搬減速の参照重量",
+        "速度倍率 = 1 / (1 + 総重量 / 参照重量)。"
+        "大きいほど同じ荷重でも速い（減衰が弱い）。例: 重量80・参照80 → 速度50%。",
+        "sim/species/red_ant.json",
+        "float",
+        ("inventory", "carry_speed_reference_weight"),
+        min_val=10,
+        max_val=300,
+    ),
+    FieldSpec(
+        "worker_biomass_weight",
+        "働きアリ",
+        "バイオマス単位重量",
+        "運搬量1あたりの重量。大きいほど同量の餌でより遅くなる。",
+        "sim/species/red_ant.json",
+        "float",
+        ("inventory", "biomass_weight_per_unit"),
+        min_val=0.1,
+        max_val=5.0,
+    ),
+    FieldSpec(
+        "worker_inv_slot_count",
+        "働きアリ",
+        "インベントリ枠数",
+        "運搬スロット数。増やすと一度に拾える死骸チャンクが増えます。",
+        "sim/species/red_ant.json",
+        "int",
+        handler="inventory_slot_count",
+        min_val=1,
+        max_val=6,
+    ),
+    FieldSpec(
+        "worker_inv_slot_max_mass",
+        "働きアリ",
+        "スロット上限（各枠）",
+        "各スロットに入るバイオマス量の上限。全スロットに同じ値を設定します。",
+        "sim/species/red_ant.json",
+        "float",
+        handler="inventory_uniform_slot_max_mass",
+        min_val=10,
+        max_val=300,
     ),
     FieldSpec(
         "worker_vision",
@@ -488,6 +595,143 @@ FIELD_SPECS: list[FieldSpec] = [
         param_name="patrol_radius",
         min_val=40,
         max_val=300,
+    ),
+    FieldSpec(
+        "soldier_speed",
+        "兵隊アリ",
+        "移動速度",
+        "基本移動速度。パトロール・戦闘・狩りの各 Action 倍率と組み合わさります。",
+        "sim/species/red_ant_soldier.json",
+        "float",
+        ("traits", "base_speed"),
+        min_val=0.1,
+        max_val=2.0,
+    ),
+    FieldSpec(
+        "soldier_vision",
+        "兵隊アリ",
+        "視界",
+        "侵入者やクモを検知する距離。",
+        "sim/species/red_ant_soldier.json",
+        "float",
+        ("traits", "base_vision"),
+        min_val=80,
+        max_val=500,
+    ),
+    FieldSpec(
+        "soldier_max_hp",
+        "兵隊アリ",
+        "最大 HP",
+        "兵隊アリの体力。防衛戦での耐久力。",
+        "sim/species/red_ant_soldier.json",
+        "float",
+        ("traits", "max_hp"),
+        min_val=20,
+        max_val=500,
+    ),
+    FieldSpec(
+        "soldier_max_satiety",
+        "兵隊アリ",
+        "最大満腹度",
+        "満腹度上限。外回り（パトロール）の持続時間に影響。",
+        "sim/species/red_ant_soldier.json",
+        "float",
+        ("traits", "max_satiety"),
+        min_val=30,
+        max_val=300,
+    ),
+    FieldSpec(
+        "soldier_metabolism",
+        "兵隊アリ",
+        "代謝率",
+        "毎 tick の満腹度減少。",
+        "sim/species/red_ant_soldier.json",
+        "float",
+        ("traits", "metabolism_rate"),
+        min_val=0.01,
+        max_val=0.2,
+    ),
+    FieldSpec(
+        "soldier_hp_regen_mult",
+        "兵隊アリ",
+        "HP 回復倍率",
+        "テリトリー・環境由来の HP 回復倍率（未設定時 1.0）。",
+        "sim/species/red_ant_soldier.json",
+        "float",
+        ("traits", "hp_regen_mult"),
+        min_val=0.0,
+        max_val=2.0,
+    ),
+    FieldSpec(
+        "soldier_starvation_hp_mult",
+        "兵隊アリ",
+        "飢餓 HP ダメージ倍率",
+        "満腹0%以降の HP ダメージ倍率。未設定時はシミュ共通既定。",
+        "sim/species/red_ant_soldier.json",
+        "float",
+        ("traits", "starvation_hp_mult"),
+        min_val=0.0,
+        max_val=2.0,
+    ),
+    FieldSpec(
+        "soldier_patrol_radius",
+        "兵隊アリ",
+        "防衛巡回半径",
+        "NestPatrolAction の patrol_radius。テリトリー内の巡回範囲。",
+        "sim/species/red_ant_soldier.json",
+        "float",
+        action_name="NestPatrolAction",
+        param_name="patrol_radius",
+        min_val=40,
+        max_val=300,
+    ),
+    FieldSpec(
+        "soldier_combat_attack",
+        "兵隊アリ",
+        "対コロニー戦闘攻撃力",
+        "CombatAction の attack_power。他勢力アリとの戦闘。",
+        "sim/species/red_ant_soldier.json",
+        "float",
+        action_name="CombatAction",
+        param_name="attack_power",
+        min_val=0.5,
+        max_val=5.0,
+    ),
+    FieldSpec(
+        "soldier_combat_speed",
+        "兵隊アリ",
+        "対コロニー戦闘移動倍率",
+        "CombatAction の speed_multiplier。",
+        "sim/species/red_ant_soldier.json",
+        "float",
+        action_name="CombatAction",
+        param_name="speed_multiplier",
+        min_val=0.5,
+        max_val=3.0,
+    ),
+    FieldSpec(
+        "soldier_hunt_attack",
+        "兵隊アリ",
+        "対クモ攻撃力",
+        "HuntAction の attack_power。クモ排除の火力。",
+        "sim/species/red_ant_soldier.json",
+        "float",
+        action_name="HuntAction",
+        param_name="attack_power",
+        min_val=0.5,
+        max_val=6.0,
+    ),
+    FieldSpec(
+        "soldier_hunt_speed",
+        "兵隊アリ",
+        "対クモ追跡移動倍率",
+        "HuntAction の speed_multiplier。",
+        "sim/species/red_ant_soldier.json",
+        "float",
+        action_name="HuntAction",
+        param_name="speed_multiplier",
+        min_val=0.5,
+        max_val=3.0,
     ),
     FieldSpec(
         "world_amoeba",
