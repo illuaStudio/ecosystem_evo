@@ -12,13 +12,12 @@
   "colony": {
     "enabled": true,
     "colony_id": "red_ant",
-    "single_colony": true,
-    "hide_radius": 35
+    "hide_radius": 35.0
   },
   "traits": {
     "base_size": 22.0,
     "base_speed": 0.15,
-    "base_vision": 180,
+    "base_vision": 180.0,
     "max_hp": 100.0,
     "max_satiety": 200.0,
     "metabolism_rate": 0.1,
@@ -29,6 +28,47 @@
   },
   "mind": {
     "type": "utility",
-    "actions": []
+    "actions": [
+      {
+        "name": "SeekShelterAction",
+        "weight": 6.0,
+        "description": "脅威から巣穴に逃げて隠れる",
+        "params": {
+          "threat_species": [
+            "blue_ant_soldier",
+            "blue_ant_vanguard",
+            "yellow_ant_soldier",
+            "yellow_ant_vanguard",
+            "Spider"
+          ],
+          "speed_multiplier": 1.55
+        }
+      },
+      {
+        "name": "FeedAtNestAction",
+        "weight": 5.0,
+        "description": "巣穴内で備蓄から食事（初期女王）",
+        "params": {
+          "bite_gain": 1.15,
+          "feed_radius": 38.0,
+          "approach_speed_multiplier": 0.95,
+          "min_usable_food_ratio": 0.01,
+          "min_usable_satiety_gain": 1.0,
+          "scavenge_species": null,
+          "scavenge_contact_padding": 10.0,
+          "approach_when_hungry": false,
+          "feed_per_tick": 6.0
+        }
+      },
+      {
+        "name": "WanderAction",
+        "weight": 0.3,
+        "description": "巣付近の待機",
+        "params": {
+          "angle_range": 20.0,
+          "speed_multiplier": 0.5
+        }
+      }
+    ]
   }
 }

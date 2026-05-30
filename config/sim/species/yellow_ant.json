@@ -1,11 +1,13 @@
 {
   "name": "yellow_ant",
   "description": "黄コロニーの働きアリ。アメーバを狩って巣へ貯蔵。他勢力の兵隊・クモからは逃げる。",
-  "color": [220, 200, 50],
+  "color": [
+    220,
+    200,
+    50
+  ],
   "colony": {
-    "enabled": true,
-    "colony_id": "yellow_ant",
-    "single_colony": true
+    "enabled": true
   },
   "traits": {
     "base_size": 14.0,
@@ -20,7 +22,14 @@
   },
   "inventory": {
     "slot_count": 1,
-    "slots": [{ "max_mass": 100, "allowed_kinds": ["biomass"] }],
+    "slots": [
+      {
+        "max_mass": 100,
+        "allowed_kinds": [
+          "biomass"
+        ]
+      }
+    ],
     "biomass_weight_per_unit": 1.0,
     "carry_speed_reference_weight": 80
   },
@@ -45,18 +54,26 @@
       {
         "name": "ScavengeCarriedAction",
         "weight": 4.2,
-        "params": { "bite_gain": 1.2 }
+        "params": {
+          "bite_gain": 1.2
+        }
       },
       {
         "name": "FeedAtNestAction",
         "weight": 3.8,
         "params": {
           "bite_gain": 1.15,
-          "max_take_ratio": 0.14,
           "feed_radius": 38,
+          "approach_speed_multiplier": 0.95,
           "min_usable_food_ratio": 0.01,
           "min_usable_satiety_gain": 1.0,
-          "scavenge_species": ["Amoeba", "Spider"]
+          "scavenge_species": [
+            "Amoeba",
+            "Spider"
+          ],
+          "scavenge_contact_padding": 10.0,
+          "approach_when_hungry": false,
+          "feed_per_tick": 11
         }
       },
       {
@@ -64,16 +81,30 @@
         "weight": 4.2,
         "description": "視界内の近い死骸を優先し回収。なければアメーバを狩る（クモは死骸のみ）",
         "params": {
-          "target_types": ["Amoeba", "Spider"],
-          "carcass_only_species": ["Spider"],
-          "carcass_utility_mult": 1.4,
+          "target_type": "Amoeba",
+          "target_types": [
+            "Amoeba",
+            "Spider"
+          ],
           "speed_multiplier": 1.35,
+          "contact_padding": 8.0,
           "attack_power": 1.25,
           "pickup_on_kill": true,
           "bite_gain": 1.2,
           "colony_hoard_strength": 0.8,
           "min_usable_food_ratio": 0.01,
-          "min_usable_satiety_gain": 1.0
+          "min_usable_satiety_gain": 1.0,
+          "territory_only": false,
+          "territory_threat": false,
+          "territory_approach_margin": 80.0,
+          "territory_threat_score_mult": 1.25,
+          "defense_hunt": false,
+          "living_only": false,
+          "carcass_only_species": [
+            "Spider"
+          ],
+          "carcass_utility_mult": 1.4,
+          "nest_leash_radius": null
         }
       },
       {
@@ -81,22 +112,29 @@
         "weight": 3.2,
         "params": {
           "speed_multiplier": 1.15,
-          "deposit_radius": 30
+          "deposit_radius": 30.0,
+          "base_max_carry": 50.0
         }
       },
       {
         "name": "NestPatrolAction",
         "weight": 1.0,
         "params": {
-          "patrol_radius": 140,
+          "angle_range": 40,
           "speed_multiplier": 0.8,
-          "nest_pull_strength": 0.6
+          "patrol_radius": 140,
+          "nest_pull_strength": 0.6,
+          "guard_mode": false,
+          "return_speed_multiplier": 1.15
         }
       },
       {
         "name": "WanderAction",
         "weight": 0.35,
-        "params": { "angle_range": 35, "speed_multiplier": 0.7 }
+        "params": {
+          "angle_range": 35,
+          "speed_multiplier": 0.7
+        }
       }
     ]
   }

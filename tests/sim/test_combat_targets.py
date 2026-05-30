@@ -10,6 +10,7 @@ from src.sim.combat.target_ref import TargetKind, TargetRef
 from src.sim.combat.target_damage import apply_damage_to_target
 from src.sim.entities.creature_factory import CreatureFactory
 from src.sim.systems.world import World
+from tests.sim.world_fixtures import colony_settings
 
 
 def _world():
@@ -24,13 +25,13 @@ def _world():
                 "red_ant_soldier": 6,
                 "blue_ant": 10,
             },
-            "colony": {
-                "hole_max_hp": 100,
-                "faction_species": {
+            "colony": colony_settings(
+                hole_max_hp=100,
+                faction_species={
                     "red_ant": ["red_ant", "red_ant_soldier"],
                     "blue_ant": ["blue_ant"],
                 },
-            },
+            ),
         }
     )
 

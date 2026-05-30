@@ -18,50 +18,49 @@
     "Amoeba": 20,
     "red_ant_queen": 1,
     "red_ant": 2,
-    "red_ant_soldier": 0,
-    "red_ant_vanguard": 0,
+    "red_ant_soldier": 0.0,
+    "red_ant_vanguard": 0.0,
     "blue_ant": 0,
     "blue_ant_soldier": 0,
     "blue_ant_vanguard": 0,
     "yellow_ant": 0,
     "yellow_ant_soldier": 0,
     "yellow_ant_vanguard": 0,
-    "Spider": 0
+    "Spider": 0.0
   },
   "population_limits": {
-    "Amoeba": 50,
-    "red_ant_queen": 3,
+    "Amoeba": 50.0,
+    "red_ant_queen": 3.0,
     "red_ant": 20,
     "red_ant_soldier": 10,
-    "red_ant_vanguard": 10,
+    "red_ant_vanguard": 10.0,
     "blue_ant": 20,
     "blue_ant_soldier": 10,
     "blue_ant_vanguard": 10,
     "yellow_ant": 20,
     "yellow_ant_soldier": 10,
     "yellow_ant_vanguard": 10,
-    "Spider": 30
+    "Spider": 30.0
   },
   "colony": {
     "hole_food_cost": 250.0,
     "max_holes": 8,
-    "min_hole_spacing": 120,
+    "min_hole_spacing": 120.0,
     "min_food_reserve": 72.0,
-    "hole_max_hp": 120,
+    "hole_max_hp": 120.0,
     "hole_damage_mana_cost": 0.35,
     "hole_destroy_mana_return_ratio": 0.25,
     "profiles": {
       "red_ant": {
-        "nest_x": 120,
-        "nest_y": 120,
+        "nest_x": 120.0,
+        "nest_y": 120.0,
         "territory_radius": 180.0,
         "max_food": 5000.0,
         "initial_stored_food": 80.0,
-        "food_leak_rate": 0.00012,
+        "food_leak_rate": 0.001,
         "food_to_mana_ratio": 0.35,
         "food_leak_reserve_ratio": 0.15,
-        "spawn_spread": 28,
-        "deposit_radius": 30
+        "spawn_spread": 28.0
       },
       "blue_ant": {
         "nest_x": 500,
@@ -72,8 +71,7 @@
         "food_leak_rate": 0.00012,
         "food_to_mana_ratio": 0.35,
         "food_leak_reserve_ratio": 0.15,
-        "spawn_spread": 28,
-        "deposit_radius": 30
+        "spawn_spread": 28
       },
       "yellow_ant": {
         "nest_x": 880,
@@ -84,8 +82,7 @@
         "food_leak_rate": 0.00012,
         "food_to_mana_ratio": 0.35,
         "food_leak_reserve_ratio": 0.15,
-        "spawn_spread": 28,
-        "deposit_radius": 30
+        "spawn_spread": 28
       }
     },
     "territory_effects": {
@@ -140,7 +137,7 @@
   "field_emitters": {
     "defaults": {
       "type": "poison_fog",
-      "radius": 95,
+      "radius": 95.0,
       "hp_drain_per_dt": 0.07,
       "tags": [
         "poison"

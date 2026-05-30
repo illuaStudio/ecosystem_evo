@@ -106,7 +106,7 @@ class FeedAtNestAction(Action):
 
     DEFAULT_PARAMS = {
         "bite_gain": 1.15,
-        "max_take_ratio": 0.14,
+        "feed_per_tick": 11.0,
         "feed_radius": 36.0,
         "approach_speed_multiplier": 0.95,
         "min_usable_food_ratio": 0.01,
@@ -180,7 +180,7 @@ class FeedAtNestAction(Action):
             ns.feed_creature(
                 creature,
                 bite_gain=float(self.params["bite_gain"]),
-                max_take_ratio=float(self.params["max_take_ratio"]),
+                feed_per_tick=float(self.params["feed_per_tick"]),
             )
             return False
 
@@ -214,7 +214,7 @@ class FeedAtNestAction(Action):
         ns.feed_creature(
             creature,
             bite_gain=float(self.params["bite_gain"]),
-            max_take_ratio=float(self.params["max_take_ratio"]),
+            feed_per_tick=float(self.params["feed_per_tick"]),
         )
         return False
 

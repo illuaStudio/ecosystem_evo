@@ -8,6 +8,7 @@ from src.game.progression import ProgressionEvaluator, apply_unlock, load_progre
 from src.sim.bridge import SimBridge
 from src.sim.entities.creature_factory import CreatureFactory
 from src.sim.systems.world import World
+from tests.sim.world_fixtures import colony_settings
 
 
 def _player_world(**overrides) -> World:
@@ -21,11 +22,11 @@ def _player_world(**overrides) -> World:
             "red_ant_queen": 3,
             "red_ant_soldier": 10,
         },
-        "colony": {
-            "faction_species": {
+        "colony": colony_settings(
+            faction_species={
                 "red_ant": ["red_ant", "red_ant_soldier", "red_ant_vanguard"],
             },
-        },
+        ),
     }
     data.update(overrides)
     return World.from_json(data)

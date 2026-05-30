@@ -9,6 +9,7 @@ from src.sim.utils.colony_helpers import (
     is_point_in_rival_territory,
     is_colony_defeated,
 )
+from tests.sim.world_fixtures import colony_settings
 
 
 def _hole_world(**overrides) -> World:
@@ -25,17 +26,13 @@ def _hole_world(**overrides) -> World:
             "blue_ant_soldier": 6,
             "blue_ant_vanguard": 4,
         },
-        "colony": {
-            "hole_max_hp": 100,
-            "hole_food_cost": 250,
-            "max_holes": 8,
-            "min_hole_spacing": 120,
-            "min_food_reserve": 72,
-            "faction_species": {
+        "colony": colony_settings(
+            hole_max_hp=100,
+            faction_species={
                 "red_ant": ["red_ant", "red_ant_soldier", "red_ant_vanguard"],
                 "blue_ant": ["blue_ant", "blue_ant_soldier", "blue_ant_vanguard"],
             },
-        },
+        ),
     }
     data.update(overrides)
     return World.from_json(data)

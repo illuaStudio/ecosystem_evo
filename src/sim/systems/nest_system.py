@@ -15,8 +15,6 @@ from src.sim.utils.creature_helpers import (
     distance_to_point,
     is_point_in_nest_territory,
     resolve_colony_id,
-    satiety_feed_target,
-    satiety_room_until_feed_target,
 )
 from src.sim.utils.position_helpers import entity_xy
 
@@ -309,7 +307,7 @@ class NestSystem:
         cfg = colony_cfg or {}
         colony_id = resolve_colony_id(species_name, cfg)
         runtime_cfg = resolve_colony_runtime_cfg(self.world, colony_id, cfg)
-        spread = float(runtime_cfg.get("spawn_spread", self.DEFAULT_SPAWN_SPREAD))
+        spread = float(runtime_cfg["spawn_spread"])
         nest = self.get_colony_nest(colony_id)
         if nest is not None:
             hole = random.choice(nest.holes) if nest.holes else None
@@ -377,13 +375,8 @@ class NestSystem:
 
         cx, cy = entity_xy(creature)
         runtime_cfg = resolve_colony_runtime_cfg(self.world, colony_id, cfg)
-        max_food = float(runtime_cfg.get("max_food", cfg.get("max_storage", 400.0)))
-        initial_food = float(
-            runtime_cfg.get(
-                "initial_stored_food",
-                runtime_cfg.get("initial_food", 0.0),
-            )
-        )
+        max_food = float(runtime_cfg["max_food"])
+        initial_food = float(runtime_cfg["initial_stored_food"])
         nest = self.create_nest(
             cx,
             cy,
@@ -407,17 +400,11 @@ class NestSystem:
                 self._leak_food_to_mana(nest, runtime_cfg, dt)
 
     def _leak_food_to_mana(self, nest: Nest, colony_cfg: dict, dt: float) -> None:
-        leak_rate = float(
-            colony_cfg.get("food_leak_rate", self.DEFAULT_FOOD_LEAK_RATE)
-        )
-        mana_ratio = float(
-            colony_cfg.get("food_to_mana_ratio", self.DEFAULT_FOOD_TO_MANA_RATIO)
-        )
-        reserve_ratio = float(
-            colony_cfg.get(
-                "food_leak_reserve_ratio", self.DEFAULT_FOOD_LEAK_RESERVE_RATIO
-            )
-        )
+        if not colony_cfg:
+            return
+        leak_rate = float(colony_cfg["food_leak_rate"])
+        mana_ratio = float(colony_cfg["food_to_mana_ratio"])
+        reserve_ratio = float(colony_cfg["food_leak_reserve_ratio"])
         if leak_rate <= 0 or mana_ratio <= 0:
             return
 
@@ -515,32 +502,25 @@ class NestSystem:
         creature,
         *,
         bite_gain: float = 1.2,
-        max_take_ratio: float = 0.12,
+        feed_per_tick: float = 11.0,
     ) -> float:
         """巣の食料備蓄から満腹度を回復。消費した食料量を返す。"""
         nest = self.get_creature_nest(creature)
         if nest is None or nest.stored_food <= 0:
             return 0.0
 
-        hunger_room = satiety_room_until_feed_target(creature)
-        if hunger_room <= 0:
+        max_sat = float(creature.max_satiety)
+        if float(creature.satiety) >= max_sat:
             return 0.0
 
-        members = max(1, self.member_count(nest.id, creature.species.name))
-        per_member_ratio = float(max_take_ratio) / members
-        max_take = nest.stored_food * per_member_ratio
-        ideal = min(nest.stored_food, hunger_room / float(bite_gain))
-        take = min(ideal, max_take)
-        remainder = nest.stored_food - take
-        if remainder > 0 and (remainder <= max_take or nest.stored_food <= ideal):
-            take = nest.stored_food
+        take = min(nest.stored_food, float(feed_per_tick))
         if take <= 0:
             return 0.0
 
         nest.stored_food -= take
         creature.satiety = min(
-            satiety_feed_target(creature),
-            creature.satiety + take * bite_gain,
+            max_sat,
+            creature.satiety + take * float(bite_gain),
         )
         return take
 

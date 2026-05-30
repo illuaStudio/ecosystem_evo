@@ -20,7 +20,7 @@ class TestColonyConfigHelpers(unittest.TestCase):
                 "name": "Legacy",
                 "world_width": 500,
                 "world_height": 500,
-                "colony": {"hole_min_food_reserve": 55},
+                "colony": {"min_food_reserve": 55},
             }
         )
         self.assertEqual(get_min_food_reserve(world), 55.0)
@@ -30,7 +30,7 @@ class TestColonyConfigHelpers(unittest.TestCase):
         profile = get_colony_profile(world, "red_ant")
         self.assertEqual(profile["nest_x"], 120)
         self.assertEqual(profile["initial_stored_food"], 80)
-        self.assertAlmostEqual(profile["food_leak_rate"], 0.00012)
+        self.assertAlmostEqual(profile["food_leak_rate"], 0.001)
 
     def test_species_override_spawn_spread(self):
         world = World()

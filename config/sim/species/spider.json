@@ -1,7 +1,11 @@
 {
   "name": "Spider",
   "description": "大型のクモ。空腹時はアリを狩ってその場で食べる。食物連鎖の頂点（マナ→アメーバ→アリ→クモ）。",
-  "color": [95, 75, 55],
+  "color": [
+    95,
+    75,
+    55
+  ],
   "traits": {
     "base_size": 48.0,
     "base_speed": 0.55,
@@ -11,7 +15,7 @@
     "metabolism_rate": 0.12,
     "satiety_hungry_below": 0.55,
     "satiety_full_above": 0.85,
-    "corpse_decompose_rate": 0.00003
+    "corpse_decompose_rate": 3e-05
   },
   "mind": {
     "type": "utility",
@@ -21,6 +25,7 @@
         "weight": 3.5,
         "description": "空腹時: アリを追跡し殺害・その場でバイオマス消費（巣なし）",
         "params": {
+          "target_type": "Amoeba",
           "target_types": [
             "red_ant",
             "red_ant_soldier",
@@ -34,8 +39,8 @@
           ],
           "speed_multiplier": 1.1,
           "contact_padding": 10.0,
-          "attack_power": 1.5,
-          "bite_gain": 1.4
+          "bite_gain": 1.4,
+          "attack_power": 1.5
         }
       },
       {

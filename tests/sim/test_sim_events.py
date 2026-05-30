@@ -13,6 +13,7 @@ from src.sim.events import (
 )
 from src.sim.systems.world import World
 from src.sim.utils.creature_helpers import try_attack_only, try_pickup_carcass
+from tests.sim.world_fixtures import colony_settings
 
 
 class TestSimEvents(unittest.TestCase):
@@ -28,6 +29,7 @@ class TestSimEvents(unittest.TestCase):
                     "red_ant": 20,
                     "red_ant_queen": 3,
                 },
+                "colony": colony_settings(),
             }
         )
 

@@ -6,6 +6,7 @@ from src.sim.combat.target_query import find_nearest_hostile_creature
 from src.sim.entities.creature_factory import CreatureFactory
 from src.sim.systems.world import World
 from src.sim.utils.creature_helpers import try_attack_only
+from tests.sim.world_fixtures import colony_settings
 
 
 def _isolated_world() -> World:
@@ -16,6 +17,7 @@ def _isolated_world() -> World:
             "world_height": 800,
             "initial_entities": {},
             "population_limits": {"red_ant": 60, "blue_ant": 60},
+            "colony": colony_settings(),
         }
     )
 

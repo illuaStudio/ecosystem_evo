@@ -166,7 +166,7 @@ def nest_has_usable_food(
 def nest_feed_satiety_gain_estimate(
     creature,
     *,
-    max_take_ratio: float = 0.14,
+    feed_per_tick: float = 11.0,
     bite_gain: float = 1.15,
 ) -> float:
     """次の1ティックで巣から得られる満腹度の見積もり。"""
@@ -180,14 +180,11 @@ def nest_feed_satiety_gain_estimate(
     if nest is None or nest.stored_food <= 0:
         return 0.0
 
-    hunger_room = satiety_room_until_feed_target(creature)
-    if hunger_room <= 0:
+    max_sat = float(creature.max_satiety)
+    if float(creature.satiety) >= max_sat:
         return 0.0
 
-    members = max(
-        1, world.nest_system.member_count(nest.id, creature.species.name)
-    )
-    per_member_ratio = float(max_take_ratio) / members
-    max_take = nest.stored_food * per_member_ratio
-    take = min(nest.stored_food, max_take, hunger_room / float(bite_gain))
-    return take * float(bite_gain)
+    take = min(nest.stored_food, float(feed_per_tick))
+    gain = take * float(bite_gain)
+    room = max_sat - float(creature.satiety)
+    return min(gain, room)

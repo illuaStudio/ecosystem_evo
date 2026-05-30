@@ -51,9 +51,113 @@ class TestDevLauncherFields(unittest.TestCase):
     def test_reproduction_profile_read(self):
         from dev_launcher_fields import FIELD_SPECS
 
-        spec = next(s for s in FIELD_SPECS if s.field_id == "queen_repro_food_cost")
+        spec = next(s for s in FIELD_SPECS if s.field_id == "queen_repro_max_members")
         value = read_field_value(spec)
-        self.assertEqual(value, 55)
+        self.assertEqual(value, 10)
+
+    def test_format_config_key(self):
+        from dev_launcher_fields import FIELD_SPECS, format_config_key, format_field_reference
+
+        queen_hp = next(s for s in FIELD_SPECS if s.field_id == "queen_max_hp")
+        self.assertEqual(format_config_key(queen_hp), "traits.max_hp")
+        self.assertIn("traits.max_hp", format_field_reference(queen_hp))
+
+        feed = next(s for s in FIELD_SPECS if s.field_id == "queen_feed_per_tick")
+        key = format_config_key(feed)
+        self.assertIn("feed_per_tick", key)
+        self.assertIn("queen_feed_and_workers", key)
+
+        inv = next(s for s in FIELD_SPECS if s.field_id == "worker_inv_slot_count")
+        self.assertEqual(format_config_key(inv), "inventory.slot_count")
+
+    def test_nested_ai_subtabs(self):
+        from dev_launcher_fields import (
+            FIELD_SPECS,
+            ai_subtab_key,
+            ai_subtabs_for_category,
+            fields_for_ai_subtab,
+            fields_for_category_main,
+            has_nested_ai_tabs,
+            launcher_tabs,
+        )
+
+        self.assertIn("女王", launcher_tabs())
+        self.assertNotIn("AI", " ".join(launcher_tabs()))
+        self.assertTrue(has_nested_ai_tabs("女王"))
+
+        queen_main = fields_for_category_main("女王")
+        queen_hp = next(s for s in FIELD_SPECS if s.field_id == "queen_max_hp")
+        self.assertIn(queen_hp, queen_main)
+
+        worker_feed = next(
+            s
+            for s in FIELD_SPECS
+            if s.config_relpath == "sim/species/red_ant.json"
+            and s.action_name == "FeedAtNestAction"
+            and s.param_name == "feed_per_tick"
+        )
+        self.assertNotIn(worker_feed, queen_main)
+        self.assertEqual(ai_subtab_key(worker_feed), "巣食事")
+        self.assertIn("巣食事", ai_subtabs_for_category("働きアリ"))
+        self.assertIn(worker_feed, fields_for_ai_subtab("働きアリ", "巣食事"))
+
+        queen_subtabs = ai_subtabs_for_category("女王")
+        self.assertIn("巣食事", queen_subtabs)
+        self.assertTrue(any("解禁前" in t for t in queen_subtabs))
+
+    def test_all_scanned_params_covered(self):
+        from dev_launcher_fields import (
+            FIELD_SPECS,
+            _SKIP_ACTION_PARAMS,
+            _SKIP_JSON_PATHS,
+            _spec_lookup_key,
+            load_json,
+            _get_nested,
+        )
+
+        covered = {_spec_lookup_key(s) for s in FIELD_SPECS}
+        missing: list[tuple] = []
+
+        for rel in (
+            "sim/species/red_ant_queen.json",
+            "sim/species/red_ant.json",
+            "sim/species/red_ant_soldier.json",
+        ):
+            data = load_json(rel)
+            for act in data.get("mind", {}).get("actions", []):
+                for pk, pv in (act.get("params") or {}).items():
+                    if (act["name"], pk) in _SKIP_ACTION_PARAMS:
+                        continue
+                    if pv is None or not isinstance(pv, (int, float, bool)):
+                        continue
+                    key = ("action", rel, "", act["name"], pk)
+                    if key not in covered:
+                        missing.append(key)
+            for key, val in (data.get("traits") or {}).items():
+                if isinstance(val, (int, float, bool)):
+                    path = ("traits", key)
+                    if path not in _SKIP_JSON_PATHS:
+                        tkey = ("path", rel, path)
+                        if tkey not in covered:
+                            missing.append(tkey)
+
+        repro = load_json("game/reproduction_profiles.json")
+        for pid, prof in repro.items():
+            for act in prof.get("actions", []):
+                for pk, pv in (act.get("params") or {}).items():
+                    if pv is None or not isinstance(pv, (int, float, bool)):
+                        continue
+                    key = (
+                        "action",
+                        "game/reproduction_profiles.json",
+                        pid,
+                        act["name"],
+                        pk,
+                    )
+                    if key not in covered:
+                        missing.append(key)
+
+        self.assertEqual(missing, [], f"未掲載: {missing[:5]}")
 
     def test_territory_hp_regen_read(self):
         from dev_launcher_fields import FIELD_SPECS

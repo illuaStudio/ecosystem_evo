@@ -7,10 +7,14 @@
         "weight": 5.0,
         "params": {
           "bite_gain": 1.15,
-          "max_take_ratio": 0.08,
-          "feed_radius": 38,
+          "feed_radius": 38.0,
+          "approach_speed_multiplier": 0.95,
           "min_usable_food_ratio": 0.01,
-          "min_usable_satiety_gain": 1.0
+          "min_usable_satiety_gain": 1.0,
+          "scavenge_species": null,
+          "scavenge_contact_padding": 10.0,
+          "approach_when_hungry": false,
+          "feed_per_tick": 6.0
         }
       }
     ]
@@ -23,10 +27,14 @@
         "weight": 5.0,
         "params": {
           "bite_gain": 1.15,
-          "max_take_ratio": 0.08,
-          "feed_radius": 38,
+          "feed_radius": 38.0,
+          "approach_speed_multiplier": 0.95,
           "min_usable_food_ratio": 0.01,
-          "min_usable_satiety_gain": 1.0
+          "min_usable_satiety_gain": 1.0,
+          "scavenge_species": null,
+          "scavenge_contact_padding": 10.0,
+          "approach_when_hungry": false,
+          "feed_per_tick": 0.5
         }
       },
       {
@@ -45,7 +53,8 @@
             "red_ant"
           ],
           "spawn_cooldown": 900,
-          "spawn_radius": 35.0
+          "spawn_radius": 35.0,
+          "approach_speed_multiplier": 0.9
         }
       }
     ]
@@ -58,10 +67,14 @@
         "weight": 5.0,
         "params": {
           "bite_gain": 1.15,
-          "max_take_ratio": 0.08,
-          "feed_radius": 38,
+          "feed_radius": 38.0,
+          "approach_speed_multiplier": 0.95,
           "min_usable_food_ratio": 0.01,
-          "min_usable_satiety_gain": 1.0
+          "min_usable_satiety_gain": 1.0,
+          "scavenge_species": null,
+          "scavenge_contact_padding": 10.0,
+          "approach_when_hungry": false,
+          "feed_per_tick": 6.0
         }
       },
       {
@@ -78,14 +91,15 @@
               "weight": 0.3
             }
           ],
-          "food_cost": 55,
+          "food_cost": 55.0,
           "max_colony_members": 15,
           "member_species": [
             "red_ant",
             "red_ant_soldier"
           ],
           "spawn_cooldown": 900,
-          "spawn_radius": 35
+          "spawn_radius": 35.0,
+          "approach_speed_multiplier": 0.9
         }
       }
     ]
@@ -103,13 +117,14 @@
               "weight": 1.0
             }
           ],
-          "food_cost": 55,
+          "food_cost": 55.0,
           "max_colony_members": 10,
           "member_species": [
             "red_ant"
           ],
           "spawn_cooldown": 900,
-          "spawn_radius": 35
+          "spawn_radius": 35.0,
+          "approach_speed_multiplier": 0.9
         }
       }
     ]
@@ -131,14 +146,15 @@
               "weight": 0.3
             }
           ],
-          "food_cost": 55,
+          "food_cost": 55.0,
           "max_colony_members": 15,
           "member_species": [
             "red_ant",
             "red_ant_soldier"
           ],
           "spawn_cooldown": 900,
-          "spawn_radius": 35
+          "spawn_radius": 35.0,
+          "approach_speed_multiplier": 0.9
         }
       }
     ]

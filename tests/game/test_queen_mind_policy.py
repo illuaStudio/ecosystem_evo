@@ -8,6 +8,7 @@ from src.game.mind_policy import MindPolicy
 from src.sim.bridge import SimBridge
 from src.sim.shelter.state import is_creature_sheltered
 from src.sim.systems.world import World
+from tests.sim.world_fixtures import colony_settings
 
 
 class TestQueenAndMindPolicy(unittest.TestCase):
@@ -18,6 +19,7 @@ class TestQueenAndMindPolicy(unittest.TestCase):
                 "world_width": 500,
                 "world_height": 500,
                 "initial_entities": {},
+                "colony": colony_settings(),
             }
         )
         factory = CreatureFactory()
@@ -36,6 +38,7 @@ class TestQueenAndMindPolicy(unittest.TestCase):
                 "world_width": 500,
                 "world_height": 500,
                 "initial_entities": {},
+                "colony": colony_settings(),
             }
         )
         factory = CreatureFactory()
@@ -54,6 +57,7 @@ class TestQueenAndMindPolicy(unittest.TestCase):
                 "world_width": 500,
                 "world_height": 500,
                 "initial_entities": {},
+                "colony": colony_settings(),
             }
         )
         factory = CreatureFactory()
@@ -74,7 +78,11 @@ class TestQueenAndMindPolicy(unittest.TestCase):
         self.assertIn("red_ant_soldier", species)
 
         policy.reset_creature(queen)
-        self.assertEqual(queen.mind.action_defs, [])
+        names = [a["name"] for a in queen.mind.action_defs]
+        self.assertEqual(
+            names,
+            ["SeekShelterAction", "FeedAtNestAction", "WanderAction"],
+        )
 
     def test_colony_reproduce_spawns_from_sheltered_queen(self):
         world = World.from_json(
@@ -84,6 +92,7 @@ class TestQueenAndMindPolicy(unittest.TestCase):
                 "world_height": 500,
                 "initial_entities": {},
                 "population_limits": {"red_ant": 20, "red_ant_queen": 3},
+                "colony": colony_settings(),
             }
         )
         factory = CreatureFactory()
@@ -109,9 +118,14 @@ class TestQueenAndMindPolicy(unittest.TestCase):
         nest.stored_food = get_min_food_reserve(world) + float(params["food_cost"]) + 10
 
         action = ColonyReproduceAction(**{**params, "spawn_cooldown": 0})
-        before = world.nest_system.count_colony_members(nest.id, params["member_species"])
+        member_species = [
+            str(e["species"])
+            for e in params.get("offspring", [])
+            if e.get("species")
+        ]
+        before = world.nest_system.count_colony_members(nest.id, member_species)
         self.assertTrue(action.execute(queen))
-        after = world.nest_system.count_colony_members(nest.id, params["member_species"])
+        after = world.nest_system.count_colony_members(nest.id, member_species)
         self.assertEqual(after, before + 1)
 
 

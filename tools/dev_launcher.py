@@ -10,9 +10,13 @@ from tkinter import messagebox, ttk
 from dev_launcher_fields import (
     FIELD_SPECS,
     FieldSpec,
-    categories,
+    ai_subtabs_for_category,
     coerce_value,
-    fields_for_category,
+    fields_for_ai_subtab,
+    fields_for_category_main,
+    format_field_reference,
+    has_nested_ai_tabs,
+    launcher_tabs,
     project_root,
     read_field_value,
     write_field_value,
@@ -23,7 +27,7 @@ class DevLauncherApp:
     def __init__(self) -> None:
         self.root = tk.Tk()
         self.root.title("Ecosystem Evo — 開発ランチャー")
-        self.root.geometry("920x680")
+        self.root.geometry("980x720")
         self.root.minsize(760, 560)
 
         self._widgets: dict[str, tk.Variable] = {}
@@ -45,10 +49,13 @@ class DevLauncherApp:
         self.notebook = ttk.Notebook(self.root)
         self.notebook.pack(fill=tk.BOTH, expand=True, padx=8, pady=4)
 
-        for category in categories():
-            tab = ttk.Frame(self.notebook, padding=4)
-            self.notebook.add(tab, text=category)
-            self._build_category_tab(tab, category)
+        for category in launcher_tabs():
+            tab_frame = ttk.Frame(self.notebook, padding=4)
+            self.notebook.add(tab_frame, text=category)
+            if has_nested_ai_tabs(category):
+                self._build_species_tab(tab_frame, category)
+            else:
+                self._build_flat_tab(tab_frame, category)
 
         help_frame = ttk.LabelFrame(self.root, text="説明", padding=8)
         help_frame.pack(fill=tk.X, padx=8, pady=4)
@@ -58,7 +65,7 @@ class DevLauncherApp:
         )
         self.help_title.pack(anchor=tk.W)
 
-        self.help_text = tk.Text(help_frame, height=4, wrap=tk.WORD, relief=tk.FLAT, font=("", 10))
+        self.help_text = tk.Text(help_frame, height=6, wrap=tk.WORD, relief=tk.FLAT, font=("", 10))
         self.help_text.pack(fill=tk.X)
         self.help_text.configure(state=tk.DISABLED)
 
@@ -79,33 +86,63 @@ class DevLauncherApp:
 
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
-    def _build_category_tab(self, parent: ttk.Frame, category: str) -> None:
-        canvas = tk.Canvas(parent, highlightthickness=0)
-        scrollbar = ttk.Scrollbar(parent, orient=tk.VERTICAL, command=canvas.yview)
-        form = ttk.Frame(canvas)
-        form.bind(
-            "<Configure>",
-            lambda _e, c=canvas: c.configure(scrollregion=c.bbox("all")),
-        )
-        canvas.create_window((0, 0), window=form, anchor=tk.NW)
-        canvas.configure(yscrollcommand=scrollbar.set)
-        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-
+    def _bind_scroll(self, canvas: tk.Canvas) -> None:
         def _on_mousewheel(event, c=canvas):
             c.yview_scroll(int(-1 * (event.delta / 120)), "units")
 
         canvas.bind("<Enter>", lambda _e: canvas.bind_all("<MouseWheel>", _on_mousewheel))
         canvas.bind("<Leave>", lambda _e: canvas.unbind_all("<MouseWheel>"))
 
-        specs = fields_for_category(category)
+    def _make_scroll_area(self, parent: ttk.Frame) -> ttk.Frame:
+        canvas = tk.Canvas(parent, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(parent, orient=tk.VERTICAL, command=canvas.yview)
+        inner = ttk.Frame(canvas)
+        inner.bind(
+            "<Configure>",
+            lambda _e, c=canvas: c.configure(scrollregion=c.bbox("all")),
+        )
+        canvas.create_window((0, 0), window=inner, anchor=tk.NW)
+        canvas.configure(yscrollcommand=scrollbar.set)
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self._bind_scroll(canvas)
+        return inner
+
+    def _build_field_grid(self, parent: ttk.Frame, specs: list[FieldSpec]) -> None:
         for row, spec in enumerate(specs):
-            ttk.Label(form, text=spec.label, width=22).grid(
+            ttk.Label(parent, text=spec.label, width=22).grid(
                 row=row, column=0, sticky=tk.W, padx=(4, 8), pady=4
             )
-            widget = self._make_widget(form, spec, row)
+            widget = self._make_widget(parent, spec, row)
             widget.grid(row=row, column=1, sticky=tk.EW, padx=4, pady=4)
-        form.columnconfigure(1, weight=1)
+        parent.columnconfigure(1, weight=1)
+
+    def _build_flat_tab(self, parent: ttk.Frame, category: str) -> None:
+        inner = self._make_scroll_area(parent)
+        main = fields_for_category_main(category)
+        if main:
+            self._build_field_grid(inner, main)
+
+    def _build_species_tab(self, parent: ttk.Frame, category: str) -> None:
+        inner = self._make_scroll_area(parent)
+
+        main_specs = fields_for_category_main(category)
+        if main_specs:
+            main_frame = ttk.LabelFrame(inner, text="基本設定", padding=8)
+            main_frame.pack(fill=tk.X, padx=4, pady=(0, 8))
+            self._build_field_grid(main_frame, main_specs)
+
+        ai_subtabs = ai_subtabs_for_category(category)
+        if ai_subtabs:
+            ai_outer = ttk.LabelFrame(inner, text="AI 行動", padding=8)
+            ai_outer.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
+            ai_notebook = ttk.Notebook(ai_outer)
+            ai_notebook.pack(fill=tk.BOTH, expand=True)
+            for subtab in ai_subtabs:
+                sub_frame = ttk.Frame(ai_notebook, padding=4)
+                ai_notebook.add(sub_frame, text=subtab)
+                sub_inner = self._make_scroll_area(sub_frame)
+                self._build_field_grid(sub_inner, fields_for_ai_subtab(category, subtab))
 
     def _make_widget(self, parent: ttk.Frame, spec: FieldSpec, row: int) -> tk.Widget:
         if spec.value_type == "bool":
@@ -150,9 +187,12 @@ class DevLauncherApp:
         self.help_title.configure(text=spec.label)
         self.help_text.configure(state=tk.NORMAL)
         self.help_text.delete("1.0", tk.END)
-        self.help_text.insert(tk.END, spec.help_text)
+        self.help_text.insert(
+            tk.END,
+            spec.help_text + "\n\n" + format_field_reference(spec),
+        )
         self.help_text.configure(state=tk.DISABLED)
-        self.file_label.configure(text=f"設定ファイル: config/{spec.config_relpath}")
+        self.file_label.configure(text="")
 
     def _reload_all_fields(self) -> None:
         for spec_id, spec in self._spec_by_id.items():

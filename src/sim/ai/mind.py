@@ -99,7 +99,8 @@ class UtilityMind(Mind):
             action_cls = ACTION_BY_NAME.get(action_name)
             if action_cls is None:
                 continue
-            action = action_cls(**params)
+            source = f"{creature.species.name}/{action_name}"
+            action = action_cls.from_config(params, source=source)
 
             utility = action.calculate_utility(creature)
             if utility <= 0.0:
@@ -114,7 +115,6 @@ class UtilityMind(Mind):
 
         if best_action is None:
             if sheltered:
-                # 巣穴待機: 許可された行動のうち先頭を維持（徘徊しない）
                 for action_def in self.action_defs:
                     name = action_def.get("name")
                     if name not in SHELTER_ALLOWED_ACTION_NAMES:
@@ -122,23 +122,28 @@ class UtilityMind(Mind):
                     action_cls = ACTION_BY_NAME.get(name)
                     if action_cls is None:
                         continue
-                    best_action = action_cls(**action_def.get("params", {}))
+                    best_action = action_cls.from_config(
+                        action_def.get("params", {}),
+                        source=f"{creature.species.name}/{name}",
+                    )
                     break
                 if best_action is None:
-                    best_action = SeekShelterAction(
-                        **(
-                            next(
-                                (
-                                    a.get("params", {})
-                                    for a in self.action_defs
-                                    if a.get("name") == "SeekShelterAction"
-                                ),
-                                {},
-                            )
-                        )
+                    raise KeyError(
+                        f"{creature.species.name}: 避難中だが許可された行動が未定義です"
                     )
             else:
-                best_action = WanderAction()
+                wander_def = next(
+                    (a for a in self.action_defs if a.get("name") == "WanderAction"),
+                    None,
+                )
+                if wander_def is None:
+                    raise KeyError(
+                        f"{creature.species.name}: フォールバック用 WanderAction が未定義です"
+                    )
+                best_action = WanderAction.from_config(
+                    wander_def.get("params", {}),
+                    source=f"{creature.species.name}/WanderAction",
+                )
 
         # 同種の行動が選ばれたら進行中インスタンスを維持（追跡ターゲット等を保持）
         if (

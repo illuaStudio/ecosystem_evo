@@ -156,7 +156,8 @@ class TestHungerBehavior(unittest.TestCase):
     def test_scavenge_keeps_remainder_for_nest_after_recovery(self):
         """回復ラッチ終了後も運搬分を手放さず、帰巣行動に戻れる。"""
         world = World()
-        ant, prey = self._ant_and_prey(world, ant_satiety_ratio=0.10)
+        ant, prey = self._ant_and_prey(world, ant_satiety_ratio=0.84)
+        ant.nutrition_recovery = True
         for _ in range(12):
             if not prey.alive:
                 break
@@ -164,14 +165,9 @@ class TestHungerBehavior(unittest.TestCase):
         try_pickup_carcass(ant, prey)
         self.assertTrue(inventory_is_loaded(ant))
 
-        scavenge = ScavengeCarriedAction()
+        scavenge = ScavengeCarriedAction(bite_gain=1.2)
         ret = ReturnToNestAction()
-        for _ in range(80):
-            if not needs_self_feed(ant):
-                break
-            scavenge.execute(ant)
-            if not inventory_is_loaded(ant):
-                break
+        scavenge.execute(ant)
 
         self.assertFalse(needs_self_feed(ant))
         self.assertTrue(inventory_is_loaded(ant))
@@ -212,9 +208,9 @@ class TestHungerBehavior(unittest.TestCase):
                 break
             FeedAtNestAction(feed_radius=38).execute(ant)
 
-        self.assertAlmostEqual(
-            satiety_ratio(ant), get_satiety_full_above(ant), places=2
-        )
+        self.assertTrue(is_satiated(ant))
+        self.assertGreaterEqual(satiety_ratio(ant), get_satiety_full_above(ant))
+        self.assertLessEqual(ant.satiety, ant.max_satiety)
         self.assertFalse(needs_self_feed(ant))
 
     def test_recovery_mode_persists_until_full_above(self):

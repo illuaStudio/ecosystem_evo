@@ -40,7 +40,10 @@ def _find_colony_reproduce_action(queen):
     for action_def in mind.action_defs:
         if action_def.get("name") == "ColonyReproduceAction":
             cls = ACTION_BY_NAME.get("ColonyReproduceAction", ColonyReproduceAction)
-            return cls(**action_def.get("params", {}))
+            return cls.from_config(
+                action_def.get("params", {}),
+                source=f"queen/{action_def.get('name')}",
+            )
     return None
 
 

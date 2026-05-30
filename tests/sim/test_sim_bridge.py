@@ -14,6 +14,7 @@ from src.sim.utils.caste_helpers import creature_matches_colony_caste, list_colo
 from src.sim.entities.creature_factory import CreatureFactory
 from src.sim.shelter.state import is_creature_sheltered
 from src.sim.systems.world import World
+from tests.sim.world_fixtures import colony_settings
 
 
 def _world(**overrides) -> World:
@@ -23,6 +24,7 @@ def _world(**overrides) -> World:
         "world_height": 800,
         "initial_entities": {},
         "population_limits": {"red_ant": 20, "red_ant_queen": 3, "Spider": 10},
+        "colony": colony_settings(),
     }
     data.update(overrides)
     return World.from_json(data)
@@ -40,11 +42,11 @@ def _colony_world(**overrides) -> World:
             "red_ant_vanguard": 10,
             "red_ant_queen": 3,
         },
-        "colony": {
-            "faction_species": {
+        "colony": colony_settings(
+            faction_species={
                 "red_ant": ["red_ant", "red_ant_soldier", "red_ant_vanguard"],
             },
-        },
+        ),
     }
     data.update(overrides)
     return World.from_json(data)
@@ -146,12 +148,12 @@ class TestColonyCasteMind(unittest.TestCase):
                 "world_height": 800,
                 "initial_entities": {},
                 "population_limits": {"red_ant": 10, "blue_ant": 10},
-                "colony": {
-                    "faction_species": {
+                "colony": colony_settings(
+                    faction_species={
                         "red_ant": ["red_ant"],
                         "blue_ant": ["blue_ant"],
                     },
-                },
+                ),
             }
         )
         bridge = SimBridge(world)

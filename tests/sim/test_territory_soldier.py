@@ -12,6 +12,7 @@ from src.sim.utils.creature_helpers import (
     needs_self_feed,
 )
 from src.sim.utils.position_helpers import entity_xy
+from tests.sim.world_fixtures import colony_settings
 
 
 def _colony_world() -> World:
@@ -30,6 +31,7 @@ def _colony_world() -> World:
                 "yellow_ant_soldier": 10,
                 "Spider": 10,
             },
+            "colony": colony_settings(),
         }
     )
 
@@ -159,7 +161,7 @@ class TestTerritoryAndCastes(unittest.TestCase):
         world.add_creature(soldier)
 
         nest = world.nest_system.get_creature_nest(soldier)
-        territory_r = float(worker.species.colony_data.get("territory_radius", 180))
+        territory_r = float(world.colony_profiles["red_ant"]["territory_radius"])
         vision = soldier.get_current_vision()
         sx, sy = entity_xy(soldier)
         min_outside_x = nest.x + territory_r + 5

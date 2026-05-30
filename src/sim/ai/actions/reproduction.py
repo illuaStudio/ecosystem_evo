@@ -130,22 +130,14 @@ class ColonyReproduceAction(ReproductionAction):
     def _min_food_reserve(self, creature) -> float:
         """最低備蓄は world.json colony.min_food_reserve（巣穴設置と共通）。"""
         world = getattr(creature, "world", None)
-        if world is not None:
-            from src.sim.utils.colony_config_helpers import get_min_food_reserve
+        if world is None:
+            raise RuntimeError("ColonyReproduceAction: world が未設定です")
+        from src.sim.utils.colony_config_helpers import get_min_food_reserve
 
-            return get_min_food_reserve(world)
-        return 72.0
+        return get_min_food_reserve(world)
 
     def _member_species(self) -> list[str]:
-        explicit = self.params.get("member_species") or []
-        if explicit:
-            return [str(s) for s in explicit]
-        names: list[str] = []
-        for entry in self.params.get("offspring") or []:
-            sp = entry.get("species")
-            if sp and sp not in ("__owner__", "") and sp not in names:
-                names.append(str(sp))
-        return names
+        return [str(s) for s in self.params["member_species"]]
 
     def _pick_offspring_species(self, nest) -> str | None:
         entries = self.params.get("offspring") or []

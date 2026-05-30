@@ -8,6 +8,7 @@ from src.sim.utils.creature_helpers import (
     is_point_in_nest_territory,
     resolve_colony_id,
 )
+from tests.sim.world_fixtures import colony_settings
 
 
 def _colony_world(**overrides) -> World:
@@ -26,7 +27,7 @@ def _colony_world(**overrides) -> World:
             "hole_food_cost": 250,
             "max_holes": 8,
             "min_hole_spacing": 120,
-            "min_food_reserve": 72,
+            **colony_settings(),
         },
     }
     data.update(overrides)

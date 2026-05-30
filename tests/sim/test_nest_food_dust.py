@@ -21,7 +21,7 @@ class TestNestFoodCleanup(unittest.TestCase):
         self.assertTrue(nest_has_usable_food(ant))
         self.assertGreater(FeedAtNestAction().calculate_utility(ant), 0.0)
 
-    def test_feed_clears_sub_ratio_remainder(self):
+    def test_feed_clears_reserve_in_steps(self):
         world = World()
         factory = CreatureFactory()
         ant = factory.create("red_ant", world=world, x=120, y=120)
@@ -32,7 +32,8 @@ class TestNestFoodCleanup(unittest.TestCase):
         nest.max_food = 5000.0
 
         self.assertTrue(nest_has_usable_food(ant))
-        world.nest_system.feed_creature(ant, bite_gain=1.15, max_take_ratio=0.14)
+        while nest.stored_food > 0 and ant.satiety < ant.max_satiety:
+            world.nest_system.feed_creature(ant, bite_gain=1.15, feed_per_tick=11.0)
         self.assertEqual(nest.stored_food, 0.0)
 
     def test_no_dust_flush_on_update(self):

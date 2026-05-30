@@ -15,6 +15,16 @@ from src.sim.utils.creature_helpers import (
 from src.config import config
 from src.sim.utils.creature_helpers import distance_to_point
 from src.sim.utils.position_helpers import entity_xy
+from src.sim.utils.colony_config_helpers import get_colony_profile, get_min_food_reserve
+from tests.sim.world_fixtures import colony_settings
+
+
+def _repro_food_cost(params: dict) -> float:
+    return float(params["food_cost"])
+
+
+def _repro_member_species(params: dict) -> list[str]:
+    return [str(s) for s in params["member_species"]]
 
 
 class TestAntNest(unittest.TestCase):
@@ -27,6 +37,7 @@ class TestAntNest(unittest.TestCase):
                 "world_height": 3000,
                 "initial_entities": {},
                 "population_limits": {"red_ant": 60, "blue_ant": 60},
+                "colony": colony_settings(),
             }
         )
 
@@ -99,7 +110,7 @@ class TestAntNest(unittest.TestCase):
 
     def test_new_nest_gets_initial_stored_food_from_colony_cfg(self):
         world = World.from_json(
-            {"name": "Test", "world_width": 1000, "world_height": 1000}
+            {"name": "Test", "world_width": 1000, "world_height": 1000, "colony": colony_settings()}
         )
         factory = CreatureFactory()
         ant = factory.create("red_ant", world=world, x=100, y=100)
@@ -118,7 +129,7 @@ class TestAntNest(unittest.TestCase):
 
     def test_initial_stored_food_clamped_to_max_food(self):
         world = World.from_json(
-            {"name": "Test", "world_width": 1000, "world_height": 1000}
+            {"name": "Test", "world_width": 1000, "world_height": 1000, "colony": colony_settings()}
         )
         factory = CreatureFactory()
         ant = factory.create("red_ant", world=world, x=100, y=100)
@@ -135,7 +146,7 @@ class TestAntNest(unittest.TestCase):
 
     def test_joining_existing_nest_does_not_reset_stored_food(self):
         world = World.from_json(
-            {"name": "Test", "world_width": 1000, "world_height": 1000}
+            {"name": "Test", "world_width": 1000, "world_height": 1000, "colony": colony_settings()}
         )
         factory = CreatureFactory()
         first = factory.create("red_ant", world=world, x=300, y=300)
@@ -209,9 +220,7 @@ class TestAntNest(unittest.TestCase):
         preds = self._spawn_predators(world, 1)
         nest = world.nest_system.get_creature_nest(preds[0])
         reserve = nest.max_food * float(
-            config.get_species("red_ant").get("colony", {}).get(
-                "food_leak_reserve_ratio", 0.15
-            )
+            get_colony_profile(world, "red_ant")["food_leak_reserve_ratio"]
         )
         nest.stored_food = reserve + 500.0
         food_before = nest.stored_food
@@ -268,14 +277,14 @@ class TestAntNest(unittest.TestCase):
         world = self._empty_world()
         queen, nest, _ = self._spawn_colony(world, workers=0)
         params = self._reproduce_params()
-        cost = float(params["food_cost"])
-        from src.sim.utils.colony_config_helpers import get_min_food_reserve
+        cost = _repro_food_cost(params)
+        from src.sim.utils.colony_config_helpers import get_colony_profile, get_min_food_reserve
 
         reserve = get_min_food_reserve(world)
 
         nest.stored_food = reserve + cost + 10
         members_before = world.nest_system.count_colony_members(
-            nest.id, params["member_species"]
+            nest.id, _repro_member_species(params)
         )
         food_before = nest.stored_food
 
@@ -291,7 +300,7 @@ class TestAntNest(unittest.TestCase):
         self.assertTrue(action.execute(queen))
 
         self.assertEqual(
-            world.nest_system.count_colony_members(nest.id, params["member_species"]),
+            world.nest_system.count_colony_members(nest.id, _repro_member_species(params)),
             members_before + 1,
         )
         self.assertAlmostEqual(nest.stored_food, food_before - cost)
@@ -312,8 +321,8 @@ class TestAntNest(unittest.TestCase):
         world = self._empty_world()
         queen, nest, _ = self._spawn_colony(world, workers=0)
         params = self._reproduce_params()
-        cost = float(params["food_cost"])
-        from src.sim.utils.colony_config_helpers import get_min_food_reserve
+        cost = _repro_food_cost(params)
+        from src.sim.utils.colony_config_helpers import get_colony_profile, get_min_food_reserve
 
         reserve = get_min_food_reserve(world)
 
@@ -416,8 +425,8 @@ class TestAntNest(unittest.TestCase):
         world = self._empty_world()
         queen, nest, _ = self._spawn_colony(world, workers=0)
         params = self._reproduce_params()
-        cost = float(params["food_cost"])
-        from src.sim.utils.colony_config_helpers import get_min_food_reserve
+        cost = _repro_food_cost(params)
+        from src.sim.utils.colony_config_helpers import get_colony_profile, get_min_food_reserve
 
         reserve = get_min_food_reserve(world)
         nest.stored_food = reserve + cost + 50
@@ -432,11 +441,11 @@ class TestAntNest(unittest.TestCase):
 
         action = ColonyReproduceAction(**{**params, "spawn_cooldown": 0})
         members_before = world.nest_system.count_colony_members(
-            nest.id, params["member_species"]
+            nest.id, _repro_member_species(params)
         )
         self.assertTrue(action.execute(queen))
         self.assertEqual(
-            world.nest_system.count_colony_members(nest.id, params["member_species"]),
+            world.nest_system.count_colony_members(nest.id, _repro_member_species(params)),
             members_before + 1,
         )
 
@@ -456,9 +465,9 @@ class TestAntNest(unittest.TestCase):
         world = self._empty_world()
         queen, nest, _ = self._spawn_colony(world, workers=0)
         params = self._reproduce_params()
-        from src.sim.utils.colony_config_helpers import get_min_food_reserve
+        from src.sim.utils.colony_config_helpers import get_colony_profile, get_min_food_reserve
 
-        needed = get_min_food_reserve(world) + float(params["food_cost"])
+        needed = get_min_food_reserve(world) + _repro_food_cost(params)
 
         from src.sim.ai.actions import ColonyReproduceAction
 
