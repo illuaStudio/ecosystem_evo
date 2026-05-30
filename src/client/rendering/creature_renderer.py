@@ -24,10 +24,18 @@ class CreatureRenderer:
     """生物描画クラス（見えやすく強化）"""
 
     @staticmethod
-    def draw(creature, screen, camera, *, is_selected: bool = False):
+    def draw(
+        creature,
+        screen,
+        camera,
+        *,
+        is_selected: bool = False,
+        show_sheltered_debug: bool = False,
+    ):
         from src.sim.shelter.state import is_creature_sheltered
 
-        if is_creature_sheltered(creature):
+        sheltered = is_creature_sheltered(creature)
+        if sheltered and not show_sheltered_debug:
             return
 
         if not creature.alive and creature.remaining_biomass <= 0:
@@ -46,6 +54,8 @@ class CreatureRenderer:
 
         if is_carcass:
             color = tuple(max(0, c // 2) for c in color)
+        elif sheltered and show_sheltered_debug:
+            color = tuple(min(255, max(0, c // 2 + 50)) for c in color)
 
         if hasattr(creature, "last_pos"):
             lx = int(creature.last_pos[0] - camera.x)
@@ -55,7 +65,10 @@ class CreatureRenderer:
                 pygame.draw.line(screen, trail_color, (lx, ly), (sx, sy), max(2, size // 2))
 
         pygame.draw.circle(screen, color, (sx, sy), size + 2)
-        pygame.draw.circle(screen, (255, 255, 255), (sx, sy), size + 2, 2)
+        outline = (100, 200, 255) if sheltered and show_sheltered_debug else (255, 255, 255)
+        pygame.draw.circle(screen, outline, (sx, sy), size + 2, 2)
+        if sheltered and show_sheltered_debug:
+            pygame.draw.circle(screen, (100, 200, 255), (sx, sy), size + 10, 1)
 
         if is_selected:
             pygame.draw.circle(screen, (255, 240, 120), (sx, sy), size + 12, 2)

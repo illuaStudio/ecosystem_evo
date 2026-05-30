@@ -47,16 +47,15 @@ class MetabolismComponent:
 
     def _apply_metabolism(self, dt: float = 1.0) -> None:
         owner = self.owner
-        owner.satiety -= owner.traits["metabolism_rate"] * float(dt)
+        dt = float(dt)
+        owner.satiety = max(
+            0.0, owner.satiety - owner.traits["metabolism_per_tick"] * dt
+        )
 
-        if owner.satiety < 0:
-            from src.config import config
-
-            default_mult = float(config.sim["starvation_hp_mult"])
-            mult = float(
-                owner.traits["starvation_hp_mult"]
-                if "starvation_hp_mult" in owner.traits
-                else default_mult
-            )
-            owner.hp += owner.satiety * mult
-            owner.satiety = 0
+        if owner.satiety <= 0:
+            if "starvation_hp_per_tick" not in owner.traits:
+                species_name = getattr(getattr(owner, "species", None), "name", "?")
+                raise KeyError(
+                    f"species {species_name}: traits.starvation_hp_per_tick required"
+                )
+            owner.hp -= float(owner.traits["starvation_hp_per_tick"]) * dt

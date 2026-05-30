@@ -5,7 +5,7 @@
   "camera_pan_extra": 300,
   "ui_font_size": 24,
   "fullscreen": false,
-  "debug_hud": false,
+  "debug_hud": true,
   "debug_sim_events": false,
   "debug_game_messages": false
 }

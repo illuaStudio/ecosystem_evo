@@ -18,11 +18,12 @@
     "base_vision": 70,
     "max_hp": 60.0,
     "max_satiety": 45.0,
-    "metabolism_rate": 0.55,
+    "metabolism_per_tick": 0.55,
     "corpse_decompose_rate": 0.002,
     "field_immunities": [
       "poison"
-    ]
+    ],
+    "starvation_hp_per_tick": 0.066
   },
   "trait_variance": {
     "base_speed": {
@@ -42,7 +43,7 @@
       "min": 0.0025,
       "max": 0.0055
     },
-    "metabolism_rate": {
+    "metabolism_per_tick": {
       "distribution": "normal",
       "std": 0.08,
       "min": 0.4,

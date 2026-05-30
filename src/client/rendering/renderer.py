@@ -60,6 +60,7 @@ class Renderer:
         show_debug=False,
         map_view_mode="biome",
         show_territory=False,
+        show_sheltered=False,
         user_message: str = "",
         message_feed=None,
         player_colony_id: str = "",
@@ -67,6 +68,7 @@ class Renderer:
         species_visibility: SpeciesVisibilityManager | None = None,
     ):
         self._show_territory_hud = show_territory
+        self._show_sheltered_hud = show_sheltered
         # 毎フレーム必ず全画面クリア（未描画領域に UI が残るのを防ぐ）
         self.screen.fill(self.UI_MARGIN_COLOR)
 
@@ -100,7 +102,7 @@ class Renderer:
         for c in creatures:
             if species_visibility is not None and not species_visibility.is_creature_visible(c):
                 continue
-            if is_creature_sheltered(c):
+            if is_creature_sheltered(c) and not show_sheltered:
                 continue
             CreatureRenderer.draw(
                 c,
@@ -109,12 +111,15 @@ class Renderer:
                 is_selected=(
                     selected_creature is not None and c is selected_creature
                 ),
+                show_sheltered_debug=show_sheltered,
             )
 
         if (
             world is not None
             and selected_creature is not None
-            and not is_creature_sheltered(selected_creature)
+            and (
+                not is_creature_sheltered(selected_creature) or show_sheltered
+            )
             and (
                 species_visibility is None
                 or species_visibility.is_creature_visible(selected_creature)
@@ -145,6 +150,8 @@ class Renderer:
                 f"速度: {sc.get_current_speed():.2f}",
                 f"現在のAction: {action_name}",
             ]
+            if is_creature_sheltered(sc):
+                texts.insert(1, "状態: 巣内")
             life_line = format_life_stage_line(sc)
             if life_line:
                 texts.insert(4, life_line)
@@ -315,10 +322,12 @@ class Renderer:
             mult = world.biome.avg_mana_regen_multiplier
             view_name = "マナ密度" if map_view_mode == "mana" else "バイオーム"
             territory_on = getattr(self, "_show_territory_hud", False)
+            sheltered_on = getattr(self, "_show_sheltered_hud", False)
             territory_label = "  テリトリー: ON" if territory_on else ""
+            sheltered_label = "  巣内: ON" if sheltered_on else ""
             mana_label = (
                 f"    Mana: {ml.mana:.0f}/{ml.max_mana:.0f}  (回復×{mult:.2f})"
-                f"    表示: {view_name}{territory_label}"
+                f"    表示: {view_name}{territory_label}{sheltered_label}"
             )
         visible_count = len(creatures)
         if species_visibility is not None:
@@ -349,7 +358,7 @@ class Renderer:
 
         self.screen.blit(
             self.small_font.render(
-                "Space:停止/再開  R:リセット  M:表示切替  T:テリトリー  1〜5:生態表示  右クリ:個体/巣  右下:表示パネル",
+                "Space:停止/再開  R:リセット  M:表示切替  T:テリトリー  I:巣内表示  1〜5:生態表示  右クリ:個体/巣  右下:表示パネル",
                 True,
                 (160, 200, 255),
             ),
@@ -581,14 +590,13 @@ class Renderer:
 
     def _draw_nest_detail_panel(self, nest, world, y: int = 130) -> int:
         """選択中の巣の詳細 HUD。戻り値は次の描画 Y。"""
-        from src.config import config
+        from src.sim.utils.colony_config_helpers import get_colony_profile
 
         ns = world.nest_system
         total = ns.total_member_count(nest.id)
-        leak_rate = float(
-            (config.get_species(nest.owner_species) or {})
-            .get("colony", {})
-            .get("food_leak_rate", 0)
+
+        leak_per_tick = float(
+            get_colony_profile(world, nest.colony_id).get("food_leak_per_tick", 0)
         )
 
         self.screen.blit(
@@ -609,8 +617,8 @@ class Renderer:
             f"備蓄率: {nest.food_ratio * 100:.1f}%",
             f"コロニー: {total} 匹",
         ]
-        if leak_rate > 0:
-            texts.append(f"  漏洩率: {leak_rate:.5f}/tick（余剰→マナ）")
+        if leak_per_tick > 0:
+            texts.append(f"  漏洩: {leak_per_tick:.2f}/tick（余剰→マナ）")
 
         for text in texts:
             color = (255, 255, 255)

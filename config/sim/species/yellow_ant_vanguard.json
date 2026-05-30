@@ -17,10 +17,11 @@
     "base_vision": 280,
     "max_hp": 150.0,
     "max_satiety": 100.0,
-    "metabolism_rate": 0.07,
+    "metabolism_per_tick": 0.07,
     "satiety_hungry_below": 0.2,
     "satiety_full_above": 0.85,
-    "corpse_decompose_rate": 0.01
+    "corpse_decompose_rate": 0.01,
+    "starvation_hp_per_tick": 0.0084
   },
   "mind": {
     "type": "utility",
@@ -29,15 +30,11 @@
         "name": "FeedAtNestAction",
         "weight": 7.0,
         "params": {
-          "bite_gain": 1.1,
           "feed_radius": 42,
           "approach_speed_multiplier": 1.15,
-          "min_usable_food_ratio": 0.01,
-          "min_usable_satiety_gain": 1.0,
           "scavenge_species": null,
           "scavenge_contact_padding": 10.0,
-          "approach_when_hungry": true,
-          "feed_per_tick": 10
+          "approach_when_hungry": true
         }
       },
       {
@@ -80,5 +77,9 @@
         }
       }
     ]
+  },
+  "nest_feed": {
+    "feed_per_tick": 10,
+    "bite_gain": 1.1
   }
 }

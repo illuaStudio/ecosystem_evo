@@ -20,11 +20,10 @@
     "base_vision": 180.0,
     "max_hp": 100.0,
     "max_satiety": 200.0,
-    "metabolism_rate": 0.1,
+    "metabolism_per_tick": 0.05,
     "satiety_hungry_below": 0.2,
     "satiety_full_above": 0.9,
-    "hp_regen_mult": 0.0,
-    "starvation_hp_mult": 0.3
+    "starvation_hp_per_tick": 0.015
   },
   "mind": {
     "type": "utility",
@@ -49,15 +48,11 @@
         "weight": 5.0,
         "description": "巣穴内で備蓄から食事（初期女王）",
         "params": {
-          "bite_gain": 1.15,
           "feed_radius": 38.0,
           "approach_speed_multiplier": 0.95,
-          "min_usable_food_ratio": 0.01,
-          "min_usable_satiety_gain": 1.0,
           "scavenge_species": null,
           "scavenge_contact_padding": 10.0,
-          "approach_when_hungry": false,
-          "feed_per_tick": 6.0
+          "approach_when_hungry": false
         }
       },
       {
@@ -70,5 +65,9 @@
         }
       }
     ]
+  },
+  "nest_feed": {
+    "feed_per_tick": 0.5,
+    "bite_gain": 1.15
   }
 }

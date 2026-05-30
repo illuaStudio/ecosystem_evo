@@ -37,6 +37,7 @@ class GameApp:
         self.debug_game_messages = config.client.get("debug_game_messages", False)
         self.map_view_mode = "biome"
         self.show_territory = False
+        self.show_sheltered = False
         self.user_message = ""
         self.message_feed = GameMessageFeed()
         self.game_controller = GameController()
@@ -168,7 +169,7 @@ class GameApp:
         sc = self.selected_creature
         if sc is None:
             return
-        if is_creature_sheltered(sc):
+        if is_creature_sheltered(sc) and not self.show_sheltered:
             self.selected_creature = None
             return
         if not self.species_visibility.is_creature_visible(sc):
@@ -186,6 +187,7 @@ class GameApp:
             self.show_debug,
             self.map_view_mode,
             self.show_territory,
+            self.show_sheltered,
             user_message=getattr(self, "user_message", ""),
             message_feed=getattr(self, "message_feed", None),
             player_colony_id=self.game_controller.state.player_colony_id,

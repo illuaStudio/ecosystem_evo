@@ -68,7 +68,9 @@ class InputHandler:
         best = None
         best_dist = float("inf")
         for c in self.engine.world.creatures:
-            if is_creature_sheltered(c):
+            if is_creature_sheltered(c) and not getattr(
+                self.engine, "show_sheltered", False
+            ):
                 continue
             if vis is not None and not vis.is_creature_visible(c):
                 continue
@@ -109,6 +111,10 @@ class InputHandler:
         elif event.key == pygame.K_t:
             self.engine.show_territory = not getattr(
                 self.engine, "show_territory", False
+            )
+        elif event.key == pygame.K_i:
+            self.engine.show_sheltered = not getattr(
+                self.engine, "show_sheltered", False
             )
         elif getattr(self.engine, "species_visibility", None) is not None:
             if self.engine.species_visibility.toggle_group_by_hotkey(event.key):

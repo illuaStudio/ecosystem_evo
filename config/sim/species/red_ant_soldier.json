@@ -17,10 +17,11 @@
     "base_vision": 220.0,
     "max_hp": 160.0,
     "max_satiety": 100.0,
-    "metabolism_rate": 0.06,
+    "metabolism_per_tick": 0.06,
     "satiety_hungry_below": 0.15,
     "satiety_full_above": 0.85,
-    "corpse_decompose_rate": 0.01
+    "corpse_decompose_rate": 0.01,
+    "starvation_hp_per_tick": 0.0072
   },
   "mind": {
     "type": "utility",
@@ -29,15 +30,11 @@
         "name": "FeedAtNestAction",
         "weight": 8.5,
         "params": {
-          "bite_gain": 1.15,
           "feed_radius": 38.0,
           "approach_speed_multiplier": 1.1,
-          "min_usable_food_ratio": 0.01,
-          "min_usable_satiety_gain": 1.0,
           "scavenge_species": null,
           "scavenge_contact_padding": 10.0,
-          "approach_when_hungry": true,
-          "feed_per_tick": 11.0
+          "approach_when_hungry": true
         }
       },
       {
@@ -84,8 +81,6 @@
           "pickup_on_kill": false,
           "bite_gain": 1.2,
           "colony_hoard_strength": 0.8,
-          "min_usable_food_ratio": 0.01,
-          "min_usable_satiety_gain": 1.0,
           "territory_only": false,
           "territory_threat": true,
           "territory_approach_margin": 90.0,
@@ -106,5 +101,9 @@
         }
       }
     ]
+  },
+  "nest_feed": {
+    "feed_per_tick": 0.5,
+    "bite_gain": 1.15
   }
 }

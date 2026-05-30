@@ -11,7 +11,7 @@ ESSENTIAL_TRAIT_KEYS = frozenset({
     "base_vision",
     "max_hp",
     "max_satiety",
-    "metabolism_rate",
+    "metabolism_per_tick",
     "satiety_hungry_below",
     "satiety_full_above",
 })
@@ -20,8 +20,7 @@ ESSENTIAL_TRAIT_KEYS = frozenset({
 OPTIONAL_TRAIT_KEYS = frozenset({
     "corpse_decompose_rate",
     "poison_resist",
-    "hp_regen_mult",
-    "starvation_hp_mult",
+    "starvation_hp_per_tick",
     "field_immunities",
 })
 
@@ -33,7 +32,7 @@ TRAIT_DEFAULTS = {
     "base_vision": 120.0,
     "max_hp": 100.0,
     "max_satiety": 80.0,
-    "metabolism_rate": 0.5,
+    "metabolism_per_tick": 0.5,
     "satiety_hungry_below": 0.15,
     "satiety_full_above": 0.85,
 }
@@ -43,7 +42,7 @@ INDIVIDUAL_TRAIT_DISPLAY_ORDER = (
     "base_speed",
     "base_vision",
     "growth_rate",
-    "metabolism_rate",
+    "metabolism_per_tick",
     "max_hp",
     "max_satiety",
 )
@@ -132,7 +131,7 @@ def _default_variance_spec(key: str, base: float) -> dict | None:
         lo = max(0.01, lo)
     elif key in ("max_hp", "max_satiety", "base_vision"):
         lo = max(0.0, lo)
-    elif key == "metabolism_rate":
+    elif key == "metabolism_per_tick":
         lo = max(0.01, lo)
     elif key == "growth_rate":
         lo = max(0.0, lo)
@@ -184,6 +183,21 @@ def _sample_trait_value(base: float, spec: dict, rng: random.Random) -> float:
     return value
 
 
+NEST_FEED_REQUIRED_KEYS = ("feed_per_tick", "bite_gain")
+
+
+def normalize_nest_feed(raw: dict | None) -> dict[str, float] | None:
+    """種 JSON の nest_feed を正規化。ブロックがある場合は必須キーを要求。"""
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        raise TypeError("nest_feed must be an object")
+    missing = [k for k in NEST_FEED_REQUIRED_KEYS if k not in raw]
+    if missing:
+        raise KeyError(f"nest_feed missing required keys: {', '.join(missing)}")
+    return {k: float(raw[k]) for k in NEST_FEED_REQUIRED_KEYS}
+
+
 def clamp_traits(traits: dict) -> dict:
     """サンプリング後の traits に物理制約を適用。"""
     result = dict(traits)
@@ -191,7 +205,7 @@ def clamp_traits(traits: dict) -> dict:
         result["max_size"] = max(float(result["base_size"]), float(result["max_size"]))
     for key in (
         "growth_rate",
-        "metabolism_rate",
+        "metabolism_per_tick",
         "base_vision",
         "max_hp",
         "max_satiety",
@@ -239,5 +253,6 @@ class Species:
         self.life_cycle = normalize_life_cycle(data.get("life_cycle", {}))
         self.mind_data = data.get("mind", {"type": "priority", "actions": []})
         self.colony_data = data.get("colony", {})
+        self.nest_feed = normalize_nest_feed(data.get("nest_feed"))
         self.inventory_data = data.get("inventory", {})
         self.description = data.get("description", "")

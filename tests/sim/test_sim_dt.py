@@ -30,7 +30,7 @@ class TestSimDt(unittest.TestCase):
     def test_metabolism_scales_with_dt(self):
         world = World()
         creature = world.creatures[0]
-        metabolism = creature.traits["metabolism_rate"]
+        metabolism = creature.traits["metabolism_per_tick"]
 
         creature.satiety = 20.0
         creature.metabolism._apply_metabolism(1.0)

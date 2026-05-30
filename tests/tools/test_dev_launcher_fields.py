@@ -8,9 +8,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
 
 from dev_launcher_fields import (
     FieldSpec,
+    SimRateContext,
     _get_nested,
     _set_nested,
     coerce_value,
+    format_live_rate_preview,
     read_field_value,
     write_field_value,
 )
@@ -62,10 +64,10 @@ class TestDevLauncherFields(unittest.TestCase):
         self.assertEqual(format_config_key(queen_hp), "traits.max_hp")
         self.assertIn("traits.max_hp", format_field_reference(queen_hp))
 
-        feed = next(s for s in FIELD_SPECS if s.field_id == "queen_feed_per_tick")
+        feed = next(s for s in FIELD_SPECS if s.field_id == "queen_nest_feed_per_tick")
         key = format_config_key(feed)
-        self.assertIn("feed_per_tick", key)
-        self.assertIn("queen_feed_and_workers", key)
+        self.assertEqual(key, "nest_feed.feed_per_tick")
+        self.assertIn("nest_feed.feed_per_tick", format_field_reference(feed))
 
         inv = next(s for s in FIELD_SPECS if s.field_id == "worker_inv_slot_count")
         self.assertEqual(format_config_key(inv), "inventory.slot_count")
@@ -77,6 +79,7 @@ class TestDevLauncherFields(unittest.TestCase):
             ai_subtabs_for_category,
             fields_for_ai_subtab,
             fields_for_category_main,
+            fields_for_main_section,
             has_nested_ai_tabs,
             launcher_tabs,
         )
@@ -88,22 +91,39 @@ class TestDevLauncherFields(unittest.TestCase):
         queen_main = fields_for_category_main("女王")
         queen_hp = next(s for s in FIELD_SPECS if s.field_id == "queen_max_hp")
         self.assertIn(queen_hp, queen_main)
+        self.assertIn(queen_hp, fields_for_main_section("女王", "個体"))
 
         worker_feed = next(
-            s
-            for s in FIELD_SPECS
-            if s.config_relpath == "sim/species/red_ant.json"
-            and s.action_name == "FeedAtNestAction"
-            and s.param_name == "feed_per_tick"
+            s for s in FIELD_SPECS if s.field_id == "worker_nest_feed_per_tick"
         )
-        self.assertNotIn(worker_feed, queen_main)
-        self.assertEqual(ai_subtab_key(worker_feed), "巣食事")
-        self.assertIn("巣食事", ai_subtabs_for_category("働きアリ"))
-        self.assertIn(worker_feed, fields_for_ai_subtab("働きアリ", "巣食事"))
+        self.assertIn(worker_feed, fields_for_main_section("働きアリ", "食事"))
+        self.assertNotIn(
+            worker_feed,
+            fields_for_ai_subtab("働きアリ", "食事"),
+        )
 
         queen_subtabs = ai_subtabs_for_category("女王")
-        self.assertIn("巣食事", queen_subtabs)
-        self.assertTrue(any("解禁前" in t for t in queen_subtabs))
+        self.assertIn("食事", queen_subtabs)
+
+    def test_main_sections_group_nest_fields(self):
+        from dev_launcher_fields import fields_for_main_section, main_sections_for_category
+
+        queen_sections = main_sections_for_category("女王")
+        self.assertLess(
+            queen_sections.index("個体"),
+            queen_sections.index("食事"),
+        )
+        queen_body = fields_for_main_section("女王", "個体")
+        queen_feed = fields_for_main_section("女王", "食事")
+        queen_nest = fields_for_main_section("女王", "巣・コロニー")
+        self.assertTrue(any(s.field_id == "queen_max_hp" for s in queen_body))
+        self.assertTrue(any(s.field_id == "queen_metabolism" for s in queen_feed))
+        self.assertFalse(any(s.field_id == "queen_nest_food_init" for s in queen_body))
+        self.assertTrue(any(s.field_id == "queen_nest_food_init" for s in queen_nest))
+
+        world_sections = main_sections_for_category("ワールド")
+        self.assertIn("開始時の個体", world_sections)
+        self.assertIn("赤コロニー（巣）", world_sections)
 
     def test_all_scanned_params_covered(self):
         from dev_launcher_fields import (
@@ -166,12 +186,12 @@ class TestDevLauncherFields(unittest.TestCase):
         value = read_field_value(spec)
         self.assertEqual(value, 0.012)
 
-    def test_starvation_mult_read(self):
+    def test_worker_starvation_hp_read(self):
         from dev_launcher_fields import FIELD_SPECS
 
-        spec = next(s for s in FIELD_SPECS if s.field_id == "sim_starvation_hp_mult")
+        spec = next(s for s in FIELD_SPECS if s.field_id == "worker_starvation_hp_per_tick")
         value = read_field_value(spec)
-        self.assertEqual(value, 0.12)
+        self.assertAlmostEqual(value, 0.0012)
 
     def test_worker_carry_speed_ref_read(self):
         from dev_launcher_fields import FIELD_SPECS
@@ -245,6 +265,42 @@ class TestDevLauncherFields(unittest.TestCase):
         spec = next(s for s in FIELD_SPECS if s.field_id == "soldier_combat_attack")
         value = read_field_value(spec)
         self.assertEqual(value, 1.45)
+
+
+class TestLiveRatePreview(unittest.TestCase):
+    def setUp(self):
+        from dev_launcher_fields import FIELD_SPECS
+
+        self.ctx = SimRateContext(fps=60, sim_ticks_per_step=10, simulation_speed=1.0)
+        self.worker_metabolism = next(
+            s for s in FIELD_SPECS if s.field_id == "worker_metabolism"
+        )
+        self.worker_feed = next(
+            s for s in FIELD_SPECS if s.field_id == "worker_nest_feed_per_tick"
+        )
+
+    def test_metabolism_preview_per_second(self):
+        text = format_live_rate_preview(self.worker_metabolism, 0.01, self.ctx)
+        self.assertIn("1 秒あたり", text)
+        self.assertIn("0.6000", text)
+
+    def test_feed_preview_uses_sim_steps_not_dt(self):
+        text = format_live_rate_preview(self.worker_feed, 0.5, self.ctx)
+        self.assertIn("1 秒あたり", text)
+        self.assertIn("3.00", text)
+
+    def test_feed_preview_includes_bite_gain_from_get_field(self):
+        def get_field(field_id: str) -> float | None:
+            values = {
+                "worker_nest_feed_bite_gain": 1.15,
+                "worker_max_satiety": 100.0,
+            }
+            return values.get(field_id)
+
+        text = format_live_rate_preview(
+            self.worker_feed, 0.5, self.ctx, get_field=get_field
+        )
+        self.assertIn("0.5750", text)
 
 
 if __name__ == "__main__":

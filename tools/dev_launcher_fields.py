@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Callable, Literal
 
 PathKey = str | int
 ValueType = Literal["float", "int", "bool"]
@@ -25,6 +25,7 @@ class FieldSpec:
     param_name: str = ""
     profile_id: str = ""
     handler: str = ""
+    section: str = ""
     min_val: float | None = None
     max_val: float | None = None
 
@@ -231,6 +232,197 @@ def format_field_reference(spec: FieldSpec) -> str:
     )
 
 
+@dataclass(frozen=True)
+class SimRateContext:
+    """ゲームループから 1 秒あたりのシミュ進行量を推定する。"""
+
+    fps: float = 60.0
+    sim_ticks_per_step: float = 10.0
+    simulation_speed: float = 1.0
+
+    @property
+    def sim_dt(self) -> float:
+        return self.sim_ticks_per_step * self.simulation_speed
+
+    @property
+    def sim_steps_per_second(self) -> float:
+        if self.sim_ticks_per_step <= 0:
+            return 0.0
+        return self.fps / self.sim_ticks_per_step
+
+    @property
+    def dt_per_real_second(self) -> float:
+        return self.sim_dt * self.sim_steps_per_second
+
+
+def default_sim_rate_context() -> SimRateContext:
+    """保存済み設定からタイミング前提を読む（ウィジェット未使用時）。"""
+    fps = 60.0
+    ticks = 10.0
+    speed = 1.0
+    try:
+        fps = float(load_json("client/display.json").get("fps", 60))
+    except (OSError, json.JSONDecodeError, TypeError, ValueError):
+        pass
+    try:
+        engine = load_json("sim/engine.json")
+        ticks = float(engine.get("sim_ticks_per_step", 10))
+        speed = float(engine.get("simulation_speed", 1.0))
+    except (OSError, json.JSONDecodeError, TypeError, ValueError):
+        pass
+    return SimRateContext(
+        fps=max(1.0, fps),
+        sim_ticks_per_step=max(1.0, ticks),
+        simulation_speed=max(0.001, speed),
+    )
+
+
+_FIELD_ID_BY_PATH: dict[tuple[str, tuple[PathKey, ...]], str] | None = None
+
+
+def field_id_for_path(relpath: str, path: tuple[PathKey, ...]) -> str | None:
+    global _FIELD_ID_BY_PATH
+    if _FIELD_ID_BY_PATH is None:
+        _FIELD_ID_BY_PATH = {
+            (s.config_relpath, s.json_path): s.field_id
+            for s in FIELD_SPECS
+            if s.json_path
+        }
+    return _FIELD_ID_BY_PATH.get((relpath, path))
+
+
+def _fmt_rate_amount(value: float) -> str:
+    av = abs(value)
+    if av >= 100:
+        return f"{value:.1f}"
+    if av >= 1:
+        return f"{value:.2f}"
+    if av >= 0.01:
+        return f"{value:.4f}"
+    return f"{value:.6g}"
+
+
+_NEST_FEED_ROLE: dict[str, tuple[str, str]] = {
+    "queen": ("queen_nest_feed_bite_gain", "queen_max_satiety"),
+    "worker": ("worker_nest_feed_bite_gain", "worker_max_satiety"),
+    "soldier": ("soldier_nest_feed_bite_gain", "soldier_max_satiety"),
+}
+
+
+def _nest_feed_role(field_id: str) -> str | None:
+    for role in _NEST_FEED_ROLE:
+        if field_id.startswith(f"{role}_"):
+            return role
+    return None
+
+
+def format_live_rate_preview(
+    spec: FieldSpec,
+    value: float,
+    ctx: SimRateContext,
+    *,
+    get_field: Callable[[str], float | None] | None = None,
+) -> str:
+    """入力中の値から 1 ステップ / 1 秒あたりの変化量を説明文にする。"""
+
+    def _read_field(field_id: str, default: float | None = None) -> float | None:
+        if get_field is None:
+            return default
+        try:
+            return get_field(field_id)
+        except (TypeError, ValueError):
+            return default
+
+    lines: list[str] = [
+        "【入力中の値での目安（保存前）】",
+        (
+            f"前提: FPS {ctx.fps:g} / 1ステップ={ctx.sim_ticks_per_step:g} tick"
+            f" / 速度×{ctx.simulation_speed:g}"
+            f" → dt={_fmt_rate_amount(ctx.sim_dt)} / 秒"
+            f" ≈ {_fmt_rate_amount(ctx.sim_steps_per_second)} ステップ"
+        ),
+    ]
+
+    path = spec.json_path
+    if path == ("traits", "metabolism_per_tick"):
+        per_step = value * ctx.sim_dt
+        per_sec = value * ctx.dt_per_real_second
+        lines.extend(
+            [
+                f"1 シミュステップあたり: 満腹度 −{_fmt_rate_amount(per_step)}",
+                f"1 秒あたり: 満腹度 −{_fmt_rate_amount(per_sec)}",
+                "※ 代謝は dt でスケールします（simulation_speed の影響あり）。",
+            ]
+        )
+        return "\n".join(lines)
+
+    if path == ("traits", "starvation_hp_per_tick"):
+        per_step = value * ctx.sim_dt
+        per_sec = value * ctx.dt_per_real_second
+        lines.extend(
+            [
+                f"1 シミュステップあたり（満腹 0）: HP −{_fmt_rate_amount(per_step)}",
+                f"1 秒あたり（満腹 0）: HP −{_fmt_rate_amount(per_sec)}",
+                "※ 飢餓 HP も dt でスケールします。巣で食べ続ければ入りません。",
+            ]
+        )
+        return "\n".join(lines)
+
+    if path == ("nest_feed", "feed_per_tick"):
+        per_step_food = value
+        per_sec_food = value * ctx.sim_steps_per_second
+        lines.extend(
+            [
+                f"1 シミュステップあたり（巣食事中）: 巣食料 −{_fmt_rate_amount(per_step_food)}",
+                f"1 秒あたり: 巣食料 −{_fmt_rate_amount(per_sec_food)}",
+                "※ 巣食事は 1 ステップにつき最大 1 回。dt では増えません。",
+            ]
+        )
+        role = _nest_feed_role(spec.field_id)
+        if role is not None:
+            bite_id, max_sat_id = _NEST_FEED_ROLE[role]
+            bite = _read_field(bite_id)
+            max_sat = _read_field(max_sat_id)
+            if bite is not None:
+                sat_gain = per_step_food * bite
+                lines.append(
+                    f"同時刻の満腹度回復: +{_fmt_rate_amount(sat_gain)} / ステップ"
+                    f"（bite_gain={bite:g}）"
+                )
+                if max_sat is not None:
+                    lines.append(f"最大満腹度 {max_sat:g} まで回復")
+        return "\n".join(lines)
+
+    if path == ("nest_feed", "bite_gain"):
+        role = _nest_feed_role(spec.field_id)
+        if role is not None:
+            feed_id = f"{role}_nest_feed_per_tick"
+            max_sat_id = _NEST_FEED_ROLE[role][1]
+            feed = _read_field(feed_id)
+            max_sat = _read_field(max_sat_id)
+            if feed is not None:
+                sat_gain = feed * value
+                lines.extend(
+                    [
+                        f"1 回の巣食事（食料 {feed:g} 消費）: 満腹度 +{_fmt_rate_amount(sat_gain)}",
+                    ]
+                )
+                if max_sat is not None:
+                    lines.append(f"最大満腹度 {max_sat:g} まで回復")
+                return "\n".join(lines)
+
+    if path == ("sim_ticks_per_step",) or path == ("simulation_speed",) or path == ("fps",):
+        lines.extend(
+            [
+                f"1 秒あたりの dt 合計: {_fmt_rate_amount(ctx.dt_per_real_second)}",
+                f"1 秒あたりのシミュステップ: {_fmt_rate_amount(ctx.sim_steps_per_second)}",
+                "代謝・飢餓 HP は dt 合計に比例、巣食料消費はステップ数に比例します。",
+            ]
+        )
+        return "\n".join(lines)
+
+    return ""
+
 def _spec_lookup_key(spec: FieldSpec) -> tuple:
     if spec.handler:
         return ("handler", spec.config_relpath, spec.handler)
@@ -248,6 +440,21 @@ def _spec_lookup_key(spec: FieldSpec) -> tuple:
 
 
 # (日本語ラベル, 説明, 型, min, max)
+_SPECIES_LABELS: dict[str, str] = {
+    "Amoeba": "アメーバ",
+    "Spider": "クモ",
+    "red_ant": "赤働きアリ",
+    "red_ant_queen": "赤女王",
+    "red_ant_soldier": "赤兵隊アリ",
+    "red_ant_vanguard": "赤ヴァンガード",
+    "blue_ant": "青働きアリ",
+    "blue_ant_soldier": "青兵隊アリ",
+    "blue_ant_vanguard": "青ヴァンガード",
+    "yellow_ant": "黄働きアリ",
+    "yellow_ant_soldier": "黄兵隊アリ",
+    "yellow_ant_vanguard": "黄ヴァンガード",
+}
+
 _PARAM_META: dict[str, tuple[str, str, ValueType, float | None, float | None]] = {
     "angle_range": ("旋回角度", "徘徊・巡回時の方向変更幅（度）。", "float", 5, 180),
     "approach_speed_multiplier": ("接近移動倍率", "巣や獲物へ近づくときの速度倍率。", "float", 0.3, 3.0),
@@ -275,7 +482,7 @@ _PARAM_META: dict[str, tuple[str, str, ValueType, float | None, float | None]] =
     "feed_per_tick": ("1ティックの食料消費", "1ティックで巣備蓄から取る食料量。", "float", 0.01, 50),
     "feed_radius": ("巣食事半径", "巣で食事できる距離（px）。", "float", 10, 80),
     "food_cost": ("産卵食料コスト", "1 匹産むごとに消費する食料。", "float", 5, 300),
-    "food_leak_rate": ("食料漏洩率", "備蓄が一定以上あるときマナへ漏れる割合。", "float", 0, 0.01),
+    "food_leak_per_tick": ("1ティックの食料漏洩", "予約備蓄を超えた余剰があるとき、1シミュ tick でマナへ漏れる食料量。", "float", 0, 50),
     "food_leak_reserve_ratio": ("漏洩開始備蓄率", "この割合以上の備蓄から漏洩が始まる。", "float", 0, 0.5),
     "food_to_mana_ratio": ("食料→マナ変換率", "漏洩・分解でマナに変わる割合。", "float", 0, 1.0),
     "fullscreen": ("フルスクリーン", "フルスクリーン表示。", "bool", None, None),
@@ -287,7 +494,6 @@ _PARAM_META: dict[str, tuple[str, str, ValueType, float | None, float | None]] =
     "hole_food_cost": ("巣穴設置コスト", "巣穴追加に必要な食料。", "float", 10, 2000),
     "hole_max_hp": ("巣穴 HP", "追加巣穴の耐久力。", "float", 10, 500),
     "hp_drain_per_dt": ("毒霧 HP 減少", "毒エリア内の1ティック HP 減少量。", "float", 0, 0.5),
-    "hp_regen_mult": ("HP 回復倍率", "環境 HP 回復に掛ける倍率。", "float", 0, 3.0),
     "hp_regen_per_dt": ("テリトリー HP 回復", "自テリトリー内の1ティック HP 回復量。", "float", 0, 0.1),
     "initial_stored_food": ("初期備蓄", "開始時の巣食料。", "float", 0, 10000),
     "living_only": ("生きた個体のみ", "死骸ではなく生きた獲物のみ対象。", "bool", None, None),
@@ -297,12 +503,10 @@ _PARAM_META: dict[str, tuple[str, str, ValueType, float | None, float | None]] =
     "max_holes": ("巣穴数上限", "コロニーが持てる巣穴の最大数。", "int", 1, 20),
     "max_hp": ("最大 HP", "体力上限。", "float", 10, 3000),
     "max_satiety": ("最大満腹度", "満腹度の上限。", "float", 10, 1000),
-    "metabolism_rate": ("代謝率", "1ティックあたり減る満腹度。", "float", 0.001, 1.0),
+    "metabolism_per_tick": ("代謝/tick", "1 ティックあたり減る満腹度（ポイント、％ではない）。", "float", 0.001, 1.0),
     "milestone_workers": ("兵隊解禁働きアリ数", "働きアリがこの数以上で兵隊解禁。", "int", 1, 50),
     "min_food_reserve": ("最低食料備蓄", "操作後も残す食料の下限。", "float", 0, 1000),
     "min_hole_spacing": ("巣穴最小間隔", "巣穴同士の最小距離（px）。", "float", 20, 400),
-    "min_usable_food_ratio": ("巣食事可能備蓄率", "巣食事 utility 判定用（互換）。", "float", 0, 0.5),
-    "min_usable_satiety_gain": ("巣食事最小回復", "巣食事 utility 判定用（互換）。", "float", 0, 10),
     "nest_leash_radius": ("巣からの最大距離", "この距離を超えると行動を止める。0=無制限。", "float", 0, 400),
     "nest_pull_strength": ("巣への引き戻し", "巡回中に巣方向へ引く強さ。", "float", 0, 2.0),
     "nest_x": ("巣 X 座標", "コロニー巣の X 位置。", "float", 0, 5000),
@@ -321,7 +525,7 @@ _PARAM_META: dict[str, tuple[str, str, ValueType, float | None, float | None]] =
     "spawn_radius": ("産卵スポーン半径", "子個体の出現距離（px）。", "float", 5, 200),
     "spawn_spread": ("スポーン散らばり", "巣付近スポーンの散らばり（px）。", "float", 0, 100),
     "speed_multiplier": ("移動倍率", "行動中の移動速度倍率。", "float", 0.2, 4.0),
-    "starvation_hp_mult": ("飢餓 HP ダメージ倍率", "満腹0%以下の HP ダメージ倍率。", "float", 0, 2.0),
+    "starvation_hp_per_tick": ("飢餓 HP 減少", "満腹 0 のとき 1 ティックあたり減る HP。", "float", 0, 0.2),
     "territory_approach_margin": ("テリトリー接近余白", "防衛狩りのテリトリー判定余白。", "float", 0, 200),
     "territory_only": ("テリトリー内のみ", "テリトリー外では行動しない。", "bool", None, None),
     "territory_radius": ("テリトリー半径", "勢力圏の半径（px）。", "float", 30, 500),
@@ -335,7 +539,7 @@ _PARAM_META: dict[str, tuple[str, str, ValueType, float | None, float | None]] =
 _ACTION_LABELS: dict[str, str] = {
     "ColonyReproduceAction": "産卵",
     "CombatAction": "戦闘",
-    "FeedAtNestAction": "巣食事",
+    "FeedAtNestAction": "食事",
     "HuntAction": "狩り",
     "NestPatrolAction": "巡回",
     "ReturnToNestAction": "帰巣",
@@ -361,9 +565,179 @@ _SKIP_JSON_PATHS: set[tuple[str, ...]] = {
 
 _SKIP_ACTION_PARAMS: set[tuple[str, str]] = {
     ("FeedAtNestAction", "scavenge_species"),
+    ("FeedAtNestAction", "feed_per_tick"),
+    ("FeedAtNestAction", "bite_gain"),
+    ("ScavengeCarriedAction", "bite_gain"),
     ("HuntAction", "carcass_only_species"),
     ("HuntAction", "nest_leash_radius"),
 }
+
+_MAIN_SECTION_ORDER: dict[str, tuple[str, ...]] = {
+    "女王": ("個体", "食事", "巣・コロニー", "その他"),
+    "働きアリ": ("個体", "食事", "運搬", "その他"),
+    "兵隊アリ": ("個体", "食事", "その他"),
+    "ワールド": (
+        "マップ",
+        "マナ",
+        "開始時の個体",
+        "個体上限",
+        "赤コロニー（巣）",
+        "巣穴・共通",
+        "毒霧",
+        "その他",
+    ),
+    "ゲーム進行": ("進行条件",),
+    "シミュ共通": ("シミュレーション",),
+    "表示・デバッグ": ("画面", "デバッグ", "その他"),
+}
+
+
+_TRAIT_SECTION_BODY = frozenset({
+    "base_size",
+    "base_speed",
+    "max_hp",
+    "base_vision",
+})
+
+_TRAIT_SECTION_FEED = frozenset({
+    "max_satiety",
+    "satiety_full_above",
+    "satiety_hungry_below",
+    "metabolism_per_tick",
+    "starvation_hp_per_tick",
+})
+
+_BODY_FIELD_ORDER = (
+    "base_size",
+    "base_speed",
+    "max_hp",
+    "base_vision",
+)
+
+_FEED_FIELD_ORDER = (
+    "max_satiety",
+    "satiety_full_above",
+    "satiety_hungry_below",
+    "metabolism_per_tick",
+    "feed_per_tick",
+    "bite_gain",
+    "starvation_hp_per_tick",
+)
+
+_SPECIES_CATEGORIES = frozenset({"女王", "働きアリ", "兵隊アリ"})
+
+
+def _trait_main_section(trait_key: str) -> str | None:
+    if trait_key in _TRAIT_SECTION_BODY:
+        return "個体"
+    if trait_key in _TRAIT_SECTION_FEED:
+        return "食事"
+    return None
+
+
+def _main_section_sort_key(spec: FieldSpec) -> tuple:
+    sec = main_section(spec)
+    if sec == "個体" and len(spec.json_path) >= 2 and spec.json_path[0] == "traits":
+        key = str(spec.json_path[1])
+        if key in _BODY_FIELD_ORDER:
+            return (0, _BODY_FIELD_ORDER.index(key))
+    if sec == "食事":
+        if len(spec.json_path) >= 2 and spec.json_path[0] == "traits":
+            key = str(spec.json_path[1])
+            if key in _FEED_FIELD_ORDER:
+                return (0, _FEED_FIELD_ORDER.index(key))
+        if spec.json_path == ("nest_feed", "feed_per_tick"):
+            return (0, _FEED_FIELD_ORDER.index("feed_per_tick"))
+        if spec.json_path == ("nest_feed", "bite_gain"):
+            return (0, _FEED_FIELD_ORDER.index("bite_gain"))
+    return (1, spec.label)
+
+
+def _infer_main_section(spec: FieldSpec) -> str:
+    """カテゴリと JSON パスから意味別セクション名を推定。"""
+    path = spec.json_path
+    relpath = spec.config_relpath
+    cat = spec.category
+
+    if cat in _SPECIES_CATEGORIES:
+        if path[:1] == ("nest_feed",):
+            return "食事"
+        if path[:1] == ("traits",) and len(path) >= 2:
+            section = _trait_main_section(str(path[1]))
+            if section:
+                return section
+            return "その他"
+        if spec.handler.startswith("inventory") or path[:1] == ("inventory",):
+            return "運搬"
+        if cat == "女王" and relpath == "sim/worlds/world.json":
+            return "巣・コロニー"
+        if cat == "女王" and path[:1] == ("colony",):
+            return "巣・コロニー"
+        return "その他"
+
+    if cat == "ワールド":
+        if path[:1] == ("world_width",) or path[:1] == ("world_height",):
+            return "マップ"
+        if path[:1] == ("mana",):
+            return "マナ"
+        if path[:1] == ("initial_entities",):
+            return "開始時の個体"
+        if path[:1] == ("population_limits",):
+            return "個体上限"
+        if len(path) >= 3 and path[:2] == ("colony", "profiles"):
+            return "赤コロニー（巣）"
+        if path[:1] == ("colony",):
+            return "巣穴・共通"
+        if path[:1] == ("field_emitters",):
+            return "毒霧"
+
+    if cat == "ゲーム進行":
+        return "進行条件"
+
+    if cat == "シミュ共通":
+        return "シミュレーション"
+
+    if cat == "表示・デバッグ":
+        if path and str(path[0]).startswith("debug"):
+            return "デバッグ"
+        if path and str(path[0]) in ("fps", "camera_width", "camera_height", "camera_pan_extra", "ui_font_size", "fullscreen"):
+            return "画面"
+        return "その他"
+
+    return "その他"
+
+
+def main_section(spec: FieldSpec) -> str:
+    if spec.section:
+        return spec.section
+    return _infer_main_section(spec)
+
+
+def main_sections_for_category(category: str) -> list[str]:
+    seen: list[str] = []
+    for spec in FIELD_SPECS:
+        if spec.category != category or is_action_field(spec):
+            continue
+        sec = main_section(spec)
+        if sec not in seen:
+            seen.append(sec)
+    order = _MAIN_SECTION_ORDER.get(category, ())
+    ordered = [s for s in order if s in seen]
+    for sec in seen:
+        if sec not in ordered:
+            ordered.append(sec)
+    return ordered
+
+
+def fields_for_main_section(category: str, section: str) -> list[FieldSpec]:
+    specs = [
+        s
+        for s in FIELD_SPECS
+        if s.category == category
+        and not is_action_field(s)
+        and main_section(s) == section
+    ]
+    return sorted(specs, key=_main_section_sort_key)
 
 
 def is_action_field(spec: FieldSpec) -> bool:
@@ -378,7 +752,7 @@ def fields_for_category_main(category: str) -> list[FieldSpec]:
     specs = [
         s for s in FIELD_SPECS if s.category == category and not is_action_field(s)
     ]
-    return sorted(specs, key=lambda s: s.field_id)
+    return sorted(specs, key=lambda s: s.label)
 
 
 def ai_subtab_key(spec: FieldSpec) -> str | None:
@@ -431,6 +805,26 @@ def _meta_for_param(param_name: str) -> tuple[str, str, ValueType, float | None,
 
 
 def _meta_for_path(path: tuple[PathKey, ...]) -> tuple[str, str, ValueType, float | None, float | None]:
+    if len(path) >= 2 and path[0] == "initial_entities":
+        species = str(path[1])
+        name = _SPECIES_LABELS.get(species, species)
+        return (
+            f"初期{name}数",
+            f"ゲーム開始時にフィールド上にいる {name} の数。",
+            "int",
+            0,
+            100,
+        )
+    if len(path) >= 2 and path[0] == "population_limits":
+        species = str(path[1])
+        name = _SPECIES_LABELS.get(species, species)
+        return (
+            f"{name}個体上限",
+            f"ワールド全体で同時に存在できる {name} の上限。",
+            "int",
+            0,
+            100,
+        )
     key = str(path[-1])
     if key in _PARAM_META:
         return _PARAM_META[key]
@@ -612,7 +1006,7 @@ def _finalize_field_specs(base: list[FieldSpec]) -> list[FieldSpec]:
         ("colony", "profiles", "red_ant", "territory_radius"),
         ("colony", "profiles", "red_ant", "max_food"),
         ("colony", "profiles", "red_ant", "initial_stored_food"),
-        ("colony", "profiles", "red_ant", "food_leak_rate"),
+        ("colony", "profiles", "red_ant", "food_leak_per_tick"),
         ("colony", "profiles", "red_ant", "food_to_mana_ratio"),
         ("colony", "profiles", "red_ant", "food_leak_reserve_ratio"),
         ("colony", "profiles", "red_ant", "spawn_spread"),
@@ -641,7 +1035,7 @@ def _finalize_field_specs(base: list[FieldSpec]) -> list[FieldSpec]:
 
     for relpath, category, paths in (
         ("game/player.json", "ゲーム進行", (("monitor", "low_food_ratio"), ("monitor", "high_food_ratio"), ("monitor", "milestone_workers"))),
-        ("sim/defaults.json", "シミュ共通", (("sim_ticks_per_step",), ("simulation_speed",), ("debug_events",), ("starvation_hp_mult",))),
+        ("sim/engine.json", "シミュ共通", (("sim_ticks_per_step",), ("simulation_speed",), ("debug_events",))),
         ("client/display.json", "表示・デバッグ", (("fps",), ("camera_width",), ("camera_height",), ("camera_pan_extra",), ("ui_font_size",), ("fullscreen",), ("debug_hud",), ("debug_sim_events",), ("debug_game_messages",))),
     ):
         extras.extend(
@@ -680,37 +1074,24 @@ _BASE_FIELD_SPECS: list[FieldSpec] = [
     FieldSpec(
         "queen_metabolism",
         "女王",
-        "代謝率",
-        "1 ティックあたり減る満腹度。高いほど巣の食料を早く消費します。"
-        "満腹 0% 以下では代謝分に starvation_hp_mult を掛けた HP ダメージも入ります。",
+        "代謝",
+        "1 ティックあたり減る満腹度（ポイント、％ではない）。高いほど巣の食料を早く消費します。",
         "sim/species/red_ant_queen.json",
         "float",
-        ("traits", "metabolism_rate"),
+        ("traits", "metabolism_per_tick"),
         min_val=0.001,
         max_val=0.2,
     ),
     FieldSpec(
-        "queen_hp_regen_mult",
+        "queen_starvation_hp_per_tick",
         "女王",
-        "HP 回復倍率",
-        "テリトリーなど環境由来の HP 回復に掛ける倍率。0 なら環境回復なし。",
+        "飢餓 HP 減少",
+        "満腹 0 のとき 1 ティックあたり減る HP。代謝/tick とは独立。",
         "sim/species/red_ant_queen.json",
         "float",
-        ("traits", "hp_regen_mult"),
+        ("traits", "starvation_hp_per_tick"),
         min_val=0.0,
-        max_val=2.0,
-    ),
-    FieldSpec(
-        "queen_starvation_hp_mult",
-        "女王",
-        "飢餓 HP ダメージ倍率",
-        "満腹 0% を下回ったあと、マイナスになった満腹度×この値が HP ダメージ。"
-        "種 JSON に無い場合は sim/defaults.json の共通値を使います。",
-        "sim/species/red_ant_queen.json",
-        "float",
-        ("traits", "starvation_hp_mult"),
-        min_val=0.0,
-        max_val=2.0,
+        max_val=0.2,
     ),
     FieldSpec(
         "queen_hungry_below",
@@ -726,13 +1107,36 @@ _BASE_FIELD_SPECS: list[FieldSpec] = [
     FieldSpec(
         "queen_full_above",
         "女王",
-        "十分満腹とみなす満腹率",
+        "満腹とみなす満腹率",
         "満腹度÷最大満腹度がこの値以上で「食事不要」と判断。産卵など他行動が選ばれやすくなります。",
         "sim/species/red_ant_queen.json",
         "float",
         ("traits", "satiety_full_above"),
         min_val=0.5,
         max_val=1.0,
+    ),
+    FieldSpec(
+        "queen_nest_feed_per_tick",
+        "女王",
+        "1 ティックの食料消費",
+        "1 ティックで巣備蓄から取る食料量。"
+        "満腹回復 ≈ feed_per_tick × bite_gain（最大満腹度で切り捨て）。",
+        "sim/species/red_ant_queen.json",
+        "float",
+        ("nest_feed", "feed_per_tick"),
+        min_val=0.01,
+        max_val=50.0,
+    ),
+    FieldSpec(
+        "queen_nest_feed_bite_gain",
+        "女王",
+        "満腹変換倍率",
+        "巣備蓄の食料 1 単位あたり加算される満腹度。",
+        "sim/species/red_ant_queen.json",
+        "float",
+        ("nest_feed", "bite_gain"),
+        min_val=0.5,
+        max_val=5.0,
     ),
     FieldSpec(
         "queen_nest_food_init",
@@ -759,27 +1163,14 @@ _BASE_FIELD_SPECS: list[FieldSpec] = [
     FieldSpec(
         "queen_food_leak",
         "女王",
-        "食料漏洩率",
-        "一定量以上の備蓄があるとき、毎ティック マナへ漏れる割合。高いほど余剰食料が減ります。",
+        "1 ティックの食料漏洩",
+        "予約備蓄を超えた余剰があるとき、1 シミュ tick でマナへ漏れる食料量。"
+        "feed_per_tick と同様、シミュ tick ごとの固定量です。",
         "sim/worlds/world.json",
         "float",
-        ("colony", "profiles", "red_ant", "food_leak_rate"),
+        ("colony", "profiles", "red_ant", "food_leak_per_tick"),
         min_val=0.0,
-        max_val=0.01,
-    ),
-    FieldSpec(
-        "queen_init_feed_bite",
-        "女王",
-        "初期・満腹変換倍率（解禁前）",
-        "解禁前プロファイル（survival_feed_only）の巣食事効率。"
-        "1 ティックの満腹回復 ≈ feed_per_tick × bite_gain。",
-        "game/reproduction_profiles.json",
-        "float",
-        action_name="FeedAtNestAction",
-        param_name="bite_gain",
-        profile_id="survival_feed_only",
-        min_val=0.5,
-        max_val=5.0,
+        max_val=50.0,
     ),
     FieldSpec(
         "queen_territory",
@@ -791,34 +1182,6 @@ _BASE_FIELD_SPECS: list[FieldSpec] = [
         ("colony", "profiles", "red_ant", "territory_radius"),
         min_val=50,
         max_val=400,
-    ),
-    FieldSpec(
-        "queen_feed_bite",
-        "女王",
-        "満腹変換倍率（産卵解禁後）",
-        "産卵解禁後プロファイル（queen_feed_and_workers）の巣食事効率。"
-        "消費食料 1 単位あたり加算される満腹度。",
-        "game/reproduction_profiles.json",
-        "float",
-        action_name="FeedAtNestAction",
-        param_name="bite_gain",
-        profile_id="queen_feed_and_workers",
-        min_val=0.5,
-        max_val=5.0,
-    ),
-    FieldSpec(
-        "queen_feed_per_tick",
-        "女王",
-        "1 ティックの食料消費（産卵解禁後）",
-        "産卵解禁後、FeedAtNestAction が 1 ティックで巣備蓄から取る食料量。"
-        "満腹回復 ≈ feed_per_tick × bite_gain（最大満腹度で切り捨て）。",
-        "game/reproduction_profiles.json",
-        "float",
-        action_name="FeedAtNestAction",
-        param_name="feed_per_tick",
-        profile_id="queen_feed_and_workers",
-        min_val=0.01,
-        max_val=50.0,
     ),
     FieldSpec(
         "queen_repro_food_cost",
@@ -975,35 +1338,47 @@ _BASE_FIELD_SPECS: list[FieldSpec] = [
     FieldSpec(
         "worker_metabolism",
         "働きアリ",
-        "代謝率",
-        "1 ティックあたり減る満腹度。",
+        "代謝",
+        "1 ティックあたり減る満腹度（ポイント、％ではない）。",
         "sim/species/red_ant.json",
         "float",
-        ("traits", "metabolism_rate"),
+        ("traits", "metabolism_per_tick"),
         min_val=0.01,
         max_val=0.2,
     ),
     FieldSpec(
-        "worker_hp_regen_mult",
+        "worker_starvation_hp_per_tick",
         "働きアリ",
-        "HP 回復倍率",
-        "テリトリーなど環境由来の HP 回復に掛ける倍率。",
+        "飢餓 HP 減少",
+        "満腹 0 のとき 1 ティックあたり減る HP。代謝/tick とは独立。",
         "sim/species/red_ant.json",
         "float",
-        ("traits", "hp_regen_mult"),
+        ("traits", "starvation_hp_per_tick"),
         min_val=0.0,
-        max_val=2.0,
+        max_val=0.2,
     ),
     FieldSpec(
-        "worker_starvation_hp_mult",
+        "worker_nest_feed_per_tick",
         "働きアリ",
-        "飢餓 HP ダメージ倍率",
-        "満腹 0% 以下で入る HP ダメージの倍率。未設定時は sim/defaults.json を参照。",
+        "1 ティックの食料消費",
+        "1 ティックで巣備蓄から取る食料量。"
+        "満腹回復 ≈ feed_per_tick × bite_gain（最大満腹度で切り捨て）。",
         "sim/species/red_ant.json",
         "float",
-        ("traits", "starvation_hp_mult"),
-        min_val=0.0,
-        max_val=2.0,
+        ("nest_feed", "feed_per_tick"),
+        min_val=0.01,
+        max_val=50.0,
+    ),
+    FieldSpec(
+        "worker_nest_feed_bite_gain",
+        "働きアリ",
+        "満腹変換倍率",
+        "巣備蓄の食料 1 単位あたり加算される満腹度。",
+        "sim/species/red_ant.json",
+        "float",
+        ("nest_feed", "bite_gain"),
+        min_val=0.5,
+        max_val=5.0,
     ),
     FieldSpec(
         "worker_hunt_attack",
@@ -1032,8 +1407,9 @@ _BASE_FIELD_SPECS: list[FieldSpec] = [
     FieldSpec(
         "worker_hunt_bite",
         "働きアリ",
-        "狩り時の満腹変換倍率",
-        "狩り中にその場で食べたときの bite_gain。獲物バイオマス→満腹度の変換効率。",
+        "死骸・バイオマスの満腹変換倍率",
+        "HuntAction（狩り中のその場食事）と ScavengeCarriedAction（運搬中食事）が参照。"
+        "獲物バイオマス→満腹度の変換効率。",
         "sim/species/red_ant.json",
         "float",
         action_name="HuntAction",
@@ -1113,35 +1489,47 @@ _BASE_FIELD_SPECS: list[FieldSpec] = [
     FieldSpec(
         "soldier_metabolism",
         "兵隊アリ",
-        "代謝率",
-        "1 ティックあたり減る満腹度。",
+        "代謝",
+        "1 ティックあたり減る満腹度（ポイント、％ではない）。",
         "sim/species/red_ant_soldier.json",
         "float",
-        ("traits", "metabolism_rate"),
+        ("traits", "metabolism_per_tick"),
         min_val=0.01,
         max_val=0.2,
     ),
     FieldSpec(
-        "soldier_hp_regen_mult",
+        "soldier_starvation_hp_per_tick",
         "兵隊アリ",
-        "HP 回復倍率",
-        "テリトリーなど環境由来の HP 回復に掛ける倍率。",
+        "飢餓 HP 減少",
+        "満腹 0 のとき 1 ティックあたり減る HP。代謝/tick とは独立。",
         "sim/species/red_ant_soldier.json",
         "float",
-        ("traits", "hp_regen_mult"),
+        ("traits", "starvation_hp_per_tick"),
         min_val=0.0,
-        max_val=2.0,
+        max_val=0.2,
     ),
     FieldSpec(
-        "soldier_starvation_hp_mult",
+        "soldier_nest_feed_per_tick",
         "兵隊アリ",
-        "飢餓 HP ダメージ倍率",
-        "満腹 0% 以下で入る HP ダメージの倍率。未設定時は sim/defaults.json を参照。",
+        "1 ティックの食料消費",
+        "1 ティックで巣備蓄から取る食料量。"
+        "満腹回復 ≈ feed_per_tick × bite_gain（最大満腹度で切り捨て）。",
         "sim/species/red_ant_soldier.json",
         "float",
-        ("traits", "starvation_hp_mult"),
-        min_val=0.0,
-        max_val=2.0,
+        ("nest_feed", "feed_per_tick"),
+        min_val=0.01,
+        max_val=50.0,
+    ),
+    FieldSpec(
+        "soldier_nest_feed_bite_gain",
+        "兵隊アリ",
+        "満腹変換倍率",
+        "巣備蓄の食料 1 単位あたり加算される満腹度。",
+        "sim/species/red_ant_soldier.json",
+        "float",
+        ("nest_feed", "bite_gain"),
+        min_val=0.5,
+        max_val=5.0,
     ),
     FieldSpec(
         "soldier_patrol_radius",
@@ -1203,10 +1591,10 @@ _BASE_FIELD_SPECS: list[FieldSpec] = [
         min_val=0.5,
         max_val=3.0,
     ),
-    # --- ワールド開始 ---
+    # --- ワールド ---
     FieldSpec(
         "world_amoeba",
-        "ワールド開始",
+        "ワールド",
         "初期アメーバ数",
         "ゲーム開始時にスポーンする Amoeba の数。働きアリの主な狩り対象。",
         "sim/worlds/world.json",
@@ -1217,7 +1605,7 @@ _BASE_FIELD_SPECS: list[FieldSpec] = [
     ),
     FieldSpec(
         "world_queen",
-        "ワールド開始",
+        "ワールド",
         "初期女王数",
         "ゲーム開始時の red_ant_queen 数。通常は 1。",
         "sim/worlds/world.json",
@@ -1228,7 +1616,7 @@ _BASE_FIELD_SPECS: list[FieldSpec] = [
     ),
     FieldSpec(
         "world_workers",
-        "ワールド開始",
+        "ワールド",
         "初期働きアリ数",
         "ゲーム開始時にフィールド上にいる red_ant の数。",
         "sim/worlds/world.json",
@@ -1239,7 +1627,7 @@ _BASE_FIELD_SPECS: list[FieldSpec] = [
     ),
     FieldSpec(
         "world_pop_red_ant",
-        "ワールド開始",
+        "ワールド",
         "働きアリ個体上限",
         "ワールド全体で同時に存在できる red_ant の上限。",
         "sim/worlds/world.json",
@@ -1250,7 +1638,7 @@ _BASE_FIELD_SPECS: list[FieldSpec] = [
     ),
     FieldSpec(
         "world_pop_soldier",
-        "ワールド開始",
+        "ワールド",
         "兵隊アリ個体上限",
         "ワールド全体で同時に存在できる red_ant_soldier の上限。",
         "sim/worlds/world.json",
@@ -1261,7 +1649,7 @@ _BASE_FIELD_SPECS: list[FieldSpec] = [
     ),
     FieldSpec(
         "world_hole_cost",
-        "ワールド開始",
+        "ワールド",
         "巣穴設置コスト",
         "プレイヤーが巣穴を追加するときに消費する食料量。",
         "sim/worlds/world.json",
@@ -1272,7 +1660,7 @@ _BASE_FIELD_SPECS: list[FieldSpec] = [
     ),
     FieldSpec(
         "world_territory_hp_regen",
-        "ワールド開始",
+        "ワールド",
         "テリトリー HP 回復",
         "自コロニーのテリトリー内にいる個体の、1 ティックあたり HP 回復量。",
         "sim/worlds/world.json",
@@ -1314,18 +1702,6 @@ _BASE_FIELD_SPECS: list[FieldSpec] = [
         ("monitor", "milestone_workers"),
         min_val=1,
         max_val=30,
-    ),
-    # --- シミュ共通 ---
-    FieldSpec(
-        "sim_starvation_hp_mult",
-        "シミュ共通",
-        "飢餓 HP ダメージ倍率（共通）",
-        "種 JSON に starvation_hp_mult が無い個体が使う共通倍率。",
-        "sim/defaults.json",
-        "float",
-        ("starvation_hp_mult",),
-        min_val=0.0,
-        max_val=1.0,
     ),
     # --- 表示・デバッグ ---
     FieldSpec(

@@ -12,11 +12,15 @@ from dev_launcher_fields import (
     FieldSpec,
     ai_subtabs_for_category,
     coerce_value,
+    default_sim_rate_context,
+    field_id_for_path,
     fields_for_ai_subtab,
-    fields_for_category_main,
+    fields_for_main_section,
     format_field_reference,
+    format_live_rate_preview,
     has_nested_ai_tabs,
     launcher_tabs,
+    main_sections_for_category,
     project_root,
     read_field_value,
     write_field_value,
@@ -32,6 +36,7 @@ class DevLauncherApp:
 
         self._widgets: dict[str, tk.Variable] = {}
         self._spec_by_id: dict[str, FieldSpec] = {s.field_id: s for s in FIELD_SPECS}
+        self._active_spec: FieldSpec | None = None
         self._game_process: subprocess.Popen | None = None
 
         self._build_ui()
@@ -65,7 +70,7 @@ class DevLauncherApp:
         )
         self.help_title.pack(anchor=tk.W)
 
-        self.help_text = tk.Text(help_frame, height=6, wrap=tk.WORD, relief=tk.FLAT, font=("", 10))
+        self.help_text = tk.Text(help_frame, height=9, wrap=tk.WORD, relief=tk.FLAT, font=("", 10))
         self.help_text.pack(fill=tk.X)
         self.help_text.configure(state=tk.DISABLED)
 
@@ -110,27 +115,33 @@ class DevLauncherApp:
 
     def _build_field_grid(self, parent: ttk.Frame, specs: list[FieldSpec]) -> None:
         for row, spec in enumerate(specs):
-            ttk.Label(parent, text=spec.label, width=22).grid(
-                row=row, column=0, sticky=tk.W, padx=(4, 8), pady=4
-            )
+            label = ttk.Label(parent, text=spec.label, width=22, cursor="hand2")
+            label.grid(row=row, column=0, sticky=tk.W, padx=(4, 8), pady=4)
+            label.bind("<Button-1>", lambda _e, s=spec: self._show_help(s))
             widget = self._make_widget(parent, spec, row)
             widget.grid(row=row, column=1, sticky=tk.EW, padx=4, pady=4)
         parent.columnconfigure(1, weight=1)
 
     def _build_flat_tab(self, parent: ttk.Frame, category: str) -> None:
         inner = self._make_scroll_area(parent)
-        main = fields_for_category_main(category)
-        if main:
-            self._build_field_grid(inner, main)
+        for section in main_sections_for_category(category):
+            specs = fields_for_main_section(category, section)
+            if not specs:
+                continue
+            frame = ttk.LabelFrame(inner, text=section, padding=8)
+            frame.pack(fill=tk.X, padx=4, pady=(0, 8))
+            self._build_field_grid(frame, specs)
 
     def _build_species_tab(self, parent: ttk.Frame, category: str) -> None:
         inner = self._make_scroll_area(parent)
 
-        main_specs = fields_for_category_main(category)
-        if main_specs:
-            main_frame = ttk.LabelFrame(inner, text="基本設定", padding=8)
-            main_frame.pack(fill=tk.X, padx=4, pady=(0, 8))
-            self._build_field_grid(main_frame, main_specs)
+        for section in main_sections_for_category(category):
+            specs = fields_for_main_section(category, section)
+            if not specs:
+                continue
+            frame = ttk.LabelFrame(inner, text=section, padding=8)
+            frame.pack(fill=tk.X, padx=4, pady=(0, 8))
+            self._build_field_grid(frame, specs)
 
         ai_subtabs = ai_subtabs_for_category(category)
         if ai_subtabs:
@@ -160,6 +171,7 @@ class DevLauncherApp:
         entry = ttk.Entry(parent, textvariable=var, width=18)
         entry.bind("<FocusIn>", lambda _e, s=spec: self._show_help(s))
         entry.bind("<Button-1>", lambda _e, s=spec: self._show_help(s))
+        entry.bind("<KeyRelease>", lambda _e, s=spec: self._refresh_help_if_active(s))
         self._widgets[spec.field_id] = var
 
         if spec.min_val is not None and spec.max_val is not None:
@@ -183,14 +195,85 @@ class DevLauncherApp:
             var.set(f"{float(value):.4g}")
         self._show_help(spec)
 
+    def _read_widget_number(self, field_id: str | None, default: float) -> float:
+        if not field_id:
+            return default
+        var = self._widgets.get(field_id)
+        if var is None:
+            return default
+        raw = str(var.get()).strip()
+        if not raw:
+            return default
+        try:
+            return float(raw)
+        except ValueError:
+            return default
+
+    def _sim_rate_context(self):
+        ctx = default_sim_rate_context()
+        ticks_id = field_id_for_path("sim/engine.json", ("sim_ticks_per_step",))
+        speed_id = field_id_for_path("sim/engine.json", ("simulation_speed",))
+        return type(ctx)(
+            fps=max(1.0, self._read_widget_number("client_fps", ctx.fps)),
+            sim_ticks_per_step=max(
+                1.0, self._read_widget_number(ticks_id, ctx.sim_ticks_per_step)
+            ),
+            simulation_speed=max(
+                0.001, self._read_widget_number(speed_id, ctx.simulation_speed)
+            ),
+        )
+
+    def _get_field_number(self, field_id: str) -> float | None:
+        var = self._widgets.get(field_id)
+        if var is None:
+            return None
+        raw = str(var.get()).strip()
+        if not raw:
+            return None
+        try:
+            return float(raw)
+        except ValueError:
+            return None
+
+    def _parse_spec_value(self, spec: FieldSpec) -> float | None:
+        var = self._widgets.get(spec.field_id)
+        if var is None:
+            return None
+        if spec.value_type == "bool":
+            return None
+        raw = str(var.get()).strip()
+        if not raw:
+            return None
+        try:
+            value = coerce_value(spec, raw)
+        except (ValueError, TypeError):
+            return None
+        if isinstance(value, bool):
+            return None
+        return float(value)
+
+    def _refresh_help_if_active(self, spec: FieldSpec) -> None:
+        if self._active_spec is spec:
+            self._show_help(spec)
+
     def _show_help(self, spec: FieldSpec) -> None:
+        self._active_spec = spec
         self.help_title.configure(text=spec.label)
         self.help_text.configure(state=tk.NORMAL)
         self.help_text.delete("1.0", tk.END)
-        self.help_text.insert(
-            tk.END,
-            spec.help_text + "\n\n" + format_field_reference(spec),
-        )
+        parts = [spec.help_text]
+        value = self._parse_spec_value(spec)
+        if value is not None:
+            preview = format_live_rate_preview(
+                spec,
+                value,
+                self._sim_rate_context(),
+                get_field=self._get_field_number,
+            )
+            if preview:
+                parts.append(preview)
+        parts.append(format_field_reference(spec))
+        self.help_text.insert(tk.END, "\n\n".join(parts))
         self.help_text.configure(state=tk.DISABLED)
         self.file_label.configure(text="")
 

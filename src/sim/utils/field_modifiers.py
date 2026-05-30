@@ -83,8 +83,7 @@ def resolve_field_hp_delta(creature: Any, modifiers: FieldModifiers, dt: float) 
     """traits の耐性・倍率を適用した net HP 変化量。"""
     traits = getattr(creature, "traits", {}) or {}
     poison_resist = max(0.0, min(1.0, float(traits.get("poison_resist", 0.0))))
-    regen_mult = float(traits.get("hp_regen_mult", 1.0))
-    regen = modifiers.hp_regen_per_dt * regen_mult
+    regen = modifiers.hp_regen_per_dt
     drain = modifiers.hp_drain_per_dt * (1.0 - poison_resist)
     return (regen - drain) * float(dt)
 

@@ -6,15 +6,11 @@
         "name": "FeedAtNestAction",
         "weight": 5.0,
         "params": {
-          "bite_gain": 1.15,
           "feed_radius": 38.0,
           "approach_speed_multiplier": 0.95,
-          "min_usable_food_ratio": 0.01,
-          "min_usable_satiety_gain": 1.0,
           "scavenge_species": null,
           "scavenge_contact_padding": 10.0,
-          "approach_when_hungry": false,
-          "feed_per_tick": 6.0
+          "approach_when_hungry": false
         }
       }
     ]
@@ -26,15 +22,11 @@
         "name": "FeedAtNestAction",
         "weight": 5.0,
         "params": {
-          "bite_gain": 1.15,
           "feed_radius": 38.0,
           "approach_speed_multiplier": 0.95,
-          "min_usable_food_ratio": 0.01,
-          "min_usable_satiety_gain": 1.0,
           "scavenge_species": null,
           "scavenge_contact_padding": 10.0,
-          "approach_when_hungry": false,
-          "feed_per_tick": 0.5
+          "approach_when_hungry": false
         }
       },
       {
@@ -66,15 +58,11 @@
         "name": "FeedAtNestAction",
         "weight": 5.0,
         "params": {
-          "bite_gain": 1.15,
           "feed_radius": 38.0,
           "approach_speed_multiplier": 0.95,
-          "min_usable_food_ratio": 0.01,
-          "min_usable_satiety_gain": 1.0,
           "scavenge_species": null,
           "scavenge_contact_padding": 10.0,
-          "approach_when_hungry": false,
-          "feed_per_tick": 6.0
+          "approach_when_hungry": false
         }
       },
       {

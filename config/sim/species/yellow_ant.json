@@ -15,10 +15,11 @@
     "base_vision": 260,
     "max_hp": 120.0,
     "max_satiety": 100.0,
-    "metabolism_rate": 0.05,
+    "metabolism_per_tick": 0.05,
     "satiety_hungry_below": 0.15,
     "satiety_full_above": 0.85,
-    "corpse_decompose_rate": 0.01
+    "corpse_decompose_rate": 0.01,
+    "starvation_hp_per_tick": 0.006
   },
   "inventory": {
     "slot_count": 1,
@@ -53,27 +54,20 @@
       },
       {
         "name": "ScavengeCarriedAction",
-        "weight": 4.2,
-        "params": {
-          "bite_gain": 1.2
-        }
+        "weight": 4.2
       },
       {
         "name": "FeedAtNestAction",
         "weight": 3.8,
         "params": {
-          "bite_gain": 1.15,
           "feed_radius": 38,
           "approach_speed_multiplier": 0.95,
-          "min_usable_food_ratio": 0.01,
-          "min_usable_satiety_gain": 1.0,
           "scavenge_species": [
             "Amoeba",
             "Spider"
           ],
           "scavenge_contact_padding": 10.0,
-          "approach_when_hungry": false,
-          "feed_per_tick": 11
+          "approach_when_hungry": false
         }
       },
       {
@@ -92,8 +86,6 @@
           "pickup_on_kill": true,
           "bite_gain": 1.2,
           "colony_hoard_strength": 0.8,
-          "min_usable_food_ratio": 0.01,
-          "min_usable_satiety_gain": 1.0,
           "territory_only": false,
           "territory_threat": false,
           "territory_approach_margin": 80.0,
@@ -137,5 +129,9 @@
         }
       }
     ]
+  },
+  "nest_feed": {
+    "feed_per_tick": 11,
+    "bite_gain": 1.15
   }
 }

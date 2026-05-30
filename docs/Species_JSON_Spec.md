@@ -36,7 +36,7 @@
     "base_vision": 140,
     "max_hp": 60.0,
     "max_satiety": 45.0,
-    "metabolism_rate": 0.55
+    "metabolism_per_tick": 0.55
   },
   "mind": {
     "type": "utility",
@@ -63,10 +63,24 @@
 | traits | object | 推奨 | 身体・基礎能力。欠損キーは `species.py` のデフォルトで補完 |
 | mind | object | 推奨 | 行動 AI。省略時は空の actions リスト |
 | colony | object | 任意 | コロニー（巣）行動。`enabled: true` で巣システムに参加（主に Ant） |
+| nest_feed | object | 条件付き | 巣備蓄からの食事効率。`FeedAtNestAction` を持つ種は **必須**（下記） |
 
 ---
 
 ## 詳細説明
+
+### nest_feed（巣食事の共通パラメータ）
+
+**巣の備蓄から満腹度を回復するとき**の効率。`FeedAtNestAction` は Action の `params` ではなく、ここを参照します。
+
+| キー | 型 | 意味 |
+|------|----|------|
+| feed_per_tick | float | 1 ティックで巣から消費する食料量 |
+| bite_gain | float | 消費食料 1 単位あたり加算される満腹度 |
+
+**1 ティックの満腹回復** ≈ `feed_per_tick × bite_gain`（`max_satiety` で切り捨て）。
+
+---
 
 ### life_cycle（寿命・成長段階）
 
@@ -104,14 +118,14 @@
 | base_vision | float | 視界半径（ピクセル）。ChaseAction の獲物探索に使用 | 80〜300 | 120.0 |
 | max_hp | float | 最大体力 | 40〜150 | 100.0 |
 | max_satiety | float | 最大満腹度 | 30〜120 | 80.0 |
-| metabolism_rate | float | 1 ティックあたりの満腹度減少。大きいほど空腹になりやすい | 0.3〜1.2 | 0.5 |
+| metabolism_per_tick | float | 1 ティックあたりの満腹度減少。大きいほど空腹になりやすい | 0.3〜1.2 | 0.5 |
 | satiety_hungry_below | float | 満腹度比率がこれ以下で **飢餓**（自分優先: 食べる・巣食事） | 0.10〜0.20 | 0.15 |
 | satiety_full_above | float | 巣食事の停止目標・HUD「満腹」表示。通常帯と満腹帯の **行動は同じ**（持ち帰り狩り） | 0.80〜0.90 | 0.85 |
 | corpse_decompose_rate | float | **死骸の自然分解速度**。`CorpseComponent.update(dt)` で `initial_biomass × rate × dt` だけ `remaining_biomass` が減少し、減少分はマナへ還元される | 0.00001〜0.01 | 0.00003 |
 
 **ゲーム内での使われ方（参考）**
 
-- 毎ティック: `satiety -= metabolism_rate`。満腹度が 0 を下回ると HP が減少
+- 毎ティック: `satiety -= metabolism_per_tick`。満腹度が 0 を下回ると HP が減少
 - **通常・満腹帯**（`> satiety_hungry_below`）: 探索→狩り→倒したら持ち帰り。行動は同一
 - **飢餓**（`≤ satiety_hungry_below`）: 自己給餌モードに入る。`satiety_full_above` に達するまで維持（チャタリング防止）
 - **回復モード中**（満腹度は通常帯でも）: 行動は飢餓時と同じ。HUD は瞬間状態＋「回復中」表示
@@ -215,7 +229,7 @@
 | deposit_radius | float | 持ち帰り判定半径（ReturnToNest と共有） | 30 |
 | max_food | float | 巣の最大食料備蓄（旧 `max_storage` も可） | 400 |
 | initial_stored_food | float | **新設巣**の開始時備蓄（`max_food` でクランプ。合流時は加算しない） | 0 |
-| food_leak_rate | float | 1 ティックあたりの余剰食料の漏洩率（腐敗） | 0.0015 |
+| food_leak_per_tick | float | 予約備蓄を超えた余剰があるとき、1 シミュ tick でマナへ漏れる食料量 | 0.5 |
 | food_to_mana_ratio | float | 漏洩食料のうちマナへ還流する比率 | 0.35 |
 | food_leak_reserve_ratio | float | この割合までは漏洩しない（底上げ備蓄） | 0.12 |
 | nest_x / nest_y | float | 巣が未作成時のスポーン原点（省略時はワールド中央） | 中央 |
@@ -224,7 +238,7 @@
 | max_workers | int | コロニー最大個体数 | — |
 | min_food_reserve | float | 生成後も残す最低備蓄（漏洩底上げと併用） | 0 |
 
-**C 案（現状）:** 持ち帰りは **食料（バイオマス）** として `stored_food` に蓄える。コロニーは `FeedAtNest` で満腹度に変換。余剰は `food_leak_rate` で巣タイルへ **マナ還流** し、アメーバの生態系と接続する。
+**C 案（現状）:** 持ち帰りは **食料（バイオマス）** として `stored_food` に蓄える。コロニーは `FeedAtNest` で満腹度に変換。余剰は `food_leak_per_tick` で巣タイルへ **マナ還流** し、アメーバの生態系と接続する。
 
 **観察のポイント:** 巣は茶色の円で表示。数字はコロニー人数。捕食者が死骸を運ぶと頭上ラベルが `↩` に変わる。
 
@@ -244,8 +258,6 @@
 | pickup_on_kill | bool | 満腹時、殺害直後に死骸を拾う | true |
 | bite_gain | float | 飢餓時のその場食事効率 | 1.35 |
 | colony_hoard_strength | float | **満腹時**のコロニー備蓄のための狩り動機（0〜1） | 0.8 |
-| min_usable_food_ratio | float | 備蓄率がこれ未満なら「巣に餌あり」とみなさない | 0.01 |
-| min_usable_satiety_gain | float | 1 回の食事で得られる満腹度見積もりがこれ未満なら同左 | 1.0 |
 
 **utility:** 飢餓時は 1.0（巣に食料があれば 0）。通常・満腹帯は `colony_hoard_strength` で備蓄狩り。
 
@@ -255,9 +267,7 @@
 
 **飢餓時のみ**。運搬中の死骸をその場で食べる（`ReturnToNestAction` より優先）。
 
-| キー | 型 | 意味 | デフォルト |
-|------|----|------|-----------|
-| bite_gain | float | 死骸消費効率 | 1.35 |
+params なし。満腹変換倍率は **`HuntAction.params.bite_gain`** を参照。
 
 ---
 
@@ -278,8 +288,6 @@
 
 | キー | 型 | 意味 | デフォルト |
 |------|----|------|-----------|
-| bite_gain | float | 貯蔵→満腹度の変換効率 | 1.2 |
-| feed_per_tick | float | 1 ティックで巣から消費する食料量 | 11 |
 | feed_radius | float | 食事可能半径 | 36 |
 
 ---

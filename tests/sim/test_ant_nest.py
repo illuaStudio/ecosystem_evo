@@ -227,12 +227,12 @@ class TestAntNest(unittest.TestCase):
 
         mana_before = world.mana_layer.get_mana_density(nest.x, nest.y)
         for _ in range(200):
-            world.nest_system.update(1.0)
+            world.nest_system.update(10.0)
         mana_after = world.mana_layer.get_mana_density(nest.x, nest.y)
 
         self.assertLess(nest.stored_food, food_before)
         self.assertGreater(mana_after, mana_before)
-        self.assertGreaterEqual(nest.stored_food, reserve * 0.85)
+        self.assertAlmostEqual(nest.stored_food, reserve + 500.0 - 200.0)
 
     def test_feed_per_member_ratio_divides_by_colony_size(self):
         world = World()

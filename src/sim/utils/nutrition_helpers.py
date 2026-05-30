@@ -42,14 +42,14 @@ def satiety_room_until_feed_target(creature) -> float:
 
 def nest_feed_completion_slack(creature) -> float:
     """代謝で満腹目標まで届かない距離（絶対値）。"""
-    metabolism = float(creature.traits.get("metabolism_rate", 0.5))
+    metabolism = float(creature.traits.get("metabolism_per_tick", 0.5))
     target = satiety_feed_target(creature)
     return max(metabolism * 2.5, target * 0.003)
 
 
 def nest_feed_completion_ratio_slack(creature) -> float:
     """満腹度比率での完了余裕（max_satiety の個体差・代謝を吸収）。"""
-    metabolism = float(creature.traits.get("metabolism_rate", 0.5))
+    metabolism = float(creature.traits.get("metabolism_per_tick", 0.5))
     max_sat = max(float(creature.max_satiety), 1.0)
     return max(metabolism * 3.0 / max_sat, 0.009)
 
@@ -145,31 +145,26 @@ def nest_has_food(creature, min_food: float = 8.0) -> bool:
     return nest_stored_food(creature) > min_food
 
 
-def nest_has_usable_food(
-    creature,
-    *,
-    min_satiety_gain: float = 1.0,
-    min_food_ratio: float = 0.01,
-    min_absolute: float = 8.0,
-) -> bool:
-    """
-    巣の備蓄が食事に使えるか。
-    備蓄 > 0 かつ満腹目標まで余地があれば True（端数も食べ切る）。
-    min_* 引数は JSON 互換のため残すが判定には使わない。
-    """
-    _ = (min_satiety_gain, min_food_ratio, min_absolute)
+def nest_has_usable_food(creature) -> bool:
+    """巣の備蓄が食事に使えるか（備蓄 > 0 かつ満腹目標まで余地あり）。"""
     if nest_stored_food(creature) <= 0:
         return False
     return satiety_room_until_feed_target(creature) > 0
 
 
-def nest_feed_satiety_gain_estimate(
-    creature,
-    *,
-    feed_per_tick: float = 11.0,
-    bite_gain: float = 1.15,
-) -> float:
+def get_nest_feed_config(creature) -> dict[str, float]:
+    """種 JSON の nest_feed（feed_per_tick, bite_gain）を返す。"""
+    nf = getattr(creature.species, "nest_feed", None)
+    if nf is None:
+        raise KeyError(f"species {creature.species.name}: nest_feed block required")
+    return nf
+
+
+def nest_feed_satiety_gain_estimate(creature) -> float:
     """次の1ティックで巣から得られる満腹度の見積もり。"""
+    cfg = get_nest_feed_config(creature)
+    feed_per_tick = cfg["feed_per_tick"]
+    bite_gain = cfg["bite_gain"]
     world = getattr(creature, "world", None)
     if world is None:
         return 0.0

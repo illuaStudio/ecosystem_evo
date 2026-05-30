@@ -88,7 +88,7 @@ class TestTraitVariance(unittest.TestCase):
         for name in config.species:
             species = Species.create(name)
             self.assertGreater(len(species.trait_variance), 0)
-            for key in ("base_speed", "base_vision", "max_hp", "max_satiety", "metabolism_rate"):
+            for key in ("base_speed", "base_vision", "max_hp", "max_satiety", "metabolism_per_tick"):
                 self.assertIn(key, species.trait_variance)
 
     def test_ant_factory_applies_variance(self):
@@ -103,7 +103,7 @@ class TestTraitVariance(unittest.TestCase):
         self.assertGreater(max(speeds) - min(speeds), 0.0)
 
     def test_resolve_trait_variance_json_overrides_default(self):
-        traits = {"base_speed": 0.5, "base_vision": 70.0, "max_hp": 60.0, "max_satiety": 45.0, "metabolism_rate": 0.55}
+        traits = {"base_speed": 0.5, "base_vision": 70.0, "max_hp": 60.0, "max_satiety": 45.0, "metabolism_per_tick": 0.55}
         custom = normalize_trait_variance({
             "base_speed": {"distribution": "normal", "std": 0.05, "min": 0.35, "max": 0.65},
         })
@@ -146,9 +146,9 @@ class TestTraitVariance(unittest.TestCase):
         self.assertIn("成長率", amoeba_labels)
         self.assertLess(
             amoeba_labels.index("成長率"),
-            amoeba_labels.index("代謝"),
+            amoeba_labels.index("代謝/tick"),
         )
-        for key in ("基礎速度", "視界", "代謝", "最大HP", "最大満腹"):
+        for key in ("基礎速度", "視界", "代謝/tick", "最大HP", "最大満腹"):
             self.assertIn(key, amoeba_labels)
             self.assertIn(key, ant_labels)
 

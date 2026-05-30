@@ -147,8 +147,6 @@ class HuntAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action
         "pickup_on_kill": True,
         "bite_gain": 1.35,
         "colony_hoard_strength": 0.8,
-        "min_usable_food_ratio": 0.01,
-        "min_usable_satiety_gain": 1.0,
         "territory_only": False,
         "territory_threat": False,
         "territory_approach_margin": 80.0,
@@ -342,11 +340,7 @@ class HuntAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action
     def _nest_blocks_hunt(self, creature) -> bool:
         if self._defense_hunt() or self._territory_only():
             return False
-        return nest_has_usable_food(
-            creature,
-            min_food_ratio=float(self.params["min_usable_food_ratio"]),
-            min_satiety_gain=float(self.params["min_usable_satiety_gain"]),
-        )
+        return nest_has_usable_food(creature)
 
     def _nest_hunt_dampening(self, creature) -> float:
         """備蓄が十分な巣のすぐ近くでは狩り優先度を下げ、巣際の Hunt↔Return 往復を抑える。"""

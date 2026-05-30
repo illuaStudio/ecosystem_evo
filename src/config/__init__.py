@@ -11,7 +11,7 @@ class Config:
 
     def __init__(self):
         self.base_path = _PROJECT_ROOT / "config"
-        self.sim = self._load("sim/defaults.json")
+        self.sim = self._load("sim/engine.json")
         self.game_app = self._load("game/app.json")
         self.game_player = self._load("game/player.json")
         self.client = self._load("client/display.json")
@@ -48,7 +48,7 @@ class Config:
 
     def reload_all(self) -> None:
         """全 JSON をディスクから再読み込み（R リセット時など）。"""
-        self.sim = self._load("sim/defaults.json")
+        self.sim = self._load("sim/engine.json")
         self.game_app = self._load("game/app.json")
         self.game_player = self._load("game/player.json")
         self.client = self._load("client/display.json")

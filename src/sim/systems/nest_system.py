@@ -402,10 +402,10 @@ class NestSystem:
     def _leak_food_to_mana(self, nest: Nest, colony_cfg: dict, dt: float) -> None:
         if not colony_cfg:
             return
-        leak_rate = float(colony_cfg["food_leak_rate"])
+        leak_per_tick = float(colony_cfg["food_leak_per_tick"])
         mana_ratio = float(colony_cfg["food_to_mana_ratio"])
         reserve_ratio = float(colony_cfg["food_leak_reserve_ratio"])
-        if leak_rate <= 0 or mana_ratio <= 0:
+        if leak_per_tick <= 0 or mana_ratio <= 0:
             return
 
         reserve = nest.max_food * reserve_ratio
@@ -413,7 +413,7 @@ class NestSystem:
         if leakable <= 0:
             return
 
-        leak = min(leakable, leakable * leak_rate * dt)
+        leak = min(leakable, leak_per_tick)
         if leak <= 0:
             return
 

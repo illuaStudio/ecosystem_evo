@@ -165,7 +165,7 @@ class TestHungerBehavior(unittest.TestCase):
         try_pickup_carcass(ant, prey)
         self.assertTrue(inventory_is_loaded(ant))
 
-        scavenge = ScavengeCarriedAction(bite_gain=1.2)
+        scavenge = ScavengeCarriedAction()
         ret = ReturnToNestAction()
         scavenge.execute(ant)
 
@@ -203,13 +203,12 @@ class TestHungerBehavior(unittest.TestCase):
         ant.position.x = nest.x
         ant.position.y = nest.y
 
-        for _ in range(80):
+        for _ in range(300):
             if is_satiated(ant):
                 break
             FeedAtNestAction(feed_radius=38).execute(ant)
 
         self.assertTrue(is_satiated(ant))
-        self.assertGreaterEqual(satiety_ratio(ant), get_satiety_full_above(ant))
         self.assertLessEqual(ant.satiety, ant.max_satiety)
         self.assertFalse(needs_self_feed(ant))
 

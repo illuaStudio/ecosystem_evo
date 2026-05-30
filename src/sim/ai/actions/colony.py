@@ -1,5 +1,6 @@
 import math
 
+from src.sim.ai.action_config import get_mind_action_param
 from src.sim.ai.actions.base import Action
 from src.sim.shelter.state import is_creature_sheltered
 from src.sim.utils.inventory_helpers import inventory_is_loaded
@@ -13,6 +14,7 @@ from src.sim.utils.creature_helpers import (
     is_hungry,
     move_toward,
     move_toward_point,
+    get_nest_feed_config,
     needs_nest_feed,
     needs_self_feed,
     nest_has_usable_food,
@@ -24,10 +26,6 @@ from src.sim.utils.position_helpers import entity_xy
 class ScavengeCarriedAction(Action):
     """回復中かつ運搬中: 持ち帰り予定のバイオマスをその場で1口食べる。残りは巣へ運ぶ。"""
 
-    DEFAULT_PARAMS = {
-        "bite_gain": 1.35,
-    }
-
     def execute(self, creature) -> bool:
         colony = getattr(creature, "colony", None)
         if colony is None or not inventory_is_loaded(creature):
@@ -35,7 +33,7 @@ class ScavengeCarriedAction(Action):
 
         consume_carried_biomass(
             creature,
-            bite_gain=float(self.params["bite_gain"]),
+            bite_gain=get_mind_action_param(creature, "HuntAction", "bite_gain"),
         )
         return False
 
@@ -105,23 +103,15 @@ class FeedAtNestAction(Action):
     """巣で satiety_full_above まで食事。飢餓時は巣へ向かい、途中の死骸も食べる。"""
 
     DEFAULT_PARAMS = {
-        "bite_gain": 1.15,
-        "feed_per_tick": 11.0,
         "feed_radius": 36.0,
         "approach_speed_multiplier": 0.95,
-        "min_usable_food_ratio": 0.01,
-        "min_usable_satiety_gain": 1.0,
         "scavenge_species": None,
         "scavenge_contact_padding": 10.0,
         "approach_when_hungry": False,
     }
 
     def _has_usable_food(self, creature) -> bool:
-        return nest_has_usable_food(
-            creature,
-            min_food_ratio=float(self.params["min_usable_food_ratio"]),
-            min_satiety_gain=float(self.params["min_usable_satiety_gain"]),
-        )
+        return nest_has_usable_food(creature)
 
     def _scavenge_species(self) -> tuple[str, ...] | None:
         raw = self.params.get("scavenge_species")
@@ -148,10 +138,11 @@ class FeedAtNestAction(Action):
             float(self.params.get("approach_speed_multiplier", 0.95)),
         )
         if dist <= reach * 1.05:
+            nest_feed = get_nest_feed_config(creature)
             consume_carcass(
                 creature,
                 carcass,
-                bite_gain=float(self.params["bite_gain"]),
+                bite_gain=nest_feed["bite_gain"],
             )
         # 死骸へ向かったティックは巣接近と併用しない（逆向きで移動が相殺される）
         return True
@@ -177,10 +168,11 @@ class FeedAtNestAction(Action):
                 return False
             if not ns.is_at_nest(creature, feed_radius):
                 return False
+            nest_feed = get_nest_feed_config(creature)
             ns.feed_creature(
                 creature,
-                bite_gain=float(self.params["bite_gain"]),
-                feed_per_tick=float(self.params["feed_per_tick"]),
+                bite_gain=nest_feed["bite_gain"],
+                feed_per_tick=nest_feed["feed_per_tick"],
             )
             return False
 
@@ -211,10 +203,11 @@ class FeedAtNestAction(Action):
         if not self._has_usable_food(creature):
             return False
 
+        nest_feed = get_nest_feed_config(creature)
         ns.feed_creature(
             creature,
-            bite_gain=float(self.params["bite_gain"]),
-            feed_per_tick=float(self.params["feed_per_tick"]),
+            bite_gain=nest_feed["bite_gain"],
+            feed_per_tick=nest_feed["feed_per_tick"],
         )
         return False
 
