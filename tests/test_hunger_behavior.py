@@ -4,6 +4,7 @@ import unittest
 from src.ai.actions import (
     FeedAtNestAction,
     HuntAction,
+    NestPatrolAction,
     ReturnToNestAction,
     ScavengeCarriedAction,
 )
@@ -16,6 +17,7 @@ from src.utils.creature_helpers import (
     get_satiety_hungry_below,
     is_hungry,
     is_satiated,
+    needs_nest_feed,
     needs_self_feed,
     nest_has_usable_food,
     satiety_ratio,
@@ -172,8 +174,13 @@ class TestHungerBehavior(unittest.TestCase):
     def test_nest_feed_stops_at_full_above(self):
         world = World()
         ant, _ = self._ant_and_prey(world, ant_satiety_ratio=0.5)
+        ant.nutrition_recovery = True
         nest = world.nest_system.get_creature_nest(ant)
         nest.stored_food = 500.0
+        ant.pos[0] = nest.x
+        ant.pos[1] = nest.y
+        ant.position.x = nest.x
+        ant.position.y = nest.y
 
         for _ in range(80):
             if is_satiated(ant):
@@ -222,6 +229,95 @@ class TestHungerBehavior(unittest.TestCase):
         self.assertTrue(needs_self_feed(ant))
         self.assertGreater(ScavengeCarriedAction().calculate_utility(ant), 0.0)
         self.assertEqual(ReturnToNestAction().calculate_utility(ant), 0.0)
+
+    def test_feed_not_selected_after_recovery_clears_near_full_above(self):
+        """回復解除後、85%付近の代謝ドリフトで FeedAtNest が再選択されない（チャタリング防止）。"""
+        world = World()
+        factory = CreatureFactory()
+        vanguard = factory.create("red_ant_vanguard", world=world, x=500, y=500)
+        world.add_creature(vanguard)
+        nest = world.nest_system.get_creature_nest(vanguard)
+        nest.stored_food = 500.0
+
+        vanguard.satiety = vanguard.max_satiety * 0.84
+        vanguard.nutrition_recovery = False
+        update_nutrition_recovery(vanguard)
+
+        feed = FeedAtNestAction(feed_radius=42)
+        patrol = NestPatrolAction(patrol_radius=480)
+
+        self.assertFalse(needs_self_feed(vanguard))
+        self.assertEqual(feed.calculate_utility(vanguard), 0.0)
+        self.assertGreater(patrol.calculate_utility(vanguard), 0.0)
+
+    def test_feed_still_selected_while_in_recovery_below_full_above(self):
+        world = World()
+        factory = CreatureFactory()
+        vanguard = factory.create("red_ant_vanguard", world=world, x=500, y=500)
+        world.add_creature(vanguard)
+        nest = world.nest_system.get_creature_nest(vanguard)
+        self.assertIsNotNone(nest)
+        nest.stored_food = 500.0
+
+        vanguard.satiety = vanguard.max_satiety * 0.84
+        vanguard.nutrition_recovery = True
+
+        feed = FeedAtNestAction(feed_radius=42)
+        self.assertTrue(needs_self_feed(vanguard))
+        self.assertTrue(nest_has_usable_food(vanguard))
+        self.assertGreater(feed.calculate_utility(vanguard), 0.0)
+
+    def test_nest_usable_food_allows_top_up_near_full_above(self):
+        world = World()
+        ant, _ = self._ant_and_prey(world, ant_satiety_ratio=0.84)
+        nest = world.nest_system.get_creature_nest(ant)
+        nest.stored_food = 500.0
+        self.assertTrue(nest_has_usable_food(ant))
+
+    def test_vanguard_not_stuck_feeding_at_displayed_85_percent(self):
+        """84.9% 等（HUD では 85%）で回復モード・FeedAtNest に張り付かない。"""
+        world = World()
+        factory = CreatureFactory()
+        vanguard = factory.create("red_ant_vanguard", world=world, x=500, y=500)
+        world.add_creature(vanguard)
+        nest = world.nest_system.get_creature_nest(vanguard)
+        nest.stored_food = 500.0
+
+        vanguard.satiety = 84.93
+        vanguard.nutrition_recovery = True
+
+        update_nutrition_recovery(vanguard)
+        self.assertFalse(needs_self_feed(vanguard))
+        self.assertFalse(needs_nest_feed(vanguard))
+
+        feed = FeedAtNestAction(feed_radius=42)
+        patrol = NestPatrolAction(patrol_radius=480)
+        self.assertEqual(feed.calculate_utility(vanguard), 0.0)
+        self.assertGreater(patrol.calculate_utility(vanguard), 0.0)
+
+    def test_metabolism_equilibrium_clears_recovery_for_vanguard(self):
+        world = World()
+        factory = CreatureFactory()
+        vanguard = factory.create("red_ant_vanguard", world=world, x=500, y=500)
+        world.add_creature(vanguard)
+        nest = world.nest_system.get_creature_nest(vanguard)
+        nest.stored_food = 500.0
+        vanguard.pos[0] = nest.x
+        vanguard.pos[1] = nest.y
+        vanguard.position.x = nest.x
+        vanguard.position.y = nest.y
+        vanguard.satiety = vanguard.max_satiety * 0.5
+        vanguard.nutrition_recovery = True
+
+        feed = FeedAtNestAction(feed_radius=42)
+        for _ in range(400):
+            vanguard.metabolism.update(dt=1.0)
+            if not needs_self_feed(vanguard):
+                break
+            feed.execute(vanguard)
+
+        self.assertFalse(needs_self_feed(vanguard))
+        self.assertEqual(feed.calculate_utility(vanguard), 0.0)
 
 
 if __name__ == "__main__":

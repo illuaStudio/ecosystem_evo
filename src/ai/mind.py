@@ -90,6 +90,7 @@ class UtilityMind(Mind):
             current is not None
             and not current.is_completed()
             and type(current) is type(best_action)
+            and best_score > 0.0
         ):
             return current
 

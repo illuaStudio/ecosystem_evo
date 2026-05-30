@@ -8,6 +8,7 @@ from src.utils.creature_helpers import (
     distance_to_point,
     find_nearest_field_carcass_among,
     hunger_ratio,
+    is_hungry,
     move_toward,
     move_toward_point,
     needs_nest_feed,
@@ -158,10 +159,16 @@ class FeedAtNestAction(Action):
         # 死骸へ向かったティックは巣接近と併用しない（逆向きで移動が相殺される）
         return True
 
+    def _wants_nest_feed(self, creature) -> bool:
+        """巣食事を能動的に選ぶ条件（回復モードまたは飢餓）。満腹閾値付近の代謝ドリフトでは選ばない。"""
+        return needs_self_feed(creature) or is_hungry(creature)
+
     def execute(self, creature) -> bool:
         if not creature.world or getattr(creature, "colony", None) is None:
             return False
         if creature.colony.is_carrying:
+            return False
+        if not self._wants_nest_feed(creature):
             return False
         if not needs_nest_feed(creature):
             return False
@@ -202,6 +209,8 @@ class FeedAtNestAction(Action):
     def calculate_utility(self, creature) -> float:
         colony = getattr(creature, "colony", None)
         if colony is None or colony.is_carrying or not creature.world:
+            return 0.0
+        if not self._wants_nest_feed(creature):
             return 0.0
         if not needs_nest_feed(creature):
             return 0.0

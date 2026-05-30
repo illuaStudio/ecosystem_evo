@@ -15,7 +15,8 @@
     "max_hp": 60.0,
     "max_satiety": 45.0,
     "metabolism_rate": 0.55,
-    "corpse_decompose_rate": 0.002
+    "corpse_decompose_rate": 0.002,
+    "field_immunities": ["poison"]
   },
   "trait_variance": {
     "base_speed": {

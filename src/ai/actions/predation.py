@@ -14,9 +14,9 @@ from src.utils.creature_helpers import (
     closeness_ratio,
     consume_carcass,
     contact_range,
-    find_nearest_edible,
+    find_nearest_edible_among,
     is_flee_latch_active,
-    is_trackable_target,
+    is_trackable_prey,
     move_toward,
     move_toward_contact,
     needs_self_feed,
@@ -33,6 +33,7 @@ class ChaseAction(Action):
 
     DEFAULT_PARAMS = {
         "target_type": "Amoeba",
+        "target_types": None,
         "speed_multiplier": 1.25,
         "contact_padding": 8.0,
         "bite_gain": 1.35,
@@ -53,7 +54,7 @@ class ChaseAction(Action):
 
         pad = float(self.params["contact_padding"])
         reach = contact_range(creature, target, pad)
-        target_type = self.params["target_type"]
+        prey_species = self._prey_species()
 
         if not target.alive:
             if not carcass_on_field(creature.world, target):
@@ -82,14 +83,20 @@ class ChaseAction(Action):
                     bite_gain=float(self.params["bite_gain"]),
                 )
 
-        if not is_trackable_target(creature, target, target_type):
+        if not self._trackable_prey(creature, target, prey_species):
             self._target = None
 
         return False
 
+    def _prey_species(self) -> tuple[str, ...]:
+        return chase_prey_species(self.params)
+
+    def _trackable_prey(self, creature, target, species: tuple[str, ...]) -> bool:
+        return is_trackable_prey(creature, target, species)
+
     def calculate_utility(self, creature) -> float:
-        prey = find_nearest_edible(
-            creature, self.params["target_type"], exclude=creature
+        prey = find_nearest_edible_among(
+            creature, self._prey_species(), exclude=creature
         )
         if prey is None:
             return 0.0
@@ -101,13 +108,20 @@ class ChaseAction(Action):
         return min(1.0, 0.35 + closeness * 0.65)
 
     def _resolve_target(self, creature):
-        target_type = self.params["target_type"]
-        if is_trackable_target(creature, self._target, target_type):
+        species = self._prey_species()
+        if self._trackable_prey(creature, self._target, species):
             return self._target
-        self._target = find_nearest_edible(
-            creature, target_type, exclude=creature
+        self._target = find_nearest_edible_among(
+            creature, species, exclude=creature
         )
         return self._target
+
+
+def chase_prey_species(params: dict) -> tuple[str, ...]:
+    """ChaseAction の target_types（優先）または target_type。"""
+    if params.get("target_types"):
+        return tuple(params["target_types"])
+    return (params.get("target_type", "Amoeba"),)
 
 
 def hunt_prey_species(params: dict) -> tuple[str, ...]:

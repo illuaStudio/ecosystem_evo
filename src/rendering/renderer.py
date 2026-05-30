@@ -3,6 +3,7 @@ import pygame
 
 from src.config import config
 from src.ai.actions import SplitAction
+from src.rendering.field_emitter_renderer import FieldEmitterRenderer
 from src.rendering.nest_renderer import NestRenderer
 from src.utils.creature_helpers import (
     count_alive_by_species,
@@ -74,6 +75,7 @@ class Renderer:
                 selected_nest_id=nest_id,
             )
             NestRenderer.draw(world, self.screen, camera, nest_id)
+            FieldEmitterRenderer.draw(world, self.screen, camera)
             if show_territory and selected_nest is not None:
                 import pygame as _pg
 

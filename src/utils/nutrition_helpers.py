@@ -39,15 +39,48 @@ def satiety_room_until_feed_target(creature) -> float:
     """巣で satiety_full_above まで回復できる余地。"""
     return max(0.0, satiety_feed_target(creature) - creature.satiety)
 
+
+def nest_feed_completion_slack(creature) -> float:
+    """代謝で満腹目標まで届かない距離（絶対値）。"""
+    metabolism = float(creature.traits.get("metabolism_rate", 0.5))
+    target = satiety_feed_target(creature)
+    return max(metabolism * 2.5, target * 0.003)
+
+
+def nest_feed_completion_ratio_slack(creature) -> float:
+    """満腹度比率での完了余裕（max_satiety の個体差・代謝を吸収）。"""
+    metabolism = float(creature.traits.get("metabolism_rate", 0.5))
+    max_sat = max(float(creature.max_satiety), 1.0)
+    return max(metabolism * 3.0 / max_sat, 0.009)
+
+
+def is_nest_feed_satisfied(creature) -> bool:
+    """巣食事の目的を達成済み（目標到達、または代謝で届かない距離）。"""
+    sat = satiety_ratio(creature)
+    full = get_satiety_full_above(creature)
+    if sat >= full:
+        return True
+    # HUD 表示（整数%）と一致させる
+    if round(sat * 100) >= round(full * 100):
+        return True
+
+    target = satiety_feed_target(creature)
+    if creature.satiety >= target:
+        return True
+    if creature.satiety >= target - nest_feed_completion_slack(creature):
+        return True
+    return sat >= full - nest_feed_completion_ratio_slack(creature)
+
+
 def needs_nest_feed(creature) -> bool:
     """巣食事の余地がある（full_above 未満）。"""
-    return satiety_room_until_feed_target(creature) > 0
+    return not is_nest_feed_satisfied(creature)
 
 def get_nutrition_state(creature) -> str:
     sat = satiety_ratio(creature)
     if sat <= get_satiety_hungry_below(creature):
         return NutritionState.HUNGRY
-    if sat >= get_satiety_full_above(creature):
+    if is_nest_feed_satisfied(creature):
         return NutritionState.FULL
     return NutritionState.NORMAL
 
@@ -63,7 +96,7 @@ def update_nutrition_recovery(creature) -> None:
     sat = satiety_ratio(creature)
     if sat <= get_satiety_hungry_below(creature):
         creature.nutrition_recovery = True
-    elif sat >= get_satiety_full_above(creature):
+    elif is_nest_feed_satisfied(creature):
         creature.nutrition_recovery = False
 
 def needs_self_feed(creature) -> bool:
@@ -181,4 +214,15 @@ def nest_has_usable_food(
                 if stored / float(nest.max_food) < min_food_ratio:
                     return False
 
-    return nest_feed_satiety_gain_estimate(creature) >= min_satiety_gain
+    estimate = nest_feed_satiety_gain_estimate(creature)
+    if estimate <= 0:
+        return False
+
+    room = satiety_room_until_feed_target(creature)
+    if room <= 0:
+        return False
+    # 満腹閾値直前は少量でもトップアップを許可（回復完了・チャタリング防止）
+    if room < min_satiety_gain:
+        return True
+
+    return estimate >= min_satiety_gain

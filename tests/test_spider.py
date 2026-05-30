@@ -1,5 +1,4 @@
-"""Spider（アメーバ捕食・アリの大型獲物）のスモークテスト。"""
-import math
+"""Spider（アリ捕食・食物連鎖頂点）のスモークテスト。"""
 import unittest
 
 from src.ai.actions import ChaseAction, WanderAction
@@ -16,6 +15,18 @@ from src.utils.creature_helpers import (
 )
 from src.utils.position_helpers import entity_xy
 
+ANT_PREY = (
+    "red_ant",
+    "red_ant_soldier",
+    "red_ant_vanguard",
+    "blue_ant",
+    "blue_ant_soldier",
+    "blue_ant_vanguard",
+    "yellow_ant",
+    "yellow_ant_soldier",
+    "yellow_ant_vanguard",
+)
+
 
 class TestSpider(unittest.TestCase):
     def test_spider_species_loaded(self):
@@ -26,7 +37,8 @@ class TestSpider(unittest.TestCase):
         self.assertIn("ChaseAction", names)
         self.assertIn("WanderAction", names)
         chase = next(a for a in actions if a["name"] == "ChaseAction")
-        self.assertEqual(chase["params"]["target_type"], "Amoeba")
+        self.assertEqual(chase["params"]["target_types"], list(ANT_PREY))
+        self.assertNotIn("Amoeba", chase["params"]["target_types"])
 
     def test_spider_wanders(self):
         world = World()
@@ -45,7 +57,25 @@ class TestSpider(unittest.TestCase):
         x1, y1 = entity_xy(spider)
         self.assertTrue((x0 - x1) ** 2 + (y0 - y1) ** 2 > 1.0)
 
-    def test_spider_chases_amoeba_when_hungry(self):
+    def test_spider_chases_ant_when_hungry(self):
+        world = World()
+        for c in list(world.creatures):
+            world.remove_creature(c)
+
+        factory = CreatureFactory()
+        spider = factory.create("Spider", world=world, x=400, y=400)
+        ant = factory.create("red_ant", world=world, x=430, y=400)
+        world.add_creature(spider)
+        world.add_creature(ant)
+
+        spider.satiety = spider.max_satiety * 0.3
+        self.assertTrue(is_hungry(spider))
+
+        chase = ChaseAction(target_types=list(ANT_PREY))
+        wander = WanderAction()
+        self.assertGreater(chase.calculate_utility(spider), wander.calculate_utility(spider))
+
+    def test_spider_ignores_amoeba_when_hungry(self):
         world = World()
         for c in list(world.creatures):
             world.remove_creature(c)
@@ -57,32 +87,29 @@ class TestSpider(unittest.TestCase):
         world.add_creature(amoeba)
 
         spider.satiety = spider.max_satiety * 0.3
-        self.assertTrue(is_hungry(spider))
+        chase = ChaseAction(target_types=list(ANT_PREY))
+        self.assertEqual(chase.calculate_utility(spider), 0.0)
 
-        chase = ChaseAction(target_type="Amoeba")
-        wander = WanderAction()
-        self.assertGreater(chase.calculate_utility(spider), wander.calculate_utility(spider))
-
-    def test_spider_predates_amoeba_on_contact(self):
+    def test_spider_predates_ant_on_contact(self):
         world = World()
         for c in list(world.creatures):
             world.remove_creature(c)
 
         factory = CreatureFactory()
         spider = factory.create("Spider", world=world, x=400, y=400)
-        amoeba = factory.create("Amoeba", world=world, x=408, y=400)
+        ant = factory.create("red_ant", world=world, x=408, y=400)
         world.add_creature(spider)
-        world.add_creature(amoeba)
+        world.add_creature(ant)
 
         satiety_before = spider.satiety = spider.max_satiety * 0.2
         hunger_before = hunger_ratio(spider)
 
-        for _ in range(20):
-            if not amoeba.alive and not has_edible_carcass(amoeba):
+        for _ in range(80):
+            if not ant.alive and not has_edible_carcass(ant):
                 break
-            try_predate(spider, amoeba, attack_power=1.5, bite_gain=1.4)
+            try_predate(spider, ant, attack_power=1.5, bite_gain=1.4)
 
-        self.assertFalse(amoeba.alive)
+        self.assertFalse(ant.alive)
         self.assertGreater(spider.satiety, satiety_before)
         self.assertLess(hunger_ratio(spider), hunger_before)
         self.assertIsNone(getattr(spider, "colony", None))
@@ -95,8 +122,8 @@ class TestSpider(unittest.TestCase):
 
         factory = CreatureFactory()
         spider = factory.create("Spider", world=world, x=500, y=500)
-        top = factory.create("Amoeba", world=world, x=500, y=433)
-        bottom = factory.create("Amoeba", world=world, x=500, y=567)
+        top = factory.create("red_ant", world=world, x=500, y=433)
+        bottom = factory.create("red_ant", world=world, x=500, y=567)
         for carcass in (top, bottom):
             carcass.alive = False
             carcass.remaining_biomass = 60.0

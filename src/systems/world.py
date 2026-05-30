@@ -10,6 +10,7 @@ from src.systems.mana_system import ManaSystem
 from src.systems.movement_system import MovementSystem
 from src.systems.world_biome import WorldBiome
 from src.systems.world_mana import WorldMana
+from src.systems.field_emitter_system import FieldEmitterSystem
 from src.systems.nest_system import NestSystem
 from src.systems.world_spawner import WorldSpawner
 
@@ -98,6 +99,8 @@ class World:
         self.last_defeat_message: str = ""
 
         self.nest_system = NestSystem(self)
+        self.field_emitter_system = FieldEmitterSystem(self)
+        self.field_emitter_system.init_from_config(world_data.get("field_emitters"))
         self.spawner = WorldSpawner(self)
         self.spawner.spawn_initial_entities(world_data)
         self.sim_dt = 1.0

@@ -2,6 +2,7 @@
 from typing import Any
 
 from src.utils.creature_helpers import current_size, satiety_ratio, update_nutrition_recovery
+from src.utils.field_modifiers import apply_field_hp_effects
 
 
 class MetabolismComponent:
@@ -20,6 +21,7 @@ class MetabolismComponent:
         update_nutrition_recovery(self.owner)
         self.apply_growth(dt)
         self._apply_metabolism(dt)
+        apply_field_hp_effects(self.owner, dt)
         return self.owner.hp <= 0
 
     def apply_growth(self, dt: float = 1.0) -> None:
