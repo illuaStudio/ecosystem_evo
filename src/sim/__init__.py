@@ -1,21 +1,20 @@
-"""生態系シミュレーション層（ゲーム非依存の事実通知）。"""
-
-from src.sim.event_bus import EventBus
+"""Simulation 層: ヘッドレスで回る世界モデル。"""
 from src.sim.events import (
-    CombatStartedEvent,
     ColonyDefeatedEvent,
+    CombatStartedEvent,
     DeathEvent,
     ItemFoundEvent,
     SimEvent,
     SpawnEvent,
 )
+from src.sim.systems.world import World
 
 __all__ = [
-    "CombatStartedEvent",
     "ColonyDefeatedEvent",
+    "CombatStartedEvent",
     "DeathEvent",
-    "EventBus",
     "ItemFoundEvent",
     "SimEvent",
     "SpawnEvent",
+    "World",
 ]

@@ -1,22 +1,28 @@
-# config パッケージ: game.json / worlds / species を読み込む
+# config パッケージ: sim / game / client の3層設定を読み込む
 import json
 from pathlib import Path
 from typing import Dict, Optional
 
-# JSON データはプロジェクトルートの config/ に置く
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 class Config:
+    """シミュレーション・ゲーム・クライアント各層の設定を分離して保持する。"""
+
     def __init__(self):
         self.base_path = _PROJECT_ROOT / "config"
+        self.sim = self._load("sim/defaults.json")
+        self.game_app = self._load("game/app.json")
+        self.game_player = self._load("game/player.json")
+        self.client = self._load("client/display.json")
+        self.worlds = self._load_all("sim/worlds")
+        self.species = self._load_all("sim/species")
 
-        self.game = self._load("game.json")
-        self.worlds = self._load_all("worlds")
-        self.species = self._load_all("species")
-
-    def _load(self, filename: str) -> Dict:
-        path = self.base_path / filename
+    def _load(self, rel_path: str) -> Dict:
+        path = self.base_path / rel_path
+        if not path.exists():
+            print(f"警告: {path} が見つかりません")
+            return {}
         with open(path, encoding="utf-8") as f:
             return json.load(f)
 
@@ -41,10 +47,13 @@ class Config:
         return data
 
     def reload_all(self) -> None:
-        """game.json と worlds/species の全 JSON をディスクから再読み込み（R リセット時など）。"""
-        self.game = self._load("game.json")
-        self.worlds = self._load_all("worlds")
-        self.species = self._load_all("species")
+        """全 JSON をディスクから再読み込み（R リセット時など）。"""
+        self.sim = self._load("sim/defaults.json")
+        self.game_app = self._load("game/app.json")
+        self.game_player = self._load("game/player.json")
+        self.client = self._load("client/display.json")
+        self.worlds = self._load_all("sim/worlds")
+        self.species = self._load_all("sim/species")
 
     def get_world(self, name: str = "Grassland") -> Optional[Dict]:
         if name in self.worlds:

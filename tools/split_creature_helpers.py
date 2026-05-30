@@ -137,42 +137,42 @@ HEADERS = {
     "geo_helpers": (
         '"""距離・視界・近さの幾何計算。"""\n'
         "import math\n\n"
-        "from src.utils.position_helpers import entity_xy\n\n"
+        "from src.sim.utils.position_helpers import entity_xy\n\n"
     ),
     "movement_helpers": (
         '"""移動・徘徊・逃走・巣への帰還。"""\n'
         "import math\n"
         "import random\n\n"
-        "from src.utils.geo_helpers import PointTarget, distance_between\n"
-        "from src.utils.position_helpers import entity_xy\n\n"
+        "from src.sim.utils.geo_helpers import PointTarget, distance_between\n"
+        "from src.sim.utils.position_helpers import entity_xy\n\n"
     ),
     "nutrition_helpers": (
         '"""満腹度・飢餓・巣の食料判定。"""\n\n'
-        "from src.utils.target_helpers import has_edible_carcass\n\n"
+        "from src.sim.utils.target_helpers import has_edible_carcass\n\n"
     ),
     "territory_helpers": (
         '"""コロニーテリトリー・勢力 ID 解決。"""\n'
         "import math\n\n"
-        "from src.utils.position_helpers import entity_xy\n\n"
+        "from src.sim.utils.position_helpers import entity_xy\n\n"
     ),
     "target_helpers": (
         '"""獲物・敵対・死骸の探索と判定。"""\n\n'
-        "from src.utils.geo_helpers import distance_between, is_in_vision\n"
-        "from src.utils.position_helpers import entity_xy\n\n"
+        "from src.sim.utils.geo_helpers import distance_between, is_in_vision\n"
+        "from src.sim.utils.position_helpers import entity_xy\n\n"
     ),
     "combat_helpers": (
         '"""攻撃・捕食・死骸・運搬チャンクの処理。"""\n\n'
-        "from src.utils.geo_helpers import distance_between\n"
-        "from src.utils.movement_helpers import contact_range\n"
-        "from src.utils.nutrition_helpers import get_haul_max_carry\n"
-        "from src.utils.position_helpers import entity_xy\n"
-        "from src.utils.target_helpers import has_edible_carcass\n\n"
+        "from src.sim.utils.geo_helpers import distance_between\n"
+        "from src.sim.utils.movement_helpers import contact_range\n"
+        "from src.sim.utils.nutrition_helpers import get_haul_max_carry\n"
+        "from src.sim.utils.position_helpers import entity_xy\n"
+        "from src.sim.utils.target_helpers import has_edible_carcass\n\n"
     ),
     "stats_helpers": (
         '"""ライフステージ・個体差表示・個体数上限。"""\n'
         "import math\n\n"
-        "from src.utils.geo_helpers import distance_between\n"
-        "from src.utils.position_helpers import entity_xy\n\n"
+        "from src.sim.utils.geo_helpers import distance_between\n"
+        "from src.sim.utils.position_helpers import entity_xy\n\n"
     ),
 }
 
@@ -199,7 +199,7 @@ for mod in MODULE_MAP:
     pub = sorted(n for n in MODULE_MAP[mod] if n in name_to_seg)
     if pub:
         imports.append(
-            f"from src.utils.{mod} import (\n    "
+            f"from src.sim.utils.{mod} import (\n    "
             + ",\n    ".join(pub)
             + ",\n)"
         )

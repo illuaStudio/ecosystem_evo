@@ -7,10 +7,10 @@ def main():
     print("=== Ecosystem Evolution 起動開始 ===")
 
     try:
-        from src.core.engine import SimulationEngine
+        from src.client.app import GameApp
 
         pygame.init()
-        engine = SimulationEngine()
+        engine = GameApp()
         engine.run()
 
     except Exception:

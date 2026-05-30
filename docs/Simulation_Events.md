@@ -67,7 +67,7 @@ for event in world.events.drain():
         ui.show_message(event.message)
 ```
 
-`SimulationEngine` は `ColonyDefeatedEvent` を `drain()` して UI メッセージを表示する（Phase 1）。
+`GameApp` は `ColonyDefeatedEvent` を `drain()` して UI メッセージを表示する（Phase 1）。
 
 ## 戦闘開始の重複抑制
 

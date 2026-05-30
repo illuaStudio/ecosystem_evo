@@ -16,8 +16,8 @@ from src.sim.events import (
 )
 
 if TYPE_CHECKING:
-    from src.combat.target_ref import TargetRef
-    from src.systems.world import World
+    from src.sim.combat.target_ref import TargetRef
+    from src.sim.systems.world import World
 
 
 def _sim_time(world: "World") -> float:
@@ -28,9 +28,22 @@ def _sim_time(world: "World") -> float:
 
 
 def _colony_id(creature) -> Optional[str]:
-    from src.utils.colony_helpers import get_creature_colony_id
+    from src.sim.utils.colony_helpers import get_creature_colony_id
 
-    return get_creature_colony_id(creature)
+    cid = get_creature_colony_id(creature)
+    if cid:
+        return cid
+    if creature is None:
+        return None
+    species = getattr(creature, "species", None)
+    if species is None:
+        return None
+    cfg = getattr(species, "colony_data", None) or {}
+    if not cfg.get("enabled", False):
+        return None
+    from src.sim.utils.territory_helpers import resolve_colony_id
+
+    return resolve_colony_id(species.name, cfg)
 
 
 def emit_death(world: "World", creature, *, cause: DeathCause = "unknown") -> None:
@@ -167,7 +180,7 @@ def maybe_emit_combat_from_damage(
     if world is None or attacker is None or dealt <= 0 or ref is None:
         return
 
-    from src.combat.target_ref import TargetKind
+    from src.sim.combat.target_ref import TargetKind
 
     if ref.kind is TargetKind.CREATURE and ref.creature is not None:
         emit_combat_started_creature(world, attacker, ref.creature)

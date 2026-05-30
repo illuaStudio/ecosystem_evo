@@ -1,0 +1,11 @@
+{
+  "fps": 60,
+  "camera_width": 1100,
+  "camera_height": 750,
+  "camera_pan_extra": 300,
+  "ui_font_size": 24,
+  "fullscreen": false,
+  "debug_hud": false,
+  "debug_sim_events": false,
+  "debug_game_messages": false
+}

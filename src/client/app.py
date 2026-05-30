@@ -1,0 +1,166 @@
+"""pygame クライアント: 描画・入力・SimRunner / GameController の統合。"""
+import pygame
+
+from src.config import config
+from src.client.camera import Camera
+from src.client.input_handler import InputHandler
+from src.client.rendering.renderer import Renderer
+from src.client.species_visibility import SpeciesVisibilityManager
+from src.game.game_controller import GameController
+from src.game.sim_runner import SimRunner
+from src.sim.systems.world import World
+
+
+class GameApp:
+    """Client 層メインループ（Sim + Game + Presentation）。"""
+
+    def __init__(self):
+        self._window_flags = pygame.RESIZABLE
+        self.screen = pygame.display.set_mode(
+            (config.client["camera_width"], config.client["camera_height"]),
+            self._window_flags,
+        )
+        pygame.display.set_caption(
+            f"{config.game_app['game_title']} v{config.game_app['version']}"
+        )
+
+        self.clock = pygame.time.Clock()
+        self.camera = Camera()
+        self.sim_runner = SimRunner()
+        self.world = None
+        self.paused = False
+        self.selected_creature = None
+        self.selected_nest = None
+        self.show_debug = config.client.get("debug_hud", False)
+        self.debug_game_messages = config.client.get("debug_game_messages", False)
+        self.map_view_mode = "biome"
+        self.show_territory = False
+        self.user_message = ""
+        self.game_controller = GameController()
+        self.species_visibility = SpeciesVisibilityManager()
+
+        font_size = config.client.get("ui_font_size", 24)
+        self.renderer = Renderer(
+            self.screen,
+            pygame.font.SysFont("msgothic", font_size),
+            pygame.font.SysFont("msgothic", font_size - 6),
+            pygame.font.SysFont("msgothic", font_size + 8),
+        )
+        self.input_handler = InputHandler(self)
+        self.reset_simulation()
+
+    def resize_display(self, width: int, height: int) -> None:
+        width = max(320, int(width))
+        height = max(240, int(height))
+        self.screen = pygame.display.set_mode((width, height), self._window_flags)
+        self.renderer.screen = self.screen
+        self.renderer._ui_panel = None
+        self.camera.set_screen_size(width, height)
+
+    def reset_simulation(self, world_name: str = "Grassland"):
+        config.reload_all()
+        pygame.display.set_caption(
+            f"{config.game_app['game_title']} v{config.game_app['version']}"
+        )
+        self.sim_runner.reload()
+        self.show_debug = config.client.get("debug_hud", False)
+        self.debug_game_messages = config.client.get("debug_game_messages", False)
+        debug_sim = config.client.get("debug_sim_events", False) or config.sim.get(
+            "debug_events", False
+        )
+        self.game_controller = GameController()
+        self.game_controller.debug_sim_events = debug_sim
+        self.world = World(world_name)
+        self.selected_creature = None
+        self.selected_nest = None
+        self.species_visibility.reset_for_world(self.world)
+        self.renderer.invalidate_biome_cache()
+        self.camera.set_world(self.world)
+        self.game_controller.reset_for_world(self.world)
+
+        print(
+            f"ワールド「{self.world.display_name}」をロードしました: "
+            f"{len(self.world.creatures)}匹"
+        )
+        if self.show_debug:
+            print(
+                f"  [game] プレイヤー勢力: {self.game_controller.state.player_colony_id}"
+            )
+        if self.world.biome.biome_noise:
+            bn = self.world.biome.biome_noise
+            print(
+                f"  biome_noise: scale={bn.scale}, octaves={bn.octaves}, "
+                f"threshold={bn.threshold}, seed={bn.seed}"
+            )
+
+    def handle_events(self) -> bool:
+        return self.input_handler.handle_events()
+
+    def update(self):
+        if self.paused or self.world is None:
+            return
+        if not self.sim_runner.should_run_sim_tick():
+            return
+        self.sim_runner.tick(self.world)
+        tick_messages = self.game_controller.on_tick(self.world)
+        if self.debug_game_messages or self.show_debug:
+            for msg in tick_messages:
+                print(f"[game] {msg.text}", flush=True)
+        if self.game_controller.user_message:
+            self.user_message = self.game_controller.user_message
+
+    def _update_camera_pan_insets(self) -> None:
+        extra = float(config.client.get("camera_pan_extra", 16))
+        has_selection = (
+            self.selected_creature is not None or self.selected_nest is not None
+        )
+        sw = self.screen.get_width()
+        top = (
+            Renderer.HUD_TOP_HEIGHT_DEBUG
+            if self.show_debug
+            else Renderer.HUD_TOP_HEIGHT
+        ) + extra
+        left = (min(Renderer.HUD_LEFT_PANEL_WIDTH, sw) if has_selection else 0) + extra
+        right = max(
+            Renderer.HUD_RIGHT_PANEL_WIDTH,
+            Renderer.HUD_VISIBILITY_PANEL_WIDTH,
+        ) + extra
+        bottom = extra
+        self.camera.set_pan_insets(top=top, left=left, right=right, bottom=bottom)
+
+    def clear_selection_if_creature_hidden(self) -> None:
+        from src.sim.shelter.state import is_creature_sheltered
+
+        sc = self.selected_creature
+        if sc is None:
+            return
+        if is_creature_sheltered(sc):
+            self.selected_creature = None
+            return
+        if not self.species_visibility.is_creature_visible(sc):
+            self.selected_creature = None
+
+    def draw(self):
+        self.clear_selection_if_creature_hidden()
+        self._update_camera_pan_insets()
+        self.renderer.draw(
+            self.world.creatures,
+            self.camera,
+            self.selected_creature,
+            self.selected_nest,
+            self.paused,
+            self.show_debug,
+            self.map_view_mode,
+            self.show_territory,
+            user_message=getattr(self, "user_message", ""),
+            species_visibility=self.species_visibility,
+        )
+
+    def run(self):
+        running = True
+        while running:
+            running = self.handle_events()
+            self.update()
+            self.draw()
+            pygame.display.flip()
+            self.clock.tick(config.client["fps"])

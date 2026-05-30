@@ -1,0 +1,6 @@
+{
+  "red_ant_queen": {
+    "starts_sheltered": true,
+    "reproduction_profile": "workers_only"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "player_colony_id": "red_ant",
+  "monitor": {
+    "low_food_ratio": 0.10,
+    "high_food_ratio": 0.50,
+    "milestone_workers": 5
+  }
+}
