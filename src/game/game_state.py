@@ -13,6 +13,7 @@ class GameState:
     stability_level: float = 1.0
     civilization_level: int = 0
     flags: dict[str, bool] = field(default_factory=dict)
+    applied_unlocks: set[str] = field(default_factory=set)
 
     def set_flag(self, name: str, value: bool = True) -> bool:
         """フラグを更新し、False→True への変化なら True（初回トリガー用）。"""
@@ -25,3 +26,4 @@ class GameState:
 
     def reset_flags(self) -> None:
         self.flags.clear()
+        self.applied_unlocks.clear()

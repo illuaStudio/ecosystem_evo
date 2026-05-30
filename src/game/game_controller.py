@@ -134,6 +134,7 @@ class GameController:
         tick_messages.extend(self.director.on_monitor_alerts(alerts, world))
 
         self.director.update_derived_levels(world)
+        tick_messages.extend(self.director.evaluate_unlocks(world))
         self.user_message = self.director.user_message
         self.pending_messages.extend(tick_messages)
         return tick_messages

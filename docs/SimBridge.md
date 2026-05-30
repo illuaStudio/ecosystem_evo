@@ -87,7 +87,16 @@ bridge.execute(SetColonyCasteMind(
 ))
 ```
 
-## ゲーム層ヘルパー
+## ゲーム進行（progression.json）
+
+`GameDirector.evaluate_unlocks()` が tick 末尾で `progression.json` を評価する。
+
+| unlock id | 条件 | 効果 |
+|-----------|------|------|
+| `queen_worker_reproduction` | `high_food_reached` | 女王 AI → 食事+働きアリ繁殖 |
+| `queen_soldier_reproduction` | `workers_milestone` + 上記解禁済 | 女王 AI → 兵隊繁殖追加 |
+
+状態は `GameState.applied_unlocks` に記録（一度きり）。
 
 `src/game/command_builder.py` が JSON プロファイルを命令に変換する:
 

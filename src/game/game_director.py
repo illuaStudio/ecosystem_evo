@@ -7,6 +7,7 @@ from src.game.command_builder import apply_spawn_profile
 from src.game.game_message import GameMessage
 from src.game.game_monitor import MonitorAlert
 from src.game.game_state import GameState
+from src.game.progression import ProgressionEvaluator
 from src.sim.events import (
     ColonyDefeatedEvent,
     CombatStartedEvent,
@@ -29,10 +30,12 @@ class GameDirector:
         self,
         state: GameState,
         bridge: "SimBridge | None" = None,
+        progression: ProgressionEvaluator | None = None,
     ) -> None:
         self.state = state
         self.bridge = bridge
         self.user_message: str = ""
+        self.progression = progression or ProgressionEvaluator()
 
     def set_bridge(self, bridge: "SimBridge | None") -> None:
         self.bridge = bridge
@@ -80,6 +83,11 @@ class GameDirector:
 
         if self.state.has_flag("workers_milestone"):
             self.state.civilization_level = max(self.state.civilization_level, 1)
+
+    def evaluate_unlocks(self, world: "World") -> list[GameMessage]:
+        if self.bridge is None:
+            return []
+        return self.progression.evaluate(self.bridge, self.state, world)
 
     def _handle_sim_event(self, world: "World", event: SimEvent) -> list[GameMessage]:
         if isinstance(event, SpawnEvent):

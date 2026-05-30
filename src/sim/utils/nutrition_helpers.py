@@ -144,41 +144,34 @@ def nest_has_food(creature, min_food: float = 8.0) -> bool:
     """stored_food が絶対量の下限を超えるか（粗い判定）。"""
     return nest_stored_food(creature) > min_food
 
-def nest_feed_satiety_gain_estimate(
-    creature,
+
+NEST_FOOD_MIN_USABLE_RATIO = 0.01
+NEST_FOOD_MIN_USABLE_ABSOLUTE = 8.0
+
+
+def is_sub_usable_nest_food(
+    stored: float,
+    max_food: float,
     *,
-    max_take_ratio: float = 0.14,
-    bite_gain: float = 1.15,
-) -> float:
-    """次の1ティックで巣から得られる満腹度の見積もり。"""
-    world = getattr(creature, "world", None)
-    if world is None:
-        return 0.0
-    colony = getattr(creature, "colony", None)
-    if colony is None:
-        return 0.0
-    nest = world.nest_system.get_creature_nest(creature)
-    if nest is None or nest.stored_food <= 0:
-        return 0.0
+    min_food_ratio: float = NEST_FOOD_MIN_USABLE_RATIO,
+    min_absolute: float = NEST_FOOD_MIN_USABLE_ABSOLUTE,
+) -> bool:
+    """FeedAtNest が使わない塵（>0 かつ食事不能閾値未満）か。"""
+    if stored <= 0:
+        return False
+    if stored <= min_absolute:
+        return True
+    if max_food > 0 and stored / float(max_food) < min_food_ratio:
+        return True
+    return False
 
-    hunger_room = satiety_room_until_feed_target(creature)
-    if hunger_room <= 0:
-        return 0.0
-
-    members = max(
-        1, world.nest_system.member_count(nest.id, creature.species.name)
-    )
-    per_member_ratio = float(max_take_ratio) / members
-    max_take = nest.stored_food * per_member_ratio
-    take = min(nest.stored_food, max_take, hunger_room / float(bite_gain))
-    return take * float(bite_gain)
 
 def nest_has_usable_food(
     creature,
     *,
     min_satiety_gain: float = 1.0,
-    min_food_ratio: float = 0.01,
-    min_absolute: float = 8.0,
+    min_food_ratio: float = NEST_FOOD_MIN_USABLE_RATIO,
+    min_absolute: float = NEST_FOOD_MIN_USABLE_ABSOLUTE,
 ) -> bool:
     """
     巣の備蓄が「食事として意味がある」か。
@@ -209,3 +202,33 @@ def nest_has_usable_food(
         return True
 
     return estimate >= min_satiety_gain
+
+
+def nest_feed_satiety_gain_estimate(
+    creature,
+    *,
+    max_take_ratio: float = 0.14,
+    bite_gain: float = 1.15,
+) -> float:
+    """次の1ティックで巣から得られる満腹度の見積もり。"""
+    world = getattr(creature, "world", None)
+    if world is None:
+        return 0.0
+    colony = getattr(creature, "colony", None)
+    if colony is None:
+        return 0.0
+    nest = world.nest_system.get_creature_nest(creature)
+    if nest is None or nest.stored_food <= 0:
+        return 0.0
+
+    hunger_room = satiety_room_until_feed_target(creature)
+    if hunger_room <= 0:
+        return 0.0
+
+    members = max(
+        1, world.nest_system.member_count(nest.id, creature.species.name)
+    )
+    per_member_ratio = float(max_take_ratio) / members
+    max_take = nest.stored_food * per_member_ratio
+    take = min(nest.stored_food, max_take, hunger_room / float(bite_gain))
+    return take * float(bite_gain)

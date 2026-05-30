@@ -61,6 +61,9 @@ class Renderer:
         map_view_mode="biome",
         show_territory=False,
         user_message: str = "",
+        message_feed=None,
+        player_colony_id: str = "",
+        game_state=None,
         species_visibility: SpeciesVisibilityManager | None = None,
     ):
         self._show_territory_hud = show_territory
@@ -330,6 +333,8 @@ class Renderer:
 
         if world is not None:
             self._draw_population_panel(world)
+            if player_colony_id:
+                self._draw_queen_status_panel(world, player_colony_id, game_state)
             if species_visibility is not None:
                 self._draw_visibility_panel(world, species_visibility, creatures)
 
@@ -338,6 +343,9 @@ class Renderer:
                 self.font.render(user_message, True, (255, 230, 140)),
                 (15, 118),
             )
+
+        if message_feed is not None:
+            self._draw_message_feed(message_feed)
 
         self.screen.blit(
             self.small_font.render(
@@ -355,6 +363,39 @@ class Renderer:
                 (255, 255, 100),
             )
             self.screen.blit(debug_text, (15, 110))
+
+    def _draw_message_feed(self, message_feed) -> None:
+        """左下: ゲーム進行・イベントメッセージ履歴。"""
+        entries = message_feed.entries()
+        if not entries:
+            return
+
+        margin = 12
+        panel_w = min(520, self.screen.get_width() - margin * 2)
+        line_h = 20
+        header_h = 24
+        panel_h = header_h + len(entries) * line_h + 10
+        sw, sh = self.screen.get_size()
+        x0 = margin
+        y0 = sh - panel_h - margin
+
+        bg = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
+        bg.fill(self.UI_PANEL_COLOR)
+        self.screen.blit(bg, (x0, y0))
+
+        self.screen.blit(
+            self.small_font.render("【メッセージ】", True, (220, 235, 200)),
+            (x0 + 8, y0 + 4),
+        )
+
+        y = y0 + header_h
+        for entry in entries:
+            text = entry.text
+            if len(text) > 56:
+                text = text[:53] + "..."
+            surf = self.small_font.render(text, True, entry.color)
+            self.screen.blit(surf, (x0 + 8, y))
+            y += line_h
 
     def _draw_population_panel(self, world) -> None:
         """ワールド population_limits の現在数 / 上限を右上に表示。"""
@@ -382,6 +423,35 @@ class Renderer:
             x = self.screen.get_width() - surf.get_width() - margin_x
             self.screen.blit(surf, (x, y))
             y += surf.get_height() + 4
+
+    def _draw_queen_status_panel(self, world, player_colony_id: str, game_state) -> None:
+        """右上（個体数パネル下）: プレイヤー女王の状態。"""
+        from src.client.queen_status import build_queen_panel_lines
+
+        lines = build_queen_panel_lines(world, player_colony_id, game_state)
+        if not lines:
+            return
+
+        limits = getattr(world, "population_limits", None) or {}
+        pop_lines = 1 + len(limits)
+        y = 10 + pop_lines * 24 + 8
+
+        margin_x = 12
+        panel_w = 300
+        line_h = 20
+        panel_h = len(lines) * line_h + 10
+        sw = self.screen.get_width()
+        x0 = sw - panel_w - margin_x
+
+        bg = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
+        bg.fill(self.UI_PANEL_COLOR)
+        self.screen.blit(bg, (x0, y))
+
+        for i, (text, color) in enumerate(lines):
+            if len(text) > 34:
+                text = text[:31] + "..."
+            surf = self.small_font.render(text, True, color)
+            self.screen.blit(surf, (x0 + 8, y + 4 + i * line_h))
 
     def _draw_visibility_panel(
         self, world, visibility: SpeciesVisibilityManager, creatures

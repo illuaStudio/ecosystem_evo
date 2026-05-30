@@ -3,6 +3,7 @@ import pygame
 
 from src.config import config
 from src.client.camera import Camera
+from src.client.game_message_feed import GameMessageFeed
 from src.client.input_handler import InputHandler
 from src.client.rendering.renderer import Renderer
 from src.client.species_visibility import SpeciesVisibilityManager
@@ -37,6 +38,7 @@ class GameApp:
         self.map_view_mode = "biome"
         self.show_territory = False
         self.user_message = ""
+        self.message_feed = GameMessageFeed()
         self.game_controller = GameController()
         self.sim_bridge: SimBridge | None = None
         self.species_visibility = SpeciesVisibilityManager()
@@ -76,6 +78,8 @@ class GameApp:
         self.game_controller.debug_sim_events = debug_sim
         self.selected_creature = None
         self.selected_nest = None
+        self.user_message = ""
+        self.message_feed.clear()
         self.species_visibility.reset_for_world(self.world)
         self.renderer.invalidate_biome_cache()
         self.camera.set_world(self.world)
@@ -118,6 +122,13 @@ class GameApp:
         else:
             self.game_controller.spawn_creature(species, source="debug")
 
+    def notify(self, text: str, *, source: str = "game", priority: int = 0) -> None:
+        """画面上のメッセージ欄へ通知。"""
+        if not text:
+            return
+        self.message_feed.push_text(text, source=source, priority=priority)
+        self.user_message = text
+
     def update(self):
         if self.paused or self.world is None:
             return
@@ -125,9 +136,10 @@ class GameApp:
             return
         self.sim_runner.tick(self.world)
         tick_messages = self.game_controller.on_tick(self.world)
+        self.message_feed.push(tick_messages)
         if self.debug_game_messages or self.show_debug:
             for msg in tick_messages:
-                print(f"[game] {msg.text}", flush=True)
+                print(f"[game:{msg.source}] {msg.text}", flush=True)
         if self.game_controller.user_message:
             self.user_message = self.game_controller.user_message
 
@@ -175,6 +187,9 @@ class GameApp:
             self.map_view_mode,
             self.show_territory,
             user_message=getattr(self, "user_message", ""),
+            message_feed=getattr(self, "message_feed", None),
+            player_colony_id=self.game_controller.state.player_colony_id,
+            game_state=self.game_controller.state,
             species_visibility=self.species_visibility,
         )
 

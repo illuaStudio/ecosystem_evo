@@ -1,7 +1,11 @@
 {
   "name": "red_ant",
   "description": "赤コロニーの働きアリ。アメーバを狩って巣へ貯蔵。他勢力の兵隊・クモからは逃げる。",
-  "color": [220, 60, 60],
+  "color": [
+    220,
+    60,
+    60
+  ],
   "colony": {
     "enabled": true,
     "colony_id": "red_ant",
@@ -12,7 +16,7 @@
     "spawn_spread": 28,
     "deposit_radius": 30,
     "max_food": 5000,
-    "initial_stored_food": 80,
+    "initial_stored_food": 2000,
     "food_leak_rate": 0.00012,
     "food_to_mana_ratio": 0.35,
     "food_leak_reserve_ratio": 0.15
@@ -20,7 +24,7 @@
   "traits": {
     "base_size": 14.0,
     "base_speed": 0.5,
-    "base_vision": 260,
+    "base_vision": 260.0,
     "max_hp": 120.0,
     "max_satiety": 100.0,
     "metabolism_rate": 0.05,
@@ -30,7 +34,26 @@
   },
   "inventory": {
     "slot_count": 3,
-    "slots": [{ "max_mass": 100, "allowed_kinds": ["biomass"] }, { "max_mass": 100, "allowed_kinds": ["biomass"] }, { "max_mass": 100, "allowed_kinds": ["biomass"] }],
+    "slots": [
+      {
+        "max_mass": 100,
+        "allowed_kinds": [
+          "biomass"
+        ]
+      },
+      {
+        "max_mass": 100,
+        "allowed_kinds": [
+          "biomass"
+        ]
+      },
+      {
+        "max_mass": 100,
+        "allowed_kinds": [
+          "biomass"
+        ]
+      }
+    ],
     "biomass_weight_per_unit": 1.0,
     "carry_speed_reference_weight": 80
   },
@@ -56,7 +79,9 @@
         "name": "ScavengeCarriedAction",
         "weight": 4.2,
         "description": "飢餓時: 運搬中の死骸をその場で食べる",
-        "params": { "bite_gain": 1.2 }
+        "params": {
+          "bite_gain": 1.2
+        }
       },
       {
         "name": "FeedAtNestAction",
@@ -68,7 +93,10 @@
           "feed_radius": 38,
           "min_usable_food_ratio": 0.01,
           "min_usable_satiety_gain": 1.0,
-          "scavenge_species": ["Amoeba", "Spider"]
+          "scavenge_species": [
+            "Amoeba",
+            "Spider"
+          ]
         }
       },
       {
@@ -76,8 +104,13 @@
         "weight": 4.2,
         "description": "視界内の近い死骸を優先し回収。なければアメーバを狩る（クモは死骸のみ）",
         "params": {
-          "target_types": ["Amoeba", "Spider"],
-          "carcass_only_species": ["Spider"],
+          "target_types": [
+            "Amoeba",
+            "Spider"
+          ],
+          "carcass_only_species": [
+            "Spider"
+          ],
           "carcass_utility_mult": 1.4,
           "speed_multiplier": 1.35,
           "attack_power": 1.25,
@@ -94,7 +127,7 @@
         "description": "満腹時: 運搬中の死骸を巣へ貯蔵",
         "params": {
           "speed_multiplier": 1.15,
-          "deposit_radius": 30
+          "deposit_radius": 30.0
         }
       },
       {
@@ -102,7 +135,7 @@
         "weight": 1.0,
         "description": "巣周辺を巡回",
         "params": {
-          "patrol_radius": 140,
+          "patrol_radius": 140.0,
           "speed_multiplier": 0.8,
           "nest_pull_strength": 0.6
         }
@@ -110,7 +143,10 @@
       {
         "name": "WanderAction",
         "weight": 0.35,
-        "params": { "angle_range": 35, "speed_multiplier": 0.7 }
+        "params": {
+          "angle_range": 35,
+          "speed_multiplier": 0.7
+        }
       }
     ]
   }

@@ -15,6 +15,83 @@
       }
     ]
   },
+  "queen_feed_and_workers": {
+    "description": "女王: 巣で食事 + 働きアリ繁殖",
+    "actions": [
+      {
+        "name": "FeedAtNestAction",
+        "weight": 5.0,
+        "params": {
+          "bite_gain": 1.15,
+          "max_take_ratio": 0.08,
+          "feed_radius": 38,
+          "min_usable_food_ratio": 0.01,
+          "min_usable_satiety_gain": 1.0
+        }
+      },
+      {
+        "name": "ColonyReproduceAction",
+        "weight": 5.0,
+        "params": {
+          "offspring": [
+            {
+              "species": "red_ant",
+              "weight": 1.0
+            }
+          ],
+          "food_cost": 55.0,
+          "min_food_reserve": 72.0,
+          "max_colony_members": 10,
+          "member_species": [
+            "red_ant"
+          ],
+          "spawn_cooldown": 900,
+          "spawn_radius": 35.0
+        }
+      }
+    ]
+  },
+  "queen_feed_and_soldiers": {
+    "description": "女王: 巣で食事 + 働きアリ・兵隊アリ繁殖",
+    "actions": [
+      {
+        "name": "FeedAtNestAction",
+        "weight": 5.0,
+        "params": {
+          "bite_gain": 1.15,
+          "max_take_ratio": 0.08,
+          "feed_radius": 38,
+          "min_usable_food_ratio": 0.01,
+          "min_usable_satiety_gain": 1.0
+        }
+      },
+      {
+        "name": "ColonyReproduceAction",
+        "weight": 5.0,
+        "params": {
+          "offspring": [
+            {
+              "species": "red_ant",
+              "weight": 0.7
+            },
+            {
+              "species": "red_ant_soldier",
+              "weight": 0.3
+            }
+          ],
+          "food_cost": 55,
+          "min_food_reserve": 72,
+          "max_colony_members": 15,
+          "member_species": [
+            "red_ant",
+            "red_ant_soldier"
+          ],
+          "spawn_cooldown": 900,
+          "spawn_radius": 35
+        }
+      }
+    ]
+  },
   "workers_only": {
     "description": "働きアリのみを産む（解禁後）",
     "actions": [
@@ -22,11 +99,18 @@
         "name": "ColonyReproduceAction",
         "weight": 5.0,
         "params": {
-          "offspring": [{ "species": "red_ant", "weight": 1.0 }],
+          "offspring": [
+            {
+              "species": "red_ant",
+              "weight": 1.0
+            }
+          ],
           "food_cost": 55,
           "min_food_reserve": 72,
           "max_colony_members": 10,
-          "member_species": ["red_ant"],
+          "member_species": [
+            "red_ant"
+          ],
           "spawn_cooldown": 900,
           "spawn_radius": 35
         }
@@ -41,13 +125,22 @@
         "weight": 5.0,
         "params": {
           "offspring": [
-            { "species": "red_ant", "weight": 0.7 },
-            { "species": "red_ant_soldier", "weight": 0.3 }
+            {
+              "species": "red_ant",
+              "weight": 0.7
+            },
+            {
+              "species": "red_ant_soldier",
+              "weight": 0.3
+            }
           ],
           "food_cost": 55,
           "min_food_reserve": 72,
           "max_colony_members": 15,
-          "member_species": ["red_ant", "red_ant_soldier"],
+          "member_species": [
+            "red_ant",
+            "red_ant_soldier"
+          ],
           "spawn_cooldown": 900,
           "spawn_radius": 35
         }

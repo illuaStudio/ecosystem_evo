@@ -21,6 +21,7 @@ OPTIONAL_TRAIT_KEYS = frozenset({
     "corpse_decompose_rate",
     "poison_resist",
     "hp_regen_mult",
+    "starvation_hp_mult",
     "field_immunities",
 })
 

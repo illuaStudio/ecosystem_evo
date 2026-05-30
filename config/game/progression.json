@@ -1,0 +1,33 @@
+{
+  "unlocks": [
+    {
+      "id": "queen_worker_reproduction",
+      "requires_flags": ["high_food_reached"],
+      "commands": [
+        {
+          "type": "ApplyMindProfile",
+          "target": { "colony": "player", "caste": "queen" },
+          "profile": "queen_feed_and_workers",
+          "mode": "replace"
+        }
+      ],
+      "message": "女王が働きアリを産む準備が整いました",
+      "set_flags": ["queen_can_reproduce"]
+    },
+    {
+      "id": "queen_soldier_reproduction",
+      "requires_flags": ["workers_milestone"],
+      "requires_unlocks": ["queen_worker_reproduction"],
+      "commands": [
+        {
+          "type": "ApplyMindProfile",
+          "target": { "colony": "player", "caste": "queen" },
+          "profile": "queen_feed_and_soldiers",
+          "mode": "replace"
+        }
+      ],
+      "message": "兵隊アリの生産が可能になりました",
+      "set_flags": ["queen_can_spawn_soldiers"]
+    }
+  ]
+}

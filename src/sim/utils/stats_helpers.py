@@ -65,6 +65,7 @@ TRAIT_DISPLAY_LABELS = {
     "max_hp": "最大HP",
     "max_satiety": "最大満腹",
     "metabolism_rate": "代謝",
+    "starvation_hp_mult": "飢餓HP倍率",
     "corpse_decompose_rate": "死骸分解",
     "satiety_hungry_below": "飢餓閾値",
     "satiety_full_above": "満腹閾値",

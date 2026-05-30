@@ -134,5 +134,5 @@ class InputHandler:
             return
 
         _ok, msg = nest_system.try_place_hole(nest, wx, wy)
-        self.engine.user_message = msg
+        self.engine.notify(msg, source="game")
         self.engine.selected_nest = nest

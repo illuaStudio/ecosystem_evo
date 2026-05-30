@@ -50,5 +50,9 @@ class MetabolismComponent:
         owner.satiety -= owner.traits["metabolism_rate"] * float(dt)
 
         if owner.satiety < 0:
-            owner.hp += owner.satiety * 0.12
+            from src.config import config
+
+            default_mult = float(config.sim.get("starvation_hp_mult", 0.12))
+            mult = float(owner.traits.get("starvation_hp_mult", default_mult))
+            owner.hp += owner.satiety * mult
             owner.satiety = 0

@@ -397,6 +397,24 @@ class NestSystem:
             colony_cfg = species_data.get("colony", {})
             if nest.stored_food > 0:
                 self._leak_food_to_mana(nest, colony_cfg, dt)
+                self._flush_sub_usable_food(nest, colony_cfg)
+
+    def _flush_sub_usable_food(self, nest: Nest, colony_cfg: dict) -> None:
+        """食事 AI が使わない塵をマナへ還流して 0 にする（1% 残り見た目対策）。"""
+        from src.sim.utils.nutrition_helpers import is_sub_usable_nest_food
+
+        if not is_sub_usable_nest_food(nest.stored_food, nest.max_food):
+            return
+
+        dust = nest.stored_food
+        nest.stored_food = 0.0
+        mana_ratio = float(
+            colony_cfg.get("food_to_mana_ratio", self.DEFAULT_FOOD_TO_MANA_RATIO)
+        )
+        if dust > 0 and mana_ratio > 0 and self.world is not None:
+            self.world.mana_layer.return_from_decomposition(
+                dust * mana_ratio, nest.x, nest.y
+            )
 
     def _leak_food_to_mana(self, nest: Nest, colony_cfg: dict, dt: float) -> None:
         leak_rate = float(

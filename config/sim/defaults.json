@@ -2,5 +2,6 @@
   "sim_ticks_per_step": 10,
   "simulation_speed": 1.0,
   "max_creatures": 250,
-  "debug_events": false
+  "debug_events": false,
+  "starvation_hp_mult": 0.12
 }
