@@ -259,7 +259,7 @@ class TestSimBridge(unittest.TestCase):
         self.assertTrue(is_creature_sheltered(queen))
         self.assertEqual(
             [a["name"] for a in queen.mind.action_defs],
-            ["ColonyReproduceAction"],
+            ["FeedAtNestAction"],
         )
 
     def test_spawn_creature_helper(self):

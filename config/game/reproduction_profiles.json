@@ -1,6 +1,22 @@
 {
+  "survival_feed_only": {
+    "description": "巣穴内で備蓄から食事のみ（初期女王）",
+    "actions": [
+      {
+        "name": "FeedAtNestAction",
+        "weight": 5.0,
+        "params": {
+          "bite_gain": 1.15,
+          "max_take_ratio": 0.08,
+          "feed_radius": 38,
+          "min_usable_food_ratio": 0.01,
+          "min_usable_satiety_gain": 1.0
+        }
+      }
+    ]
+  },
   "workers_only": {
-    "description": "働きアリのみを産む（初期）",
+    "description": "働きアリのみを産む（解禁後）",
     "actions": [
       {
         "name": "ColonyReproduceAction",

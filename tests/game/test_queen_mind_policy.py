@@ -29,7 +29,7 @@ class TestQueenAndMindPolicy(unittest.TestCase):
         self.assertTrue(queen.alive)
         self.assertGreater(queen.hp, 0)
 
-    def test_queen_starts_sheltered_with_workers_only_profile(self):
+    def test_queen_starts_sheltered_with_feed_only_profile(self):
         world = World.from_json(
             {
                 "name": "QueenShelterTest",
@@ -45,7 +45,7 @@ class TestQueenAndMindPolicy(unittest.TestCase):
 
         self.assertTrue(is_creature_sheltered(queen))
         names = [a["name"] for a in queen.mind.action_defs]
-        self.assertEqual(names, ["ColonyReproduceAction"])
+        self.assertEqual(names, ["FeedAtNestAction"])
 
     def test_mind_policy_swaps_reproduction_profile(self):
         world = World.from_json(
@@ -89,7 +89,11 @@ class TestQueenAndMindPolicy(unittest.TestCase):
         factory = CreatureFactory()
         queen = factory.create("red_ant_queen", world=world, x=120, y=120)
         world.add_creature(queen)
-        apply_spawn_profile(SimBridge(world), queen)
+        bridge = SimBridge(world)
+        apply_spawn_profile(bridge, queen)
+        from src.game.command_builder import apply_mind_profile
+
+        apply_mind_profile(bridge, queen, "workers_only")
         nest = world.nest_system.get_creature_nest(queen)
 
         self.assertTrue(is_creature_sheltered(queen))
