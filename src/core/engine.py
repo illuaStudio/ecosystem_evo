@@ -7,6 +7,14 @@ from src.core.input_handler import InputHandler
 from src.core.species_visibility import SpeciesVisibilityManager
 from src.entities.creature_factory import CreatureFactory
 from src.rendering.renderer import Renderer
+from src.sim.events import (
+    ColonyDefeatedEvent,
+    CombatStartedEvent,
+    DeathEvent,
+    ItemFoundEvent,
+    SimEvent,
+    SpawnEvent,
+)
 from src.systems.world import World
 
 
@@ -70,6 +78,7 @@ class SimulationEngine:
         )
         self.sim_ticks_per_step = max(1, int(config.game.get("sim_ticks_per_step", 10)))
         self._render_ticks_until_sim = 0
+        self.show_debug = config.game.get("debug_mode", False)
         self.world = World(world_name)
         self.selected_creature = None
         self.selected_nest = None
@@ -80,6 +89,10 @@ class SimulationEngine:
         self.camera.set_world(self.world)
 
         print(f"ワールド「{self.world.display_name}」をロードしました: {len(self.world.creatures)}匹")
+        if self.show_debug:
+            pending = len(self.world.events.drain())
+            if pending:
+                print(f"  [sim] 初期配置イベント {pending} 件（debug_mode で破棄）")
         if self.world.biome.biome_noise:
             bn = self.world.biome.biome_noise
             print(
@@ -96,6 +109,37 @@ class SimulationEngine:
         speed = float(config.game.get("simulation_speed", 1.0))
         return self.sim_ticks_per_step * speed
 
+    def _log_sim_event(self, event: SimEvent) -> None:
+        name = type(event).__name__
+        if isinstance(event, SpawnEvent):
+            print(
+                f"[sim] {name} {event.species_name} source={event.source}",
+                flush=True,
+            )
+        elif isinstance(event, DeathEvent):
+            print(
+                f"[sim] {name} {event.species_name} cause={event.cause}",
+                flush=True,
+            )
+        elif isinstance(event, ItemFoundEvent):
+            print(
+                f"[sim] {name} {event.species_name} amount={event.amount:.1f}",
+                flush=True,
+            )
+        elif isinstance(event, CombatStartedEvent):
+            target = event.target_creature
+            target_name = (
+                target.species.name if target is not None else event.target_colony_id
+            )
+            print(
+                f"[sim] {name} {event.attacker_species} -> {target_name}",
+                flush=True,
+            )
+        elif isinstance(event, ColonyDefeatedEvent):
+            print(f"[sim] {name} {event.colony_id}", flush=True)
+        else:
+            print(f"[sim] {name}", flush=True)
+
     def update(self):
         """状態更新（レンダー tick）。生態シミュは sim_ticks_per_step ごとに実行。"""
         if self.paused or self.world is None:
@@ -104,10 +148,11 @@ class SimulationEngine:
             self._render_ticks_until_sim -= 1
             return
         self.world.update(self._sim_dt())
-        defeat_msg = getattr(self.world, "last_defeat_message", "")
-        if defeat_msg:
-            self.user_message = defeat_msg
-            self.world.last_defeat_message = ""
+        for event in self.world.events.drain():
+            if self.show_debug:
+                self._log_sim_event(event)
+            if isinstance(event, ColonyDefeatedEvent):
+                self.user_message = event.message
         self._render_ticks_until_sim = self.sim_ticks_per_step - 1
 
     def _update_camera_pan_insets(self) -> None:

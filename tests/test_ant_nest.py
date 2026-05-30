@@ -237,69 +237,96 @@ class TestAntNest(unittest.TestCase):
         shared_cap = 200.0 * 0.14 / members
         self.assertLess(shared_cap, solo_cap)
 
+    def _spawn_colony(self, world, workers: int = 1, *, stored_food=None):
+        """?? + ???????????????"""
+        factory = CreatureFactory()
+        queen = factory.create("red_ant_queen", world=world, x=120, y=120)
+        world.add_creature(queen)
+        nest = world.nest_system.get_creature_nest(queen)
+        if stored_food is not None:
+            nest.stored_food = stored_food
+        workers_list = []
+        for i in range(workers):
+            w = factory.create("red_ant", world=world, x=120 + i * 10, y=120)
+            world.add_creature(w)
+            workers_list.append(w)
+        return queen, nest, workers_list
+
+    def _reproduce_params(self):
+        from src.game.mind_policy import MindPolicy
+
+        profile = MindPolicy().get_profile("workers_only") or {}
+        for action in profile.get("actions", []):
+            if action.get("name") == "ColonyReproduceAction":
+                return dict(action.get("params", {}))
+        return {}
+
     def test_spawn_worker_consumes_food_and_adds_member(self):
         world = self._empty_world()
-        preds = self._spawn_predators(world, 1)
-        predator = preds[0]
-        nest = world.nest_system.get_creature_nest(predator)
-        colony_cfg = config.get_species("red_ant").get("colony", {})
-        cost = float(colony_cfg["spawn_food_cost"])
-        reserve = float(colony_cfg["min_food_reserve"])
+        queen, nest, _ = self._spawn_colony(world, workers=0)
+        params = self._reproduce_params()
+        cost = float(params["food_cost"])
+        reserve = float(params["min_food_reserve"])
 
         nest.stored_food = reserve + cost + 10
-        members_before = world.nest_system.member_count(nest.id, "red_ant")
+        members_before = world.nest_system.count_colony_members(
+            nest.id, params["member_species"]
+        )
         food_before = nest.stored_food
 
-        from src.utils.position_helpers import entity_xy
+        queen.pos[0] = nest.x
+        queen.pos[1] = nest.y
+        if hasattr(queen, "position"):
+            queen.position.x = nest.x
+            queen.position.y = nest.y
 
-        predator.pos[0] = nest.x
-        predator.pos[1] = nest.y
-        if hasattr(predator, "position"):
-            predator.position.x = nest.x
-            predator.position.y = nest.y
+        from src.ai.actions import ColonyReproduceAction
 
-        worker = world.nest_system.spawn_worker(predator, colony_cfg)
-        self.assertIsNotNone(worker)
-        world.add_creature(worker)
+        action = ColonyReproduceAction(**{**params, "spawn_cooldown": 0})
+        self.assertTrue(action.execute(queen))
 
         self.assertEqual(
-            world.nest_system.member_count(nest.id, "red_ant"),
+            world.nest_system.count_colony_members(nest.id, params["member_species"]),
             members_before + 1,
         )
         self.assertAlmostEqual(nest.stored_food, food_before - cost)
-        self.assertEqual(worker.colony.nest_id, nest.id)
 
     def test_spawn_worker_blocked_at_max_workers(self):
-        world = World()
-        colony_cfg = config.get_species("red_ant").get("colony", {})
-        max_workers = int(colony_cfg["max_workers"])
-        preds = self._spawn_predators(world, max_workers)
-        nest = world.nest_system.get_creature_nest(preds[0])
+        world = self._empty_world()
+        params = self._reproduce_params()
+        max_members = int(params["max_colony_members"])
+        queen, nest, _ = self._spawn_colony(world, workers=max_members)
         nest.stored_food = nest.max_food
 
-        self.assertFalse(world.nest_system.can_spawn_worker(preds[0], colony_cfg))
-        self.assertIsNone(world.nest_system.spawn_worker(preds[0], colony_cfg))
+        from src.ai.actions import ColonyReproduceAction
+
+        action = ColonyReproduceAction(**{**params, "spawn_cooldown": 0})
+        self.assertFalse(action.can_execute(queen))
 
     def test_spawn_worker_blocked_below_min_reserve(self):
-        world = World()
-        preds = self._spawn_predators(world, 1)
-        predator = preds[0]
-        nest = world.nest_system.get_creature_nest(predator)
-        colony_cfg = config.get_species("red_ant").get("colony", {})
-        cost = float(colony_cfg["spawn_food_cost"])
-        reserve = float(colony_cfg["min_food_reserve"])
+        world = self._empty_world()
+        queen, nest, _ = self._spawn_colony(world, workers=0)
+        params = self._reproduce_params()
+        cost = float(params["food_cost"])
+        reserve = float(params["min_food_reserve"])
 
         nest.stored_food = reserve + cost - 1
-        self.assertFalse(world.nest_system.can_spawn_worker(predator, colony_cfg))
+
+        from src.ai.actions import ColonyReproduceAction
+
+        action = ColonyReproduceAction(**{**params, "spawn_cooldown": 0})
+        self.assertFalse(action.can_execute(queen))
 
     def test_hunt_utility_positive_when_satiated_regardless_of_nest_fill(self):
-        world = World()
+        world = self._empty_world()
         preds = self._spawn_predators(world, 1)
         predator = preds[0]
         nest = world.nest_system.get_creature_nest(predator)
         predator.satiety = predator.max_satiety * 0.95
 
-        prey = next(c for c in world.creatures if c.species.name == "Spider")
+        factory = CreatureFactory()
+        prey = factory.create("Spider", world=world, x=0, y=0)
+        world.add_creature(prey)
         px, py = entity_xy(predator)
         prey.pos[0] = px + 20
         prey.pos[1] = py
@@ -380,27 +407,27 @@ class TestAntNest(unittest.TestCase):
 
     def test_spawn_worker_action_at_nest(self):
         world = self._empty_world()
-        preds = self._spawn_predators(world, 1)
-        predator = preds[0]
-        nest = world.nest_system.get_creature_nest(predator)
-        colony_cfg = config.get_species("red_ant").get("colony", {})
-        cost = float(colony_cfg["spawn_food_cost"])
-        reserve = float(colony_cfg["min_food_reserve"])
+        queen, nest, _ = self._spawn_colony(world, workers=0)
+        params = self._reproduce_params()
+        cost = float(params["food_cost"])
+        reserve = float(params["min_food_reserve"])
         nest.stored_food = reserve + cost + 50
 
-        predator.pos[0] = nest.x
-        predator.pos[1] = nest.y
-        if hasattr(predator, "position"):
-            predator.position.x = nest.x
-            predator.position.y = nest.y
+        queen.pos[0] = nest.x
+        queen.pos[1] = nest.y
+        if hasattr(queen, "position"):
+            queen.position.x = nest.x
+            queen.position.y = nest.y
 
-        from src.ai.actions import SpawnWorkerAction
+        from src.ai.actions import ColonyReproduceAction
 
-        action = SpawnWorkerAction(spawn_cooldown=0)
-        members_before = world.nest_system.member_count(nest.id, "red_ant")
-        self.assertTrue(action.execute(predator))
+        action = ColonyReproduceAction(**{**params, "spawn_cooldown": 0})
+        members_before = world.nest_system.count_colony_members(
+            nest.id, params["member_species"]
+        )
+        self.assertTrue(action.execute(queen))
         self.assertEqual(
-            world.nest_system.member_count(nest.id, "red_ant"),
+            world.nest_system.count_colony_members(nest.id, params["member_species"]),
             members_before + 1,
         )
 
@@ -416,24 +443,25 @@ class TestAntNest(unittest.TestCase):
         miss = ns.find_nest_at(nest.x + 200, nest.y + 200, pick_radius=36)
         self.assertIsNone(miss)
 
-    def test_spawn_readiness_reports_food_shortage(self):
+    def test_reproduction_readiness_reports_food_shortage(self):
         world = self._empty_world()
-        preds = self._spawn_predators(world, 1)
-        nest = world.nest_system.get_creature_nest(preds[0])
-        colony_cfg = config.get_species("red_ant").get("colony", {})
-        needed = float(colony_cfg["min_food_reserve"]) + float(
-            colony_cfg["spawn_food_cost"]
-        )
+        queen, nest, _ = self._spawn_colony(world, workers=0)
+        params = self._reproduce_params()
+        needed = float(params["min_food_reserve"]) + float(params["food_cost"])
+
+        from src.ai.actions import ColonyReproduceAction
+
+        action = ColonyReproduceAction(**params)
 
         nest.stored_food = needed - 1
-        ok, msg = world.nest_system.spawn_readiness(nest)
+        ok, msg = action.reproduction_readiness(queen)
         self.assertFalse(ok)
-        self.assertIn("????????", msg)
+        self.assertIn("127", msg)
 
         nest.stored_food = needed
-        ok, msg = world.nest_system.spawn_readiness(nest)
+        ok, msg = action.reproduction_readiness(queen)
         self.assertTrue(ok)
-        self.assertIn("???????", msg)
+        self.assertIn("10", msg)
 
     def test_deposit_clears_carry_when_nest_full(self):
         world = self._empty_world()

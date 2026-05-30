@@ -31,19 +31,11 @@ class TestThreeFactions(unittest.TestCase):
 
     def test_initial_population_per_faction(self):
         world = World()
-        for species in (
-            "red_ant",
-            "red_ant_soldier",
-            "red_ant_vanguard",
-            "blue_ant",
-            "blue_ant_soldier",
-            "blue_ant_vanguard",
-            "yellow_ant",
-            "yellow_ant_soldier",
-            "yellow_ant_vanguard",
-        ):
+        for species in ("red_ant", "blue_ant", "yellow_ant"):
             alive = sum(1 for c in world.creatures if c.species.name == species)
             self.assertGreaterEqual(alive, 1, species)
+        queens = sum(1 for c in world.creatures if c.species.name == "red_ant_queen")
+        self.assertEqual(queens, 1)
 
 
 if __name__ == "__main__":

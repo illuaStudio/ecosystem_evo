@@ -1,0 +1,61 @@
+"""生態系シミュレーション層のドメインイベント型。"""
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any, Literal, Optional
+
+DeathCause = Literal["hp", "lifespan", "metabolism", "defeat", "unknown"]
+SpawnSource = Literal["initial", "reproduction", "split", "spawn"]
+CombatTargetKind = Literal["creature", "spawn_node"]
+ItemKind = Literal["biomass"]
+
+
+@dataclass(frozen=True, kw_only=True)
+class SimEvent:
+    """全シミュイベント共通の基底。"""
+
+    sim_time: float = 0.0
+
+
+@dataclass(frozen=True, kw_only=True)
+class DeathEvent(SimEvent):
+    creature: Any = field(repr=False)
+    species_name: str = ""
+    colony_id: Optional[str] = None
+    cause: DeathCause = "unknown"
+
+
+@dataclass(frozen=True, kw_only=True)
+class SpawnEvent(SimEvent):
+    creature: Any = field(repr=False)
+    species_name: str = ""
+    colony_id: Optional[str] = None
+    source: SpawnSource = "spawn"
+    parent: Any = field(default=None, repr=False)
+
+
+@dataclass(frozen=True, kw_only=True)
+class ItemFoundEvent(SimEvent):
+    carrier: Any = field(repr=False)
+    species_name: str = ""
+    colony_id: Optional[str] = None
+    item_kind: ItemKind = "biomass"
+    amount: float = 0.0
+
+
+@dataclass(frozen=True, kw_only=True)
+class CombatStartedEvent(SimEvent):
+    attacker: Any = field(repr=False)
+    attacker_species: str = ""
+    attacker_colony_id: Optional[str] = None
+    target_kind: CombatTargetKind = "creature"
+    target_creature: Any = field(default=None, repr=False)
+    target_colony_id: Optional[str] = None
+    target_nest_id: Optional[int] = None
+    target_hole_index: Optional[int] = None
+
+
+@dataclass(frozen=True, kw_only=True)
+class ColonyDefeatedEvent(SimEvent):
+    colony_id: str = ""
+    message: str = ""

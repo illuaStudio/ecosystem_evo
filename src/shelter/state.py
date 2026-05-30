@@ -1,7 +1,11 @@
 """避難状態（他モジュールからの循環 import を避けるため分離）。"""
 
 # 巣穴に隠れている間に Utility AI が選んでよい行動名
-SHELTER_ALLOWED_ACTION_NAMES = frozenset({"SeekShelterAction", "FeedAtNestAction"})
+SHELTER_ALLOWED_ACTION_NAMES = frozenset({
+    "SeekShelterAction",
+    "FeedAtNestAction",
+    "ColonyReproduceAction",
+})
 
 
 def is_creature_sheltered(creature) -> bool:

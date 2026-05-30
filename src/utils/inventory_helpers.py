@@ -129,6 +129,7 @@ def try_pickup_carcass(carrier, carcass, contact_padding: float = 8.0) -> bool:
         return False
 
     picked = False
+    picked_amount = 0.0
     for slot in inv.slots:
         if not slot.can_accept("biomass"):
             continue
@@ -140,11 +141,15 @@ def try_pickup_carcass(carrier, carcass, contact_padding: float = 8.0) -> bool:
         carcass.remaining_biomass -= chunk
         slot.item = BiomassItem(amount=chunk, source_carcass=carcass)
         picked = True
+        picked_amount += chunk
 
     if picked and world is not None:
         _remove_depleted_carcass(world, carcass)
         if carcass.remaining_biomass <= 0 or carcass not in world.creatures:
             _detach_carcass_from_inventory(inv, carcass)
+        from src.sim.emitters import emit_item_found
+
+        emit_item_found(world, carrier, item_kind="biomass", amount=picked_amount)
     return picked
 
 

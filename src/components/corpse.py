@@ -46,18 +46,26 @@ class CorpseComponent:
                     self.DEPLETION_MANA_BONUS, ox, oy
                 )
 
-    def become_corpse(self) -> None:
+    def become_corpse(self, cause: str = "unknown") -> None:
         """死亡→死骸化。残存バイオマスをサイズ・栄養に比例して設定。"""
         owner = self.owner
         if not owner.alive and self.initial_biomass > 0:
             return
 
+        was_alive = owner.alive
         owner.alive = False
         owner.hp = 0
         size = float(owner.traits.get("base_size", 9.0))
         biomass = size * 200
         self.remaining_biomass = biomass
         self.initial_biomass = biomass
+
+        if was_alive and owner.world is not None:
+            from src.sim.emitters import emit_death
+            from src.sim.events import DeathCause
+
+            death_cause: DeathCause = cause  # type: ignore[assignment]
+            emit_death(owner.world, owner, cause=death_cause)
 
     def biomass_ratio(self) -> float:
         """残存バイオマスの割合（1.0=死亡直後, 0.0=消滅直前）"""

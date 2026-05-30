@@ -1,0 +1,39 @@
+{
+  "name": "red_ant_queen",
+  "description": "赤コロニーの女王。巣穴に隠れ、備蓄を消費して働きアリを産む。",
+  "color": [255, 120, 120],
+  "life_cycle": { "death": -1 },
+  "colony": {
+    "enabled": true,
+    "colony_id": "red_ant",
+    "single_colony": true,
+    "starts_sheltered": true,
+    "territory_radius": 180,
+    "nest_x": 120,
+    "nest_y": 120,
+    "spawn_spread": 28,
+    "hide_radius": 35,
+    "max_food": 5000,
+    "initial_stored_food": 80,
+    "food_leak_rate": 0.00012,
+    "food_to_mana_ratio": 0.35,
+    "food_leak_reserve_ratio": 0.15
+  },
+  "game": {
+    "reproduction_profile": "workers_only"
+  },
+  "traits": {
+    "base_size": 22.0,
+    "base_speed": 0.15,
+    "base_vision": 180,
+    "max_hp": 500.0,
+    "max_satiety": 200.0,
+    "metabolism_rate": 0.02,
+    "satiety_hungry_below": 0.20,
+    "satiety_full_above": 0.90
+  },
+  "mind": {
+    "type": "utility",
+    "actions": []
+  }
+}

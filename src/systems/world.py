@@ -12,6 +12,7 @@ from src.systems.world_biome import WorldBiome
 from src.systems.world_mana import WorldMana
 from src.systems.field_emitter_system import FieldEmitterSystem
 from src.systems.nest_system import NestSystem
+from src.sim.event_bus import EventBus
 from src.systems.world_spawner import WorldSpawner
 
 
@@ -97,6 +98,8 @@ class World:
         self.colony_settings = colony_block
         self.defeated_colonies: set[str] = set()
         self.last_defeat_message: str = ""
+        self.events = EventBus()
+        self._combat_pairs_this_tick: set[tuple] = set()
 
         self.nest_system = NestSystem(self)
         self.field_emitter_system = FieldEmitterSystem(self)
@@ -109,13 +112,28 @@ class World:
         """種族のワールド個体数上限。未設定なら None。"""
         return self.population_limits.get(species_name)
 
-    def add_creature(self, creature) -> None:
+    def add_creature(
+        self,
+        creature,
+        *,
+        spawn_source: str = "spawn",
+        parent=None,
+    ) -> None:
         creature.world = self
         self.creatures.append(creature)
         if getattr(creature, "colony", None) is not None:
             self.nest_system.assign_creature(
                 creature, creature.species.colony_data
             )
+        from src.utils.spawn_helpers import apply_creature_spawn_state
+
+        apply_creature_spawn_state(creature)
+
+        from src.sim.emitters import emit_spawn
+        from src.sim.events import SpawnSource
+
+        source: SpawnSource = spawn_source  # type: ignore[assignment]
+        emit_spawn(self, creature, source=source, parent=parent)
 
     def remove_creature(self, creature) -> None:
         if creature in self.creatures:
@@ -124,6 +142,7 @@ class World:
     def update(self, dt: float = 1.0) -> None:
         """生態シミュレーションを dt 分進める（1 = 旧来の 1 シミュ tick）。"""
         self.sim_dt = float(dt)
+        self._combat_pairs_this_tick = set()
         self.mana_layer.regenerate(dt)
         self.nest_system.update(dt)
         for creature in self.creatures[:]:

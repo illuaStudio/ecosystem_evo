@@ -14,7 +14,8 @@
 
   "initial_entities": {
     "Amoeba": 0,
-    "red_ant": 2,
+    "red_ant_queen": 1,
+    "red_ant": 3,
     "red_ant_soldier": 0,
     "red_ant_vanguard": 0,
     "blue_ant": 2,
@@ -28,6 +29,7 @@
 
   "population_limits": {
     "Amoeba": 50,
+    "red_ant_queen": 3,
     "red_ant": 20,
     "red_ant_soldier": 10,
     "red_ant_vanguard": 10,

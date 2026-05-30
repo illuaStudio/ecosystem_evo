@@ -29,8 +29,13 @@ def apply_damage_to_target(
         if attacker.world is None or nest is None or hole is None:
             return 0.0
         cid = attacker_colony_id or get_creature_colony_id(attacker) or ""
-        return attacker.world.nest_system.damage_hole(
+        dealt = attacker.world.nest_system.damage_hole(
             nest, hole, float(amount), attacker_colony_id=cid
         )
+        if dealt > 0:
+            from src.sim.emitters import maybe_emit_combat_from_damage
+
+            maybe_emit_combat_from_damage(attacker.world, attacker, ref, dealt)
+        return dealt
 
     return 0.0

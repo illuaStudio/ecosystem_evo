@@ -6,6 +6,7 @@ from src.utils.creature_helpers import needs_self_feed
 from src.ai.actions import (
     AttackHoleAction,
     ChaseAction,
+    ColonyReproduceAction,
     CombatAction,
     FeedAtNestAction,
     FleeAction,
@@ -35,6 +36,7 @@ ACTION_BY_NAME = {
     "ScavengeCarriedAction": ScavengeCarriedAction,
     "FeedAtNestAction": FeedAtNestAction,
     "NestPatrolAction": NestPatrolAction,
+    "ColonyReproduceAction": ColonyReproduceAction,
     "SpawnWorkerAction": SpawnWorkerAction,
     "SplitAction": SplitAction,
 }
@@ -50,7 +52,16 @@ class UtilityMind(Mind):
     """Utility AI方式 + 詳細デバッグ"""
 
     def __init__(self, mind_data: dict):
-        self.action_defs = mind_data.get("actions", [])
+        self._base_action_defs = list(mind_data.get("actions", []))
+        self.action_defs = list(self._base_action_defs)
+
+    def set_action_defs(self, action_defs: list) -> None:
+        """ゲーム層から実行時に mind.actions を差し替える。"""
+        self.action_defs = list(action_defs)
+
+    def reset_to_base(self) -> None:
+        """種 JSON の既定 actions に戻す。"""
+        self.action_defs = list(self._base_action_defs)
 
     def decide_next_action(self, creature):
         colony = getattr(creature, "colony", None)
@@ -92,18 +103,29 @@ class UtilityMind(Mind):
 
         if best_action is None:
             if sheltered:
-                best_action = SeekShelterAction(
-                    **(
-                        next(
-                            (
-                                a.get("params", {})
-                                for a in self.action_defs
-                                if a.get("name") == "SeekShelterAction"
-                            ),
-                            {},
+                # 巣穴待機: 許可された行動のうち先頭を維持（徘徊しない）
+                for action_def in self.action_defs:
+                    name = action_def.get("name")
+                    if name not in SHELTER_ALLOWED_ACTION_NAMES:
+                        continue
+                    action_cls = ACTION_BY_NAME.get(name)
+                    if action_cls is None:
+                        continue
+                    best_action = action_cls(**action_def.get("params", {}))
+                    break
+                if best_action is None:
+                    best_action = SeekShelterAction(
+                        **(
+                            next(
+                                (
+                                    a.get("params", {})
+                                    for a in self.action_defs
+                                    if a.get("name") == "SeekShelterAction"
+                                ),
+                                {},
+                            )
                         )
                     )
-                )
             else:
                 best_action = WanderAction()
 

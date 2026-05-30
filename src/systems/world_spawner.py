@@ -43,4 +43,4 @@ class WorldSpawner:
                     )
                 else:
                     creature = factory.create(species_name, world=self._world)
-                self._world.add_creature(creature)
+                self._world.add_creature(creature, spawn_source="initial")

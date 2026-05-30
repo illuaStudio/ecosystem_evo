@@ -18,8 +18,13 @@ def bite(predator, prey, attack_power: float = 1.0) -> float:
     damage = float(attack_power) * 12.0
     prey.hp -= damage
 
+    if damage > 0 and predator.world is not None:
+        from src.sim.emitters import emit_combat_started_creature
+
+        emit_combat_started_creature(predator.world, predator, prey)
+
     if prey.hp <= 0:
-        prey.become_corpse()
+        prey.become_corpse(cause="hp")
 
     return damage
 

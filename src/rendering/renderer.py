@@ -513,16 +513,12 @@ class Renderer:
         from src.config import config
 
         ns = world.nest_system
-        species_data = config.get_species(nest.owner_species) or {}
-        colony_cfg = species_data.get("colony", {})
-        members = ns.member_count(nest.id, nest.owner_species)
-        can_spawn, spawn_msg = ns.spawn_readiness(nest)
-
-        cost = float(colony_cfg.get("spawn_food_cost", 0))
-        reserve = float(colony_cfg.get("min_food_reserve", 0))
-        max_workers = int(colony_cfg.get("max_workers", 0))
-        max_pop = get_species_population_cap(world, nest.owner_species)
-        leak_rate = float(colony_cfg.get("food_leak_rate", 0))
+        total = ns.total_member_count(nest.id)
+        leak_rate = float(
+            (config.get_species(nest.owner_species) or {})
+            .get("colony", {})
+            .get("food_leak_rate", 0)
+        )
 
         self.screen.blit(
             self.font.render("【選択中の巣】", True, (255, 200, 120)), (15, y)
@@ -540,22 +536,13 @@ class Renderer:
             f"巣穴: {hole_count}/{max_holes}  (H:カーソルに設置 / 費用 {hole_cost:.0f})",
             f"食料: {nest.stored_food:.1f} / {nest.max_food:.0f}",
             f"備蓄率: {nest.food_ratio * 100:.1f}%",
-            f"コロニー: {members} 匹",
-            f"繁殖: {spawn_msg}",
+            f"コロニー: {total} 匹",
         ]
-        if cost > 0:
-            cap_note = f" / 種族上限 {max_pop}" if max_pop else ""
-            texts.append(
-                f"  1回 {cost:.0f} 消費 / 最低備蓄 {reserve:.0f} / 巣 {max_workers} 匹{cap_note}"
-            )
         if leak_rate > 0:
             texts.append(f"  漏洩率: {leak_rate:.5f}/tick（余剰→マナ）")
 
         for text in texts:
-            if text.startswith("繁殖:"):
-                color = (180, 255, 180) if can_spawn else (255, 220, 180)
-            else:
-                color = (255, 255, 255)
+            color = (255, 255, 255)
             self.screen.blit(self.small_font.render(text, True, color), (15, y))
             y += 24
 

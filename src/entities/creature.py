@@ -150,8 +150,8 @@ class Creature(BaseEntity):
     def biomass_ratio(self) -> float:
         return self.corpse.biomass_ratio()
 
-    def become_corpse(self) -> None:
-        self.corpse.become_corpse()
+    def become_corpse(self, cause: str = "hp") -> None:
+        self.corpse.become_corpse(cause=cause)
 
     def update(self, dt: float = 1.0) -> None:
         dt = float(dt)
@@ -168,11 +168,11 @@ class Creature(BaseEntity):
             return
 
         if self.metabolism.update(dt):
-            self.become_corpse()
+            self.become_corpse(cause="metabolism")
             return
 
         if self.is_dead():
-            self.become_corpse()
+            self.become_corpse(cause="hp")
             return
 
         refresh_flee_latch_from_species(self)

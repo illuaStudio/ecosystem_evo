@@ -1,0 +1,41 @@
+{
+  "workers_only": {
+    "description": "働きアリのみを産む（初期）",
+    "actions": [
+      {
+        "name": "ColonyReproduceAction",
+        "weight": 5.0,
+        "params": {
+          "offspring": [{ "species": "red_ant", "weight": 1.0 }],
+          "food_cost": 55,
+          "min_food_reserve": 72,
+          "max_colony_members": 10,
+          "member_species": ["red_ant"],
+          "spawn_cooldown": 900,
+          "spawn_radius": 35
+        }
+      }
+    ]
+  },
+  "workers_and_soldiers": {
+    "description": "働きアリと兵隊アリを産む（解禁後）",
+    "actions": [
+      {
+        "name": "ColonyReproduceAction",
+        "weight": 5.0,
+        "params": {
+          "offspring": [
+            { "species": "red_ant", "weight": 0.7 },
+            { "species": "red_ant_soldier", "weight": 0.3 }
+          ],
+          "food_cost": 55,
+          "min_food_reserve": 72,
+          "max_colony_members": 15,
+          "member_species": ["red_ant", "red_ant_soldier"],
+          "spawn_cooldown": 900,
+          "spawn_radius": 35
+        }
+      }
+    ]
+  }
+}

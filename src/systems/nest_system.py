@@ -8,11 +8,8 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from src.utils.creature_helpers import (
-    count_alive_by_species,
     distance_to_point,
-    get_species_population_cap,
     is_point_in_nest_territory,
-    is_species_at_population_cap,
     resolve_colony_id,
     satiety_feed_target,
     satiety_room_until_feed_target,
@@ -43,7 +40,6 @@ class Nest:
     colony_id: str = ""
     stored_food: float = 0.0
     max_food: float = 400.0
-    spawn_timer: float = 0.0
     holes: list[NestHole] = field(default_factory=list)
 
     @property
@@ -60,7 +56,6 @@ class NestSystem:
     DEFAULT_FOOD_LEAK_RATE = 0.0015
     DEFAULT_FOOD_TO_MANA_RATIO = 0.35
     DEFAULT_FOOD_LEAK_RESERVE_RATIO = 0.12
-    DEFAULT_SPAWN_INTERVAL_TICKS = 900.0
     WORLD_MARGIN = 30.0
 
     def __init__(self, world: "World") -> None:
@@ -181,10 +176,14 @@ class NestSystem:
 
             clear_inventory_biomass(creature)
             if is_creature_sheltered(creature):
-                creature.hp = 0.0
+                creature.become_corpse(cause="defeat")
                 clear_creature_shelter(creature)
 
-        self.world.last_defeat_message = f"勢力 {colony_id} が敗北しました"
+        message = f"勢力 {colony_id} が敗北しました"
+        self.world.last_defeat_message = message
+        from src.sim.emitters import emit_colony_defeated
+
+        emit_colony_defeated(self.world, colony_id, message)
 
     def can_place_hole(self, nest: Nest, x: float, y: float) -> tuple[bool, str]:
         """新規巣穴を置けるか（標準ルール: 自テリトリー内・間隔・上限・食料）。"""
@@ -388,7 +387,7 @@ class NestSystem:
         colony.colony_id = colony_id
 
     def update(self, dt: float = 1.0) -> None:
-        """巣の更新（食料漏洩→マナ還流、スポーン等）。"""
+        """巣の更新（食料漏洩→マナ還流）。"""
         from src.config import config
 
         dt = float(dt)
@@ -398,53 +397,6 @@ class NestSystem:
             colony_cfg = species_data.get("colony", {})
             if nest.stored_food > 0:
                 self._leak_food_to_mana(nest, colony_cfg, dt)
-            self._update_nest_spawning(nest, colony_cfg, dt)
-
-    def _spawn_interval_ticks(self, colony_cfg: dict) -> float:
-        interval = float(
-            colony_cfg.get("spawn_interval_ticks", self.DEFAULT_SPAWN_INTERVAL_TICKS)
-        )
-        return max(1.0, interval)
-
-    def _update_nest_spawning(self, nest: Nest, colony_cfg: dict, dt: float) -> None:
-        """巣の備蓄で一定間隔に1匹スポーン（卵概念なし）。"""
-        if not colony_cfg.get("enabled"):
-            nest.spawn_timer = 0.0
-            return
-
-        interval = self._spawn_interval_ticks(colony_cfg)
-        ok, _ = self.spawn_readiness(nest)
-        if not ok:
-            # 条件を満たさない間は孵化進行しない（溜めない）
-            nest.spawn_timer = 0.0
-            return
-
-        nest.spawn_timer += dt
-        if nest.spawn_timer < interval:
-            return
-
-        # 1回の update で大量スポーンしないように「最大1匹」に制限。
-        nest.spawn_timer = 0.0
-        spawned = self.spawn_worker_from_nest(nest, colony_cfg)
-        if spawned is not None:
-            self.world.add_creature(spawned)
-
-    def spawn_worker_from_nest(self, nest: Nest, colony_cfg: dict | None = None):
-        """巣の備蓄を消費して子個体を生成する。失敗時は None。ワールドへの登録は呼び出し側。"""
-        cfg = colony_cfg or {}
-        ok, _ = self.spawn_readiness(nest)
-        if not ok:
-            return None
-
-        cost = float(cfg.get("spawn_food_cost", 0))
-        if cost <= 0:
-            return None
-        nest.stored_food -= cost
-
-        from src.entities.creature_factory import CreatureFactory
-
-        x, y = self.spawn_position(nest.owner_species, cfg)
-        return CreatureFactory.create(nest.owner_species, world=self.world, x=x, y=y)
 
     def _leak_food_to_mana(self, nest: Nest, colony_cfg: dict, dt: float) -> None:
         leak_rate = float(
@@ -474,6 +426,31 @@ class NestSystem:
         self.world.mana_layer.return_from_decomposition(
             leak * mana_ratio, nest.x, nest.y
         )
+
+    def try_consume_food(self, nest: Nest, amount: float) -> bool:
+        """巣備蓄から食料を消費する。不足時は False。"""
+        if nest is None or amount <= 0:
+            return False
+        if nest.stored_food < amount:
+            return False
+        nest.stored_food -= amount
+        return True
+
+    def count_colony_members(self, nest_id: int, species_names: list[str]) -> int:
+        """巣に所属する指定種族の生存個体数。"""
+        if not species_names:
+            return self.total_member_count(nest_id)
+        names = set(species_names)
+        count = 0
+        for c in self.world.creatures:
+            if not getattr(c, "alive", True):
+                continue
+            if c.species.name not in names:
+                continue
+            colony = getattr(c, "colony", None)
+            if colony is not None and colony.nest_id == nest_id:
+                count += 1
+        return count
 
     def distance_to_nest(self, creature) -> float:
         nest = self.get_creature_nest(creature)
@@ -577,89 +554,3 @@ class NestSystem:
             if colony is not None and colony.nest_id == nest_id:
                 count += 1
         return count
-
-    def spawn_readiness(self, nest: Nest) -> tuple[bool, str]:
-        """コロニー全体として働きアリを増やせるか（個体を選ばない判定）。"""
-        from src.config import config
-
-        species_data = config.get_species(nest.owner_species) or {}
-        cfg = species_data.get("colony", {})
-        if not cfg.get("enabled"):
-            return False, "コロニー無効"
-
-        cost = float(cfg.get("spawn_food_cost", 0))
-        if cost <= 0:
-            return False, "繁殖未設定"
-
-        max_workers = int(cfg.get("max_workers", 0))
-        if max_workers <= 0:
-            return False, "繁殖未設定"
-
-        if is_species_at_population_cap(self.world, nest.owner_species):
-            alive = count_alive_by_species(self.world, nest.owner_species)
-            cap = get_species_population_cap(self.world, nest.owner_species)
-            return False, f"種族上限 ({alive}/{cap})"
-
-        reserve = float(cfg.get("min_food_reserve", 0))
-        needed = reserve + cost
-        members = self.member_count(nest.id, nest.owner_species)
-
-        if members >= max_workers:
-            return False, f"個体数上限 ({members}/{max_workers})"
-
-        if nest.stored_food < needed:
-            return (
-                False,
-                f"備蓄不足 (要 {needed:.0f}, 現在 {nest.stored_food:.0f})",
-            )
-
-        return True, f"繁殖可能 ({members}/{max_workers})"
-
-    def can_spawn_worker(
-        self, creature, colony_cfg: dict | None = None
-    ) -> bool:
-        """巣備蓄・個体数上限・最低備蓄を満たすか。"""
-        colony = getattr(creature, "colony", None)
-        if colony is None:
-            return False
-        nest = self.get_creature_nest(creature)
-        if nest is None:
-            return False
-
-        cfg = colony_cfg if colony_cfg is not None else creature.species.colony_data
-        cost = float(cfg.get("spawn_food_cost", 0))
-        if cost <= 0:
-            return False
-
-        max_workers = int(cfg.get("max_workers", 0))
-        if max_workers <= 0:
-            return False
-
-        if is_species_at_population_cap(self.world, nest.owner_species):
-            return False
-
-        reserve = float(cfg.get("min_food_reserve", 0))
-        if nest.stored_food < reserve + cost:
-            return False
-
-        if self.member_count(nest.id, nest.owner_species) >= max_workers:
-            return False
-
-        return True
-
-    def spawn_worker(self, creature, colony_cfg: dict | None = None):
-        """食料を消費して子個体を生成する。失敗時は None。ワールドへの登録は呼び出し側。"""
-        if not self.can_spawn_worker(creature, colony_cfg):
-            return None
-
-        cfg = colony_cfg if colony_cfg is not None else creature.species.colony_data
-        cost = float(cfg["spawn_food_cost"])
-        nest = self.get_creature_nest(creature)
-        nest.stored_food -= cost
-
-        from src.entities.creature_factory import CreatureFactory
-
-        x, y = self.spawn_position(nest.owner_species, cfg)
-        return CreatureFactory.create(
-            nest.owner_species, world=self.world, x=x, y=y
-        )

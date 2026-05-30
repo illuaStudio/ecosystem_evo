@@ -3,8 +3,10 @@ import random
 
 from src.ai.actions.base import Action
 from src.utils.creature_helpers import (
+    count_alive_by_species,
     current_size,
     is_at_population_cap,
+    is_species_at_population_cap,
     move_toward_point,
     needs_self_feed,
     satiety_ratio,
@@ -29,9 +31,11 @@ class ReproductionAction(Action):
             y = max(margin, min(parent.world.height - margin, y))
         return x, y
 
-    def _register_offspring(self, parent, offspring) -> None:
+    def _register_offspring(self, parent, offspring, *, spawn_source: str = "reproduction") -> None:
         if parent.world:
-            parent.world.add_creature(offspring)
+            parent.world.add_creature(
+                offspring, spawn_source=spawn_source, parent=parent
+            )
 
 
 class SplitAction(ReproductionAction):
@@ -90,7 +94,7 @@ class SplitAction(ReproductionAction):
             base_size=offspring_size,
             satiety=offspring_satiety,
         )
-        self._register_offspring(creature, offspring)
+        self._register_offspring(creature, offspring, spawn_source="split")
 
         creature.set_repro_cooldown(int(p["cooldown"]))
         self.completed = True
@@ -110,17 +114,107 @@ class SplitAction(ReproductionAction):
         return min(1.0, 0.55 + excess * 0.45)
 
 
-class SpawnWorkerAction(ReproductionAction):
-    """巣の食料備蓄を消費して働きアリ（同種）を1匹生成する。"""
+class ColonyReproduceAction(ReproductionAction):
+    """巣の食料備蓄を消費してコロニー子個体を生成する（女王など個体の AI 判断）。"""
 
     DEFAULT_PARAMS = {
+        "offspring": [],
+        "food_cost": 55,
+        "min_food_reserve": 72,
+        "max_colony_members": 10,
+        "member_species": [],
+        "spawn_cooldown": 900,
         "spawn_radius": 40.0,
         "approach_speed_multiplier": 0.9,
-        "spawn_cooldown": 900,
     }
 
-    def _colony_cfg(self, creature) -> dict:
-        return creature.species.colony_data or {}
+    def _member_species(self) -> list[str]:
+        explicit = self.params.get("member_species") or []
+        if explicit:
+            return [str(s) for s in explicit]
+        names: list[str] = []
+        for entry in self.params.get("offspring") or []:
+            sp = entry.get("species")
+            if sp and sp not in ("__owner__", "") and sp not in names:
+                names.append(str(sp))
+        return names
+
+    def _pick_offspring_species(self, nest) -> str | None:
+        entries = self.params.get("offspring") or []
+        if not entries:
+            return nest.owner_species if nest is not None else None
+
+        total = sum(float(e.get("weight", 1.0)) for e in entries)
+        if total <= 0:
+            return None
+
+        r = random.uniform(0, total)
+        acc = 0.0
+        chosen = entries[-1]
+        for entry in entries:
+            acc += float(entry.get("weight", 1.0))
+            if r <= acc:
+                chosen = entry
+                break
+
+        sp = chosen.get("species")
+        if sp in (None, "", "__owner__"):
+            return nest.owner_species if nest is not None else None
+        return str(sp)
+
+    def _creature_nest(self, creature):
+        if creature.world is None:
+            return None
+        return creature.world.nest_system.get_creature_nest(creature)
+
+    def reproduction_readiness(self, creature) -> tuple[bool, str]:
+        """繁殖可否と理由（UI・テスト用）。"""
+        if not creature.alive or creature.world is None:
+            return False, "無効"
+        if getattr(creature, "colony", None) is None:
+            return False, "コロニー未所属"
+
+        nest = self._creature_nest(creature)
+        if nest is None:
+            return False, "巣なし"
+
+        cost = float(self.params["food_cost"])
+        if cost <= 0:
+            return False, "繁殖未設定"
+
+        max_members = int(self.params["max_colony_members"])
+        if max_members <= 0:
+            return False, "繁殖未設定"
+
+        offspring_species = self._pick_offspring_species(nest)
+        if offspring_species and is_species_at_population_cap(
+            creature.world, offspring_species
+        ):
+            alive = count_alive_by_species(creature.world, offspring_species)
+            from src.utils.creature_helpers import get_species_population_cap
+
+            cap = get_species_population_cap(creature.world, offspring_species)
+            return False, f"種族上限 ({alive}/{cap})"
+
+        member_species = self._member_species()
+        ns = creature.world.nest_system
+        if member_species:
+            members = ns.count_colony_members(nest.id, member_species)
+        else:
+            members = ns.total_member_count(nest.id)
+
+        if members >= max_members:
+            return False, f"個体数上限 ({members}/{max_members})"
+
+        reserve = float(self.params["min_food_reserve"])
+        needed = reserve + cost
+        if nest.stored_food < needed:
+            return (
+                False,
+                f"備蓄不足 (要 {needed:.0f}, 現在 {nest.stored_food:.0f})",
+            )
+
+        return True, f"繁殖可能 ({members}/{max_members})"
 
     def can_execute(self, creature) -> bool:
         if not creature.alive or not creature.world:
@@ -135,34 +229,59 @@ class SpawnWorkerAction(ReproductionAction):
             return False
         if creature.repro_cooldown > 0:
             return False
-        return creature.world.nest_system.can_spawn_worker(
-            creature, self._colony_cfg(creature)
-        )
+
+        ok, _ = self.reproduction_readiness(creature)
+        return ok
+
+    def _spawn_offspring(self, creature):
+        """子個体を生成する。失敗時は None。ワールドへの登録は呼び出し側。"""
+        if not self.can_execute(creature):
+            return None
+
+        ns = creature.world.nest_system
+        nest = self._creature_nest(creature)
+        if nest is None:
+            return None
+
+        cost = float(self.params["food_cost"])
+        if not ns.try_consume_food(nest, cost):
+            return None
+
+        from src.config import config
+        from src.entities.creature_factory import CreatureFactory
+
+        offspring_species = self._pick_offspring_species(nest)
+        if not offspring_species:
+            nest.stored_food += cost
+            return None
+
+        offspring_cfg = config.get_species(offspring_species).get("colony", {})
+        x, y = ns.spawn_position(offspring_species, offspring_cfg)
+        return CreatureFactory.create(offspring_species, world=creature.world, x=x, y=y)
 
     def execute(self, creature) -> bool:
         if not self.can_execute(creature):
+            ns = creature.world.nest_system if creature.world else None
+            nest = self._creature_nest(creature)
+            spawn_radius = float(self.params["spawn_radius"])
+
+            if ns is not None and nest is not None and not ns.is_at_nest(
+                creature, spawn_radius
+            ):
+                tx, ty = ns.nest_target_xy(creature)
+                move_toward_point(
+                    creature,
+                    tx,
+                    ty,
+                    float(self.params["approach_speed_multiplier"]),
+                )
             return False
 
-        ns = creature.world.nest_system
-        spawn_radius = float(self.params["spawn_radius"])
-
-        if not ns.is_at_nest(creature, spawn_radius):
-            if ns.get_creature_nest(creature) is None:
-                return False
-            tx, ty = ns.nest_target_xy(creature)
-            move_toward_point(
-                creature,
-                tx,
-                ty,
-                float(self.params["approach_speed_multiplier"]),
-            )
+        offspring = self._spawn_offspring(creature)
+        if offspring is None:
             return False
 
-        worker = ns.spawn_worker(creature, self._colony_cfg(creature))
-        if worker is None:
-            return False
-
-        self._register_offspring(creature, worker)
+        self._register_offspring(creature, offspring)
         creature.set_repro_cooldown(int(self.params["spawn_cooldown"]))
         self.completed = True
         return True
@@ -174,17 +293,20 @@ class SpawnWorkerAction(ReproductionAction):
             return 0.0
 
         ns = creature.world.nest_system
-        nest = ns.get_creature_nest(creature)
+        nest = self._creature_nest(creature)
         if nest is None:
             return 0.0
 
-        cfg = self._colony_cfg(creature)
-        cost = float(cfg.get("spawn_food_cost", 1))
-        reserve = float(cfg.get("min_food_reserve", 0))
-        max_workers = max(1, int(cfg.get("max_workers", 1)))
-        members = ns.member_count(nest.id, creature.species.name)
+        cost = float(self.params["food_cost"])
+        reserve = float(self.params["min_food_reserve"])
+        max_members = max(1, int(self.params["max_colony_members"]))
+        member_species = self._member_species()
+        if member_species:
+            members = ns.count_colony_members(nest.id, member_species)
+        else:
+            members = ns.total_member_count(nest.id)
 
-        headroom = max(0.0, (max_workers - members) / max_workers)
+        headroom = max(0.0, (max_members - members) / max_members)
         surplus = nest.stored_food - reserve - cost
         denom = max(1.0, nest.max_food - reserve - cost)
         food_factor = max(0.0, min(1.0, surplus / denom))
@@ -193,3 +315,7 @@ class SpawnWorkerAction(ReproductionAction):
         proximity = 1.0 if at_nest else 0.35
 
         return min(1.0, headroom * (0.35 + food_factor * 0.65) * proximity)
+
+
+class SpawnWorkerAction(ColonyReproduceAction):
+    """後方互換: offspring 未指定時は巣 owner_species と同種を生成。"""
