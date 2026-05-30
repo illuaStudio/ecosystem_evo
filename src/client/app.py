@@ -8,6 +8,7 @@ from src.client.rendering.renderer import Renderer
 from src.client.species_visibility import SpeciesVisibilityManager
 from src.game.game_controller import GameController
 from src.game.sim_runner import SimRunner
+from src.sim.entities.creature_factory import CreatureFactory
 from src.sim.systems.world import World
 
 
@@ -26,6 +27,7 @@ class GameApp:
 
         self.clock = pygame.time.Clock()
         self.camera = Camera()
+        self.creature_factory = CreatureFactory()
         self.sim_runner = SimRunner()
         self.world = None
         self.paused = False
