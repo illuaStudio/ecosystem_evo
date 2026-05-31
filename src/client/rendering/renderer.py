@@ -4,6 +4,7 @@ import pygame
 from src.config import config
 from src.sim.ai.actions import SplitAction
 from src.client.rendering.field_emitter_renderer import FieldEmitterRenderer
+from src.client.rendering.spawn_emitter_renderer import SpawnEmitterRenderer
 from src.client.rendering.creature_renderer import CreatureRenderer
 from src.client.rendering.nest_renderer import NestRenderer
 from src.sim.utils.creature_helpers import (
@@ -86,6 +87,7 @@ class Renderer:
             )
             NestRenderer.draw(world, self.screen, camera, nest_id)
             FieldEmitterRenderer.draw(world, self.screen, camera)
+            SpawnEmitterRenderer.draw(world, self.screen, camera)
             if show_territory and selected_nest is not None:
                 import pygame as _pg
 

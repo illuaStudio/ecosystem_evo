@@ -44,7 +44,7 @@
           "member_species": [
             "red_ant"
           ],
-          "spawn_cooldown": 900,
+          "spawn_cooldown": 10800,
           "spawn_radius": 35.0,
           "approach_speed_multiplier": 0.9
         }
@@ -85,7 +85,7 @@
             "red_ant",
             "red_ant_soldier"
           ],
-          "spawn_cooldown": 900,
+          "spawn_cooldown": 10800,
           "spawn_radius": 35.0,
           "approach_speed_multiplier": 0.9
         }
@@ -110,7 +110,7 @@
           "member_species": [
             "red_ant"
           ],
-          "spawn_cooldown": 900,
+          "spawn_cooldown": 10800,
           "spawn_radius": 35.0,
           "approach_speed_multiplier": 0.9
         }
@@ -140,7 +140,7 @@
             "red_ant",
             "red_ant_soldier"
           ],
-          "spawn_cooldown": 900,
+          "spawn_cooldown": 10800,
           "spawn_radius": 35.0,
           "approach_speed_multiplier": 0.9
         }

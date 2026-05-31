@@ -14,20 +14,92 @@
     "density_initial_min": 80.0,
     "density_initial_max": 150.0
   },
-  "ambient_spawns": {
-    "species_pool": [
-      "springtail",
-      "soil_mite",
-      "aphid_larva",
-      "woodlouse",
-      "grub"
-    ],
-    "target_population": 40,
-    "spawn_rate_per_dt": 0.08,
-    "nest_exclusion_radius": 120.0,
-    "max_attempts_per_tick": 4,
-    "position_attempts": 12,
-    "margin": 80
+  "spawn_emitters": {
+    "defaults": {
+      "species_pool": [
+        "springtail",
+        "soil_mite",
+        "aphid_larva",
+        "woodlouse",
+        "grub"
+      ],
+      "target_population": 8,
+      "spawn_rate_per_dt": 0.12,
+      "radius": 85.0,
+      "max_spawns_per_tick": 2,
+      "position_attempts": 10,
+      "use_biome_weight": true
+    },
+    "types": {
+      "micro_fauna_mixed": {
+        "label": "mixed_patch"
+      },
+      "mite_patch": {
+        "label": "mite_patch",
+        "species_pool": [
+          "soil_mite"
+        ],
+        "target_population": 6,
+        "spawn_rate_per_dt": 0.14
+      },
+      "leaf_litter": {
+        "label": "leaf_litter",
+        "species_pool": [
+          "woodlouse",
+          "grub"
+        ],
+        "target_population": 7,
+        "radius": 70.0
+      },
+      "meadow_edge": {
+        "label": "meadow_edge",
+        "species_pool": [
+          "springtail",
+          "aphid_larva"
+        ],
+        "target_population": 7,
+        "radius": 75.0
+      }
+    },
+    "ambient": {
+      "species_pool": [
+        "springtail",
+        "soil_mite",
+        "aphid_larva",
+        "woodlouse",
+        "grub"
+      ],
+      "target_population": 40,
+      "spawn_rate_per_dt": 0.08,
+      "nest_exclusion_radius": 120.0,
+      "max_spawns_per_tick": 4,
+      "position_attempts": 12,
+      "margin": 80
+    },
+    "sources": [
+      {
+        "x": 780,
+        "y": 450,
+        "type": "micro_fauna_mixed",
+        "radius": 90.0
+      },
+      {
+        "x": 220,
+        "y": 750,
+        "type": "mite_patch",
+        "radius": 72.0
+      },
+      {
+        "x": 650,
+        "y": 200,
+        "type": "leaf_litter"
+      },
+      {
+        "x": 400,
+        "y": 860,
+        "type": "meadow_edge"
+      }
+    ]
   },
   "initial_entities": {
     "springtail": 4,

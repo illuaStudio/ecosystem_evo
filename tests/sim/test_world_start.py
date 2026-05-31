@@ -39,13 +39,14 @@ class TestWorldStart(unittest.TestCase):
         for name in DEFAULT_MICRO_FAUNA_SPECIES:
             self.assertIn(name, config.species)
 
-    def test_ambient_spawner_configured(self):
+    def test_spawn_system_configured(self):
         world = World()
-        self.assertIsNotNone(world.ambient_spawner.config)
+        self.assertIsNotNone(world.spawn_system.ambient)
         self.assertEqual(
-            tuple(world.ambient_spawner.species_pool),
+            tuple(world.spawn_system.species_pool),
             DEFAULT_MICRO_FAUNA_SPECIES,
         )
+        self.assertGreater(len(world.spawn_system.emitters), 0)
 
 
 if __name__ == "__main__":

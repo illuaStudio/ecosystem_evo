@@ -2,7 +2,7 @@
   "player_colony_id": "red_ant",
   "monitor": {
     "low_food_ratio": 0.1,
-    "high_food_ratio": 0.5,
+    "high_food_ratio": 0.24,
     "milestone_workers": 5
   }
 }
