@@ -72,26 +72,26 @@
     },
     "sources": [
       {
-        "x": 780,
-        "y": 450,
         "type": "micro_fauna_mixed",
+        "x": 780.0,
+        "y": 450.0,
         "radius": 90.0
       },
       {
-        "x": 220,
-        "y": 750,
         "type": "mite_patch",
+        "x": 346.0,
+        "y": 305.5,
         "radius": 72.0
       },
       {
-        "x": 650,
-        "y": 200,
-        "type": "leaf_litter"
+        "type": "leaf_litter",
+        "x": 353.0,
+        "y": 85.5
       },
       {
-        "x": 400,
-        "y": 860,
-        "type": "meadow_edge"
+        "type": "meadow_edge",
+        "x": 97.0,
+        "y": 379.5
       }
     ]
   },
@@ -112,11 +112,26 @@
           "radius": 90
         },
         "entries": [
-          { "species": "springtail", "count": 2 },
-          { "species": "aphid_larva", "count": 2 },
-          { "species": "soil_mite", "count": 1 },
-          { "species": "woodlouse", "count": 1 },
-          { "species": "grub", "count": 1 }
+          {
+            "species": "springtail",
+            "count": 2
+          },
+          {
+            "species": "aphid_larva",
+            "count": 2
+          },
+          {
+            "species": "soil_mite",
+            "count": 1
+          },
+          {
+            "species": "woodlouse",
+            "count": 1
+          },
+          {
+            "species": "grub",
+            "count": 1
+          }
         ]
       },
       {
@@ -128,7 +143,10 @@
           "radius": 72
         },
         "entries": [
-          { "species": "soil_mite", "count": 3 }
+          {
+            "species": "soil_mite",
+            "count": 3
+          }
         ]
       },
       {
@@ -140,8 +158,14 @@
           "radius": 70
         },
         "entries": [
-          { "species": "woodlouse", "count": 3 },
-          { "species": "grub", "count": 3 }
+          {
+            "species": "woodlouse",
+            "count": 3
+          },
+          {
+            "species": "grub",
+            "count": 3
+          }
         ]
       },
       {
@@ -153,8 +177,14 @@
           "radius": 75
         },
         "entries": [
-          { "species": "springtail", "count": 2 },
-          { "species": "aphid_larva", "count": 2 }
+          {
+            "species": "springtail",
+            "count": 2
+          },
+          {
+            "species": "aphid_larva",
+            "count": 2
+          }
         ]
       },
       {
@@ -221,8 +251,8 @@
         "spawn_exclusion_radius": 150.0
       },
       "blue_ant": {
-        "nest_x": 500,
-        "nest_y": 820,
+        "nest_x": 505.0,
+        "nest_y": 938.5,
         "territory_radius": 180,
         "max_food": 5000,
         "initial_stored_food": 80,
@@ -232,8 +262,8 @@
         "spawn_exclusion_radius": 150.0
       },
       "yellow_ant": {
-        "nest_x": 880,
-        "nest_y": 120,
+        "nest_x": 916.0,
+        "nest_y": 75.5,
         "territory_radius": 180,
         "max_food": 5000,
         "initial_stored_food": 80,
@@ -297,23 +327,28 @@
       "rock": {
         "shape": "circle",
         "radius": 22,
-        "render": { "color": [118, 112, 102] }
+        "render": {
+          "color": [
+            118,
+            112,
+            102
+          ]
+        }
       },
       "fallen_log": {
         "shape": "rect",
         "width": 84,
         "height": 16,
-        "render": { "color": [92, 64, 40] }
+        "render": {
+          "color": [
+            92,
+            64,
+            40
+          ]
+        }
       }
     },
-    "sources": [
-      { "type": "rock", "x": 360, "y": 480 },
-      { "type": "rock", "x": 520, "y": 620, "radius": 28 },
-      { "type": "rock", "x": 740, "y": 340 },
-      { "type": "fallen_log", "x": 680, "y": 280 },
-      { "type": "fallen_log", "x": 240, "y": 560, "width": 96, "height": 14 },
-      { "type": "fallen_log", "x": 450, "y": 720, "width": 72, "height": 12 }
-    ]
+    "sources": []
   },
   "zones": {
     "defaults": {
@@ -331,25 +366,7 @@
         "radius": 150.0
       }
     },
-    "sources": [
-      {
-        "type": "poison_fog",
-        "x": 500,
-        "y": 500
-      },
-      {
-        "type": "poison_fog",
-        "x": 320,
-        "y": 620
-      },
-      {
-        "type": "poison_fog",
-        "x": 680,
-        "y": 380,
-        "radius": 75,
-        "hp_drain_per_dt": 0.09
-      }
-    ]
+    "sources": []
   },
   "world": {
     "biome_map_cell_size": 64,
