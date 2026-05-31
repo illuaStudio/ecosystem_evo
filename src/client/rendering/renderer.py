@@ -2,7 +2,6 @@
 import pygame
 
 from src.config import config
-from src.sim.ai.actions import SplitAction
 from src.client.rendering.zone_renderer import ZoneRenderer
 from src.client.rendering.spawn_emitter_renderer import SpawnEmitterRenderer
 from src.client.rendering.creature_renderer import CreatureRenderer
@@ -173,75 +172,7 @@ class Renderer:
                 texts.append(
                     f"バイオーム: {biome.get('display_name', biome.get('name', '?'))}"
                 )
-                ml = world.mana_layer
-                density = ml.get_mana_density(sx, sy)
-                cap = getattr(ml, "mana_density_cap", 2500.0)
-                texts.append(f"マナ残量: {density:.0f}/{cap:.0f}")
 
-            # 分裂（SplitAction）の条件可視化：調整時に「そもそも条件を満たしていない」を即判別する
-            if sc.alive:
-                action_defs = (getattr(sc.species, "mind_data", {}) or {}).get("actions", [])
-                split_def = next(
-                    (a for a in action_defs if a.get("name") == "SplitAction"),
-                    None,
-                )
-                if split_def is not None:
-                    p = dict(SplitAction.DEFAULT_PARAMS)
-                    p.update(split_def.get("params", {}) or {})
-
-                    mature_age = sc.life_cycle.get("mature")
-                    size_now = current_size(sc)
-                    sat_now = satiety_ratio(sc)
-                    cd_ok = getattr(sc, "repro_cooldown", 0) <= 0
-                    mature_ok = mature_age is not None and sc.age >= int(mature_age)
-                    size_ok = size_now >= float(p["min_reproduce_size"])
-                    sat_ok = sat_now >= float(p["satiety_threshold"])
-                    cap = None
-                    if getattr(sc, "world", None) is not None:
-                        cap = get_species_population_cap(sc.world, sc.species.name)
-
-                    alive = 0
-                    pop_ok = True
-                    if cap is not None and getattr(sc, "world", None) is not None:
-                        alive = count_alive_by_species(sc.world, sc.species.name)
-                        pop_ok = alive < cap
-
-                    if (
-                        cd_ok
-                        and mature_ok
-                        and size_ok
-                        and sat_ok
-                        and pop_ok
-                        and getattr(sc, "world", None) is not None
-                    ):
-                        texts.append(
-                            "分裂条件(Split): OK"
-                            f"（サイズ≥{float(p['min_reproduce_size']):.1f}, 満腹≥{float(p['satiety_threshold']):.2f}）"
-                        )
-                    else:
-                        reasons: list[str] = []
-                        if getattr(sc, "world", None) is None:
-                            reasons.append("worldなし")
-                        if not cd_ok:
-                            reasons.append(f"cooldown {int(sc.repro_cooldown)}")
-                        if not mature_ok:
-                            if mature_age is None:
-                                reasons.append("mature未定義")
-                            else:
-                                reasons.append(f"成熟 age {sc.age} < {int(mature_age)}")
-                        if not size_ok:
-                            reasons.append(
-                                f"サイズ {size_now:.1f} < {float(p['min_reproduce_size']):.1f}"
-                            )
-                        if not sat_ok:
-                            reasons.append(
-                                f"満腹 {sat_now:.2f} < {float(p['satiety_threshold']):.2f}"
-                            )
-                        if not pop_ok and cap is not None:
-                            reasons.append(
-                                f"種族上限 {alive}/{cap}"
-                            )
-                        texts.append("分裂条件(Split): NG → " + " / ".join(reasons))
             colony = getattr(sc, "colony", None)
             if colony is not None and world is not None:
                 nest = world.nest_system.get_creature_nest(sc)
@@ -251,7 +182,6 @@ class Renderer:
                     )
                     texts.append(
                         f"  備蓄率 {nest.food_ratio * 100:.0f}%"
-                        "（余剰はマナへ漏洩）"
                     )
                     texts.append(
                         f"コロニー: {world.nest_system.total_member_count(nest.id)} 匹"
@@ -318,19 +248,13 @@ class Renderer:
             (15, 10),
         )
 
-        mana_label = ""
+        hud_extra = ""
         if world:
-            ml = world.mana_layer
-            mult = world.biome.avg_mana_regen_multiplier
-            view_name = "マナ密度" if map_view_mode == "mana" else "バイオーム"
             territory_on = getattr(self, "_show_territory_hud", False)
             sheltered_on = getattr(self, "_show_sheltered_hud", False)
             territory_label = "  テリトリー: ON" if territory_on else ""
             sheltered_label = "  巣内: ON" if sheltered_on else ""
-            mana_label = (
-                f"    Mana: {ml.mana:.0f}/{ml.max_mana:.0f}  (回復×{mult:.2f})"
-                f"    表示: {view_name}{territory_label}{sheltered_label}"
-            )
+            hud_extra = f"    表示: バイオーム{territory_label}{sheltered_label}"
         visible_count = len(creatures)
         if species_visibility is not None:
             visible_count = sum(
@@ -338,7 +262,7 @@ class Renderer:
             )
         count_label = f"表示: {visible_count:3d} / 全 {len(creatures):3d} 匹"
         self.screen.blit(
-            self.font.render(f"{count_label}{mana_label}", True, (230, 245, 210)),
+            self.font.render(f"{count_label}{hud_extra}", True, (230, 245, 210)),
             (15, 55),
         )
 
@@ -360,7 +284,7 @@ class Renderer:
 
         self.screen.blit(
             self.small_font.render(
-                "Space:停止/再開  R:リセット  M:表示切替  T:テリトリー  I:巣内表示  1〜5:生態表示  右クリ:個体/巣  右下:表示パネル",
+                "Space:停止/再開  R:リセット  T:テリトリー  I:巣内表示  1〜5:生態表示  右クリ:個体/巣  右下:表示パネル",
                 True,
                 (160, 200, 255),
             ),
@@ -369,7 +293,7 @@ class Renderer:
 
         if show_debug and world:
             debug_text = self.small_font.render(
-                f"Debug | 生物: {len(creatures)} | マナ回復平均倍率: {world.biome.avg_mana_regen_multiplier:.3f}",
+                f"Debug | 生物: {len(creatures)}",
                 True,
                 (255, 255, 100),
             )
@@ -654,9 +578,7 @@ class Renderer:
         if world is None:
             return
 
-        if map_view_mode == "mana" and getattr(world.mana_layer, "mana_density", None):
-            self._draw_mana_density_tiles(world, camera)
-        elif world.biome.biome_color_grid:
+        if world.biome.biome_color_grid:
             self._draw_biome_tiles(world, camera)
         else:
             self._draw_world_rect(world, camera, world.background_color)
@@ -708,47 +630,6 @@ class Renderer:
 
         dest = pygame.Rect(src.x - cam_x, src.y - cam_y, src.width, src.height)
         self.screen.blit(self._biome_surface, dest, src)
-
-    @staticmethod
-    def _mana_density_to_color(density: float, cap: float) -> tuple[int, int, int]:
-        """マナ残量をヒートマップ色（低=暗紫、高=明るいシアン）に変換。"""
-        if cap <= 0:
-            return (30, 20, 50)
-        t = max(0.0, min(1.0, density / cap))
-        r = int(28 + t * 80)
-        g = int(18 + t * 200)
-        b = int(48 + t * 207)
-        return (r, g, b)
-
-    def _draw_mana_density_tiles(self, world, camera) -> None:
-        """可視範囲のマナ密度セルをヒートマップ表示（毎フレーム更新）。"""
-        ml = world.mana_layer
-        cell = ml.mana_cell_size
-        cap = ml.mana_density_cap
-        cam_x = int(camera.x)
-        cam_y = int(camera.y)
-        sw, sh = self.screen.get_width(), self.screen.get_height()
-
-        start_col = max(0, cam_x // cell)
-        end_col = min(ml._mana_cols, (cam_x + sw + cell - 1) // cell + 1)
-        start_row = max(0, cam_y // cell)
-        end_row = min(ml._mana_rows, (cam_y + sh + cell - 1) // cell + 1)
-
-        screen_rect = self.screen.get_rect()
-        for row in range(start_row, end_row):
-            wy = row * cell
-            screen_y = wy - cam_y
-            rh = min(cell, world.height - wy)
-            for col in range(start_col, end_col):
-                wx = col * cell
-                screen_x = wx - cam_x
-                rw = min(cell, world.width - wx)
-                density = ml.mana_density[row][col]
-                color = self._mana_density_to_color(density, cap)
-                rect = pygame.Rect(screen_x, screen_y, rw, rh)
-                visible = rect.clip(screen_rect)
-                if visible.width > 0 and visible.height > 0:
-                    pygame.draw.rect(self.screen, color, visible)
 
     def invalidate_biome_cache(self) -> None:
         """ワールドリセット時に呼ぶ（GameApp.reset_simulation から）。"""

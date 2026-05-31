@@ -213,37 +213,6 @@ def wander_step(
         getattr(creature, "world", None),
     )
 
-def get_mana_gradient_direction(
-    creature, sampling_distance: float = 60.0, angle_step: int = 45
-) -> float:
-    """マナ濃度が最も高い方向（度数法 0~360）を返す。"""
-    if not creature.world or not creature.world.biome.biome_noise:
-        return creature.wander_angle
-
-    best_angle = creature.wander_angle
-    best_mana = -1.0
-
-    cx, cy = entity_xy(creature)
-    for angle in range(0, 360, angle_step):
-        rad = math.radians(angle)
-        tx = cx + math.cos(rad) * sampling_distance
-        ty = cy + math.sin(rad) * sampling_distance
-
-        tx = max(0, min(creature.world.width, tx))
-        ty = max(0, min(creature.world.height, ty))
-
-        mana_value = (
-            creature.world.mana_layer.get_mana_density(tx, ty)
-            if hasattr(creature.world, "mana_layer")
-            else creature.world.biome.get_mana_regen_multiplier(tx, ty)
-        )
-
-        if mana_value > best_mana:
-            best_mana = mana_value
-            best_angle = angle
-
-    return best_angle
-
 def count_same_species_near(
     creature,
     x: float,
@@ -295,24 +264,3 @@ def same_species_repulsion_angle(creature, radius: float) -> float | None:
     if magnitude <= 1e-6:
         return None
     return math.degrees(math.atan2(push_y, push_x)) % 360
-
-def get_local_mana_gradient_direction(
-    creature,
-    radius: float = 35.0,
-    samples: int = 8,
-    escape_radius: float = 96.0,
-    depleted_ratio: float = 0.12,
-) -> float:
-    """後方互換ラッパー → ManaSystem.get_local_gradient_direction"""
-    from src.sim.systems.mana_system import ManaSystem
-
-    if not creature.world:
-        return getattr(creature, "wander_angle", random.uniform(0, 360))
-
-    params = {
-        "local_gradient_radius": radius,
-        "local_gradient_samples": samples,
-        "escape_radius": escape_radius,
-        "depleted_ratio": depleted_ratio,
-    }
-    return ManaSystem.get_local_gradient_direction(creature, creature.world, params)

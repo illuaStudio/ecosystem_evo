@@ -6,7 +6,6 @@ from src.sim.components.colony import ColonyComponent
 from src.sim.components.corpse import CorpseComponent
 from src.sim.components.energy import Energy
 from src.sim.components.life_cycle import LifeCycleManager
-from src.sim.components.mana_affinity import ManaAffinity
 from src.sim.components.metabolism import MetabolismComponent
 from src.sim.components.position import Position
 from src.sim.components.reproduction import ReproductionComponent
@@ -30,7 +29,7 @@ class Creature(BaseEntity):
     sync_legacy_pos() で同期する（直接 pos を書き換えない）。
     """
 
-    def __init__(self, x, y, species_name: str = "Amoeba"):
+    def __init__(self, x, y, species_name: str = "springtail"):
         super().__init__(x, y)
 
         self.species = Species.create(species_name)
@@ -54,9 +53,6 @@ class Creature(BaseEntity):
         self.position = Position(float(x), float(y))
         self.velocity = Velocity()
         self.energy = Energy()
-        self.mana_affinity: ManaAffinity | None = None
-        self._init_mana_affinity_from_species()
-
         self.life_cycle = LifeCycleManager(self, self.species.life_cycle)
         self.metabolism = MetabolismComponent(self)
         self.corpse = CorpseComponent(self)
@@ -72,27 +68,6 @@ class Creature(BaseEntity):
         self.hp = self.max_hp
         self.max_satiety = float(self.traits.get("max_satiety", 80))
         self.satiety = self.max_satiety
-
-    def _init_mana_affinity_from_species(self) -> None:
-        """種の mind 定義からマナ親和性コンポーネントを構築する。"""
-        for action_def in self.species.mind_data.get("actions", []):
-            if action_def.get("name") not in (
-                "ManaWanderAction",
-                "ManaGradientWanderAction",
-            ):
-                continue
-            params = action_def.get("params", {})
-            self.mana_affinity = ManaAffinity(
-                affinity=float(params.get("affinity", 1.0)),
-                consumption_rate=float(
-                    params.get("mana_absorption_rate", params.get("consumption_rate", 0.1))
-                ),
-            )
-            self.mana_steer_snap_x: float | None = None
-            self.mana_steer_snap_y: float | None = None
-            self.mana_steer_snap_density: float | None = None
-            self.mana_no_absorb_ticks = 0
-            return
 
     @property
     def remaining_biomass(self) -> float:

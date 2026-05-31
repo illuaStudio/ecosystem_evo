@@ -1,4 +1,4 @@
-"""SpawnPlacementResolver と initial_spawns のテスト。"""
+"""SpawnPlacementResolver ? initial_spawns ?????"""
 import unittest
 
 from src.sim.constants.micro_fauna import DEFAULT_MICRO_FAUNA_SPECIES
@@ -30,7 +30,6 @@ def _placement_world(**overrides):
                     "max_food": 5000,
                     "initial_stored_food": 80,
                     "food_leak_per_tick": 0,
-                    "food_to_mana_ratio": 0.35,
                     "food_leak_reserve_ratio": 0.15,
                 }
             },

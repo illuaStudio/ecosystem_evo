@@ -58,7 +58,7 @@ class TestHuntCarcassStuck(unittest.TestCase):
         ant.satiety = ant.max_satiety * 0.95
         world.add_creature(ant)
 
-        prey = factory.create("Amoeba", world=world, x=512, y=500)
+        prey = factory.create("springtail", world=world, x=512, y=500)
         world.add_creature(prey)
         for _ in range(12):
             if not prey.alive:
@@ -66,7 +66,7 @@ class TestHuntCarcassStuck(unittest.TestCase):
             try_attack_only(ant, prey, attack_power=2.5)
         self.assertTrue(try_pickup_carcass(ant, prey))
 
-        hunt = HuntAction(target_types=["Amoeba", "Spider"])
+        hunt = HuntAction(target_types=["springtail", "Spider"])
         ret = ReturnToNestAction()
         self.assertEqual(hunt.calculate_utility(ant), 0.0)
         self.assertGreater(ret.calculate_utility(ant), 0.0)
@@ -77,15 +77,15 @@ class TestHuntCarcassStuck(unittest.TestCase):
         ant = factory.create("red_ant", world=world, x=500, y=500)
         world.add_creature(ant)
 
-        prey = factory.create("Amoeba", world=world, x=512, y=500)
+        prey = factory.create("springtail", world=world, x=512, y=500)
         prey.become_corpse()
         world.remove_creature(prey)
 
-        hunt = HuntAction(target_types=["Amoeba"])
+        hunt = HuntAction(target_types=["springtail"])
         hunt._target = prey
         from src.sim.utils.creature_helpers import is_trackable_prey
 
-        self.assertFalse(is_trackable_prey(ant, prey, ("Amoeba",)))
+        self.assertFalse(is_trackable_prey(ant, prey, ("springtail",)))
 
     def test_defense_hunt_ignores_dead_spider(self):
         world = World()
@@ -119,14 +119,14 @@ class TestHuntCarcassStuck(unittest.TestCase):
         world.add_creature(live)
 
         hunt = HuntAction(
-            target_types=["Amoeba", "Spider"],
+            target_types=["springtail", "Spider"],
             carcass_only_species=["Spider"],
         )
-        self.assertEqual(hunt._find_prey(ant, ("Amoeba", "Spider")), None)
+        self.assertEqual(hunt._find_prey(ant, ("springtail", "Spider")), None)
 
         live.alive = False
         live.remaining_biomass = 200.0
-        self.assertIs(hunt._find_prey(ant, ("Amoeba", "Spider")), live)
+        self.assertIs(hunt._find_prey(ant, ("springtail", "Spider")), live)
         self.assertGreater(hunt.calculate_utility(ant), 0.0)
 
     def test_worker_prefers_nearby_carcass_over_farther_living_prey(self):
@@ -138,19 +138,19 @@ class TestHuntCarcassStuck(unittest.TestCase):
         ant.satiety = ant.max_satiety * 0.95
         world.add_creature(ant)
 
-        dead_amoeba = factory.create("Amoeba", world=world, x=508, y=500)
+        dead_amoeba = factory.create("springtail", world=world, x=508, y=500)
         dead_amoeba.become_corpse()
         dead_amoeba.remaining_biomass = 80.0
         world.add_creature(dead_amoeba)
 
-        live_amoeba = factory.create("Amoeba", world=world, x=540, y=500)
+        live_amoeba = factory.create("springtail", world=world, x=540, y=500)
         world.add_creature(live_amoeba)
 
         hunt = HuntAction(
-            target_types=["Amoeba", "Spider"],
+            target_types=["springtail", "Spider"],
             carcass_only_species=["Spider"],
         )
-        self.assertIs(hunt._find_prey(ant, ("Amoeba", "Spider")), dead_amoeba)
+        self.assertIs(hunt._find_prey(ant, ("springtail", "Spider")), dead_amoeba)
 
     def test_worker_hunts_living_prey_when_closer_than_carcass(self):
         world = World()
@@ -160,7 +160,7 @@ class TestHuntCarcassStuck(unittest.TestCase):
         ant = factory.create("red_ant", world=world, x=500, y=500)
         world.add_creature(ant)
 
-        live_amoeba = factory.create("Amoeba", world=world, x=508, y=500)
+        live_amoeba = factory.create("springtail", world=world, x=508, y=500)
         world.add_creature(live_amoeba)
 
         spider = factory.create("Spider", world=world, x=540, y=500)
@@ -169,10 +169,10 @@ class TestHuntCarcassStuck(unittest.TestCase):
         world.add_creature(spider)
 
         hunt = HuntAction(
-            target_types=["Amoeba", "Spider"],
+            target_types=["springtail", "Spider"],
             carcass_only_species=["Spider"],
         )
-        self.assertIs(hunt._find_prey(ant, ("Amoeba", "Spider")), live_amoeba)
+        self.assertIs(hunt._find_prey(ant, ("springtail", "Spider")), live_amoeba)
 
     def test_hungry_worker_hunts_spider_carcass_despite_nest_food(self):
         world = World()
@@ -191,7 +191,7 @@ class TestHuntCarcassStuck(unittest.TestCase):
         self.assertTrue(nest_has_usable_food(ant))
 
         hunt = HuntAction(
-            target_types=["Amoeba", "Spider"],
+            target_types=["springtail", "Spider"],
             carcass_only_species=["Spider"],
         )
         self.assertGreater(hunt.calculate_utility(ant), 0.0)

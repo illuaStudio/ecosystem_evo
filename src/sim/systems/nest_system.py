@@ -22,7 +22,7 @@ from src.sim.utils.field_effect_cache import invalidate_field_effect_cache
 if TYPE_CHECKING:
     from src.sim.systems.world import World
 
-# この値以下で破壊（int 表示の 0/120 とマナ回復の「復活」見えを防ぐ）
+# この値以下で破壊（int 表示の 0/120 と復活見えを防ぐ）
 HOLE_DESTROY_HP = 1.0
 
 
@@ -57,7 +57,6 @@ class NestSystem:
     DEFAULT_DEPOSIT_RADIUS = 30.0
     DEFAULT_SPAWN_SPREAD = 28.0
     DEFAULT_FOOD_LEAK_RATE = 0.0015
-    DEFAULT_FOOD_TO_MANA_RATIO = 0.35
     DEFAULT_FOOD_LEAK_RESERVE_RATIO = 0.12
     WORLD_MARGIN = 30.0
 
@@ -133,23 +132,12 @@ class NestSystem:
         dealt = min(float(hole.hp), float(amount))
         hole.hp = max(0.0, hole.hp - dealt)
 
-        cfg = self._colony_settings()
-        mana_cost = float(cfg.get("hole_damage_mana_cost", 0.35))
-        if mana_cost > 0 and dealt > 0:
-            self.world.mana_layer.consume(dealt * mana_cost, hole.x, hole.y)
-
         if hole.hp <= HOLE_DESTROY_HP:
             hole.hp = 0.0
             self._remove_hole(nest, hole)
         return dealt
 
     def _remove_hole(self, nest: Nest, hole: NestHole) -> None:
-        cfg = self._colony_settings()
-        ratio = float(cfg.get("hole_destroy_mana_return_ratio", 0.25))
-        if ratio > 0 and hole.max_hp > 0:
-            self.world.mana_layer.return_from_decomposition(
-                hole.max_hp * ratio, hole.x, hole.y
-            )
         try:
             nest.holes.remove(hole)
         except ValueError:
@@ -408,23 +396,20 @@ class NestSystem:
         colony.colony_id = colony_id
 
     def update(self, dt: float = 1.0) -> None:
-        """巣の更新（食料漏洩→マナ還流）。"""
-        from src.config import config
-
+        """巣の更新（食料漏洩など）。"""
         dt = float(dt)
         self._sim_time += dt
         for nest in list(self.nests.values()):
             runtime_cfg = resolve_colony_runtime_cfg(self.world, nest.colony_id, {})
             if nest.stored_food > 0:
-                self._leak_food_to_mana(nest, runtime_cfg, dt)
+                self._leak_food(nest, runtime_cfg, dt)
 
-    def _leak_food_to_mana(self, nest: Nest, colony_cfg: dict, dt: float) -> None:
+    def _leak_food(self, nest: Nest, colony_cfg: dict, dt: float) -> None:
         if not colony_cfg:
             return
         leak_per_tick = float(colony_cfg["food_leak_per_tick"])
-        mana_ratio = float(colony_cfg["food_to_mana_ratio"])
         reserve_ratio = float(colony_cfg["food_leak_reserve_ratio"])
-        if leak_per_tick <= 0 or mana_ratio <= 0:
+        if leak_per_tick <= 0:
             return
 
         reserve = nest.max_food * reserve_ratio
@@ -437,9 +422,6 @@ class NestSystem:
             return
 
         nest.stored_food -= leak
-        self.world.mana_layer.return_from_decomposition(
-            leak * mana_ratio, nest.x, nest.y
-        )
 
     def try_consume_food(self, nest: Nest, amount: float) -> bool:
         """巣備蓄から食料を消費する。不足時は False。"""
@@ -490,7 +472,7 @@ class NestSystem:
     def deposit_carried(self, creature) -> float:
         """インベントリ内バイオマスを巣の食料備蓄へ移す。移した食料量を返す。
 
-        備蓄が満杯で入らない分は巣付近でマナ還元し、インベントリを空にする。
+        備蓄が満杯で入らない分は破棄する。
         """
         from src.sim.utils.inventory_helpers import clear_inventory_biomass, inventory_is_loaded
 
@@ -508,12 +490,6 @@ class NestSystem:
         space = self.deposit_space(nest)
         deposited = min(amount, space)
         nest.stored_food += deposited
-        leftover = amount - deposited
-
-        if leftover > 0 and self.world is not None:
-            self.world.mana_layer.return_from_decomposition(
-                leftover * 0.65, nest.x, nest.y
-            )
         return deposited
 
     def feed_creature(

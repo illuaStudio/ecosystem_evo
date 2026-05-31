@@ -9,7 +9,7 @@ class TestStarvationHpPerTick(unittest.TestCase):
     def test_starvation_hp_independent_of_metabolism(self):
         world = World()
         factory = CreatureFactory()
-        amoeba = factory.create("Amoeba", world=world, x=120, y=120)
+        amoeba = factory.create("springtail", world=world, x=120, y=120)
         amoeba.satiety = 0.0
         amoeba.hp = 100.0
         amoeba.traits["metabolism_per_tick"] = 0.5
@@ -23,7 +23,7 @@ class TestStarvationHpPerTick(unittest.TestCase):
     def test_species_starvation_damage(self):
         world = World()
         factory = CreatureFactory()
-        amoeba = factory.create("Amoeba", world=world, x=120, y=120)
+        amoeba = factory.create("springtail", world=world, x=120, y=120)
         amoeba.satiety = 0.0
         amoeba.hp = 100.0
 

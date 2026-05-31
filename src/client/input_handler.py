@@ -105,9 +105,6 @@ class InputHandler:
             self._add_nest_hole_at_cursor()
         elif event.key == pygame.K_d:
             self.engine.show_debug = not getattr(self.engine, 'show_debug', False)
-        elif event.key == pygame.K_m:
-            mode = getattr(self.engine, "map_view_mode", "biome")
-            self.engine.map_view_mode = "mana" if mode == "biome" else "biome"
         elif event.key == pygame.K_t:
             self.engine.show_territory = not getattr(
                 self.engine, "show_territory", False

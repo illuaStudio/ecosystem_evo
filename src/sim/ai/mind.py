@@ -3,43 +3,7 @@ from abc import ABC, abstractmethod
 from src.sim.shelter.state import SHELTER_ALLOWED_ACTION_NAMES, is_creature_sheltered
 from src.sim.utils.inventory_helpers import inventory_is_loaded
 from src.sim.utils.creature_helpers import needs_self_feed
-from src.sim.ai.actions import (
-    AttackHoleAction,
-    ChaseAction,
-    ColonyReproduceAction,
-    CombatAction,
-    FeedAtNestAction,
-    FleeAction,
-    HuntAction,
-    ManaGradientWanderAction,
-    ManaWanderAction,
-    NestPatrolAction,
-    ReturnToNestAction,
-    ScavengeCarriedAction,
-    SeekShelterAction,
-    SpawnWorkerAction,
-    SplitAction,
-    WanderAction,
-)
-
-ACTION_BY_NAME = {
-    "WanderAction": WanderAction,
-    "ManaWanderAction": ManaWanderAction,
-    "ManaGradientWanderAction": ManaGradientWanderAction,
-    "ChaseAction": ChaseAction,
-    "CombatAction": CombatAction,
-    "AttackHoleAction": AttackHoleAction,
-    "FleeAction": FleeAction,
-    "SeekShelterAction": SeekShelterAction,
-    "HuntAction": HuntAction,
-    "ReturnToNestAction": ReturnToNestAction,
-    "ScavengeCarriedAction": ScavengeCarriedAction,
-    "FeedAtNestAction": FeedAtNestAction,
-    "NestPatrolAction": NestPatrolAction,
-    "ColonyReproduceAction": ColonyReproduceAction,
-    "SpawnWorkerAction": SpawnWorkerAction,
-    "SplitAction": SplitAction,
-}
+from src.sim.ai.actions import ACTION_BY_NAME, ReturnToNestAction, WanderAction
 
 
 class Mind(ABC):
@@ -78,10 +42,7 @@ class UtilityMind(Mind):
         colony = getattr(creature, "colony", None)
         current = creature.current_action
         if inventory_is_loaded(creature):
-            # 運搬中は帰巣を維持（毎ティック再評価による Hunt 等へのチャタリング防止）
-            if not needs_self_feed(creature) and isinstance(
-                current, ReturnToNestAction
-            ):
+            if not needs_self_feed(creature) and isinstance(current, ReturnToNestAction):
                 return current
 
         best_action = None
@@ -106,8 +67,6 @@ class UtilityMind(Mind):
             if utility <= 0.0:
                 continue
             score = utility * weight
-
-            # print(f"  → {action_name:12s} | Utility: {utility:.3f} × Weight: {weight:.2f} = Score: {score:.3f}")
 
             if score > best_score:
                 best_score = score
@@ -145,7 +104,6 @@ class UtilityMind(Mind):
                     source=f"{creature.species.name}/WanderAction",
                 )
 
-        # 同種の行動が選ばれたら進行中インスタンスを維持（追跡ターゲット等を保持）
         if (
             current is not None
             and not current.is_completed()

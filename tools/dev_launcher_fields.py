@@ -446,7 +446,6 @@ _SPECIES_LABELS: dict[str, str] = {
     "aphid_larva": "アブラムシ幼虫",
     "woodlouse": "ダンゴムシ",
     "grub": "幼虫",
-    "Amoeba": "アメーバ（旧）",
     "Spider": "クモ",
     "red_ant": "赤働きアリ",
     "red_ant_queen": "赤女王",
@@ -480,22 +479,16 @@ _PARAM_META: dict[str, tuple[str, str, ValueType, float | None, float | None]] =
     "debug_events": ("シミュイベントログ", "シミュ内部イベントをログ出力。", "bool", None, None),
     "debug_sim_events": ("シミュイベント HUD", "画面上にシミュイベントを表示。", "bool", None, None),
     "defense_hunt": ("防衛狩り", "テリトリー防衛目的の狩りモード。", "bool", None, None),
-    "density_initial_max": ("マナ初期密度（最大）", "開始時マナ密度の上限。", "float", 0, 500),
-    "density_initial_min": ("マナ初期密度（最小）", "開始時マナ密度の下限。", "float", 0, 500),
-    "density_max": ("マナ密度上限", "タイルあたりのマナ密度上限。", "float", 100, 20000),
     "deposit_radius": ("巣への搬入半径", "巣備蓄に入れる判定距離（px）。", "float", 5, 100),
     "feed_per_tick": ("1ティックの食料消費", "1ティックで巣備蓄から取る食料量。", "float", 0.01, 50),
     "feed_radius": ("巣食事半径", "巣で食事できる距離（px）。", "float", 10, 80),
     "food_cost": ("産卵食料コスト", "1 匹産むごとに消費する食料。", "float", 5, 300),
-    "food_leak_per_tick": ("1ティックの食料漏洩", "予約備蓄を超えた余剰があるとき、1シミュ tick でマナへ漏れる食料量。", "float", 0, 50),
+    "food_leak_per_tick": ("1ティックの食料漏洩", "予約備蓄を超えた余剰があるとき、1シミュ tick で失われる食料量。", "float", 0, 50),
     "food_leak_reserve_ratio": ("漏洩開始備蓄率", "この割合以上の備蓄から漏洩が始まる。", "float", 0, 0.5),
-    "food_to_mana_ratio": ("食料→マナ変換率", "漏洩・分解でマナに変わる割合。", "float", 0, 1.0),
     "fullscreen": ("フルスクリーン", "フルスクリーン表示。", "bool", None, None),
     "guard_mode": ("防衛巡回モード", "テリトリー防衛向けの巡回。", "bool", None, None),
     "hide_radius": ("巣穴に隠れる半径", "この距離内で避難完了。", "float", 10, 80),
     "high_food_ratio": ("産卵解禁閾値", "巣備蓄率がこの値以上で産卵解禁。", "float", 0.05, 1.0),
-    "hole_damage_mana_cost": ("巣穴攻撃マナ消費", "巣穴1回攻撃のマナコスト。", "float", 0, 2.0),
-    "hole_destroy_mana_return_ratio": ("巣穴破壊マナ返却", "巣穴破壊時に返るマナの割合。", "float", 0, 1.0),
     "hole_food_cost": ("巣穴設置コスト", "巣穴追加に必要な食料。", "float", 10, 2000),
     "hole_max_hp": ("巣穴 HP", "追加巣穴の耐久力。", "float", 10, 500),
     "spawn_exclusion_radius": (
@@ -526,7 +519,6 @@ _PARAM_META: dict[str, tuple[str, str, ValueType, float | None, float | None]] =
     "patrol_radius": ("巡回半径", "巣周辺を動く半径（px）。", "float", 20, 400),
     "pickup_on_kill": ("倒したら即拾う", "捕食成功時に死骸を拾う。", "bool", None, None),
     "radius": ("効果半径", "フィールド効果の半径（px）。", "float", 10, 300),
-    "regen_rate": ("マナ再生率", "マナレイヤーの再生速度。", "float", 0, 5000),
     "return_speed_multiplier": ("巣復帰速度倍率", "巡回中に巣へ戻る速度倍率。", "float", 0.3, 3.0),
     "satiety_full_above": ("十分満腹とみなす率", "この満腹率以上で食事不要。", "float", 0.3, 1.0),
     "satiety_feed_below": ("食事開始とみなす率", "この満腹率以下で巣食事を開始。", "float", 0.2, 0.8),
@@ -591,7 +583,6 @@ _MAIN_SECTION_ORDER: dict[str, tuple[str, ...]] = {
     "兵隊アリ": ("個体", "食事", "その他"),
     "ワールド": (
         "マップ",
-        "マナ",
         "開始時の個体",
         "個体上限",
         "赤コロニー（巣）",
@@ -691,8 +682,6 @@ def _infer_main_section(spec: FieldSpec) -> str:
     if cat == "ワールド":
         if path[:1] == ("world_width",) or path[:1] == ("world_height",):
             return "マップ"
-        if path[:1] == ("mana",):
-            return "マナ"
         if path[:1] == ("initial_spawns",):
             return "開始時の個体"
         if path[:1] == ("initial_entities",):
@@ -1020,17 +1009,11 @@ def _finalize_field_specs(base: list[FieldSpec]) -> list[FieldSpec]:
     world_paths: list[tuple[PathKey, ...]] = [
         ("world_width",),
         ("world_height",),
-        ("mana", "regen_rate"),
-        ("mana", "density_max"),
-        ("mana", "density_initial_min"),
-        ("mana", "density_initial_max"),
         ("colony", "hole_food_cost"),
         ("colony", "max_holes"),
         ("colony", "min_hole_spacing"),
         ("colony", "min_food_reserve"),
         ("colony", "hole_max_hp"),
-        ("colony", "hole_damage_mana_cost"),
-        ("colony", "hole_destroy_mana_return_ratio"),
         ("colony", "territory_effects", "hp_regen_per_dt"),
         ("colony", "profiles", "red_ant", "nest_x"),
         ("colony", "profiles", "red_ant", "nest_y"),
@@ -1038,7 +1021,6 @@ def _finalize_field_specs(base: list[FieldSpec]) -> list[FieldSpec]:
         ("colony", "profiles", "red_ant", "max_food"),
         ("colony", "profiles", "red_ant", "initial_stored_food"),
         ("colony", "profiles", "red_ant", "food_leak_per_tick"),
-        ("colony", "profiles", "red_ant", "food_to_mana_ratio"),
         ("colony", "profiles", "red_ant", "food_leak_reserve_ratio"),
         ("colony", "profiles", "red_ant", "spawn_spread"),
         ("colony", "profiles", "red_ant", "spawn_exclusion_radius"),
@@ -1213,7 +1195,7 @@ _BASE_FIELD_SPECS: list[FieldSpec] = [
         "queen_food_leak",
         "女王",
         "1 ティックの食料漏洩",
-        "予約備蓄を超えた余剰があるとき、1 シミュ tick でマナへ漏れる食料量。"
+        "予約備蓄を超えた余剰があるとき、1 シミュ tick で失われる食料量。"
         "feed_per_tick と同様、シミュ tick ごとの固定量です。",
         "sim/worlds/world.json",
         "float",

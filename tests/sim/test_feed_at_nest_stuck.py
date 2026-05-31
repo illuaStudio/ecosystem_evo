@@ -48,7 +48,7 @@ class TestFeedAtNestNotStuck(unittest.TestCase):
 
         action = FeedAtNestAction(
             feed_radius=38,
-            scavenge_species=["Amoeba", "Spider"],
+            scavenge_species=["springtail", "Spider"],
         )
         x0, y0 = entity_xy(ant)
         action.execute(ant)

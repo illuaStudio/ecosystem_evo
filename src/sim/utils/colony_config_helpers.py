@@ -8,7 +8,6 @@ COLONY_PROFILE_REQUIRED_KEYS = frozenset({
     "max_food",
     "initial_stored_food",
     "food_leak_per_tick",
-    "food_to_mana_ratio",
     "food_leak_reserve_ratio",
     "spawn_spread",
 })

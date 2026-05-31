@@ -9,7 +9,7 @@ def satiety_ratio(creature) -> float:
     return max(0.0, min(1.0, creature.satiety / creature.max_satiety))
 
 def hunger_ratio(creature) -> float:
-    """空腹度（0=満腹, 1=空腹）。ManaWander 等の連続 utility 用。"""
+    """空腹度（0=満腹, 1=空腹）。"""
     return 1.0 - satiety_ratio(creature)
 
 class NutritionState:

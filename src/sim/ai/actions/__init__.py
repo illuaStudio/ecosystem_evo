@@ -6,25 +6,17 @@ from src.sim.ai.actions.colony import (
     ScavengeCarriedAction,
 )
 from src.sim.ai.actions.combat_actions import AttackHoleAction, CombatAction
-from src.sim.ai.actions.movement import (
-    FleeAction,
-    ManaGradientWanderAction,
-    ManaWanderAction,
-    WanderAction,
-)
+from src.sim.ai.actions.movement import FleeAction, WanderAction
 from src.sim.ai.actions.predation import ChaseAction, HuntAction
 from src.sim.ai.actions.reproduction import (
     ColonyReproduceAction,
     ReproductionAction,
     SpawnWorkerAction,
-    SplitAction,
 )
 from src.sim.ai.actions.shelter import SeekShelterAction
 
 ACTION_BY_NAME = {
     "WanderAction": WanderAction,
-    "ManaWanderAction": ManaWanderAction,
-    "ManaGradientWanderAction": ManaGradientWanderAction,
     "ChaseAction": ChaseAction,
     "CombatAction": CombatAction,
     "AttackHoleAction": AttackHoleAction,
@@ -37,7 +29,6 @@ ACTION_BY_NAME = {
     "NestPatrolAction": NestPatrolAction,
     "ColonyReproduceAction": ColonyReproduceAction,
     "SpawnWorkerAction": SpawnWorkerAction,
-    "SplitAction": SplitAction,
 }
 
 __all__ = [
@@ -50,14 +41,11 @@ __all__ = [
     "FleeAction",
     "SeekShelterAction",
     "HuntAction",
-    "ManaGradientWanderAction",
-    "ManaWanderAction",
     "NestPatrolAction",
     "ReproductionAction",
     "ReturnToNestAction",
     "ScavengeCarriedAction",
     "ColonyReproduceAction",
     "SpawnWorkerAction",
-    "SplitAction",
     "WanderAction",
 ]

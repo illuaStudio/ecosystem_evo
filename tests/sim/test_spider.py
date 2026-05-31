@@ -38,7 +38,7 @@ class TestSpider(unittest.TestCase):
         self.assertIn("WanderAction", names)
         chase = next(a for a in actions if a["name"] == "ChaseAction")
         self.assertEqual(chase["params"]["target_types"], list(ANT_PREY))
-        self.assertNotIn("Amoeba", chase["params"]["target_types"])
+        self.assertNotIn("springtail", chase["params"]["target_types"])
 
     def test_spider_wanders(self):
         world = World()
@@ -82,7 +82,7 @@ class TestSpider(unittest.TestCase):
 
         factory = CreatureFactory()
         spider = factory.create("Spider", world=world, x=400, y=400)
-        amoeba = factory.create("Amoeba", world=world, x=430, y=400)
+        amoeba = factory.create("springtail", world=world, x=430, y=400)
         world.add_creature(spider)
         world.add_creature(amoeba)
 

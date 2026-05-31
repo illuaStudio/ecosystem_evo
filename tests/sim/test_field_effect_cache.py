@@ -10,7 +10,7 @@ class TestFieldEffectCache(unittest.TestCase):
     def test_cache_matches_uncached_sample(self):
         world = _toxic_biome_world(drain=0.08)
         factory = CreatureFactory()
-        creature = factory.create("Amoeba", world=world, x=900, y=900)
+        creature = factory.create("springtail", world=world, x=900, y=900)
         world.add_creature(creature)
 
         cached = sample_field_modifiers(world, creature)
@@ -34,7 +34,7 @@ class TestFieldEffectCache(unittest.TestCase):
     def test_poison_immunity_via_cache(self):
         world = _fog_world()
         factory = CreatureFactory()
-        amoeba = factory.create("Amoeba", world=world, x=400, y=400)
+        amoeba = factory.create("springtail", world=world, x=400, y=400)
         world.add_creature(amoeba)
 
         mods = sample_field_modifiers(world, amoeba)

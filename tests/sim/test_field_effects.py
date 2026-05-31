@@ -1,4 +1,4 @@
-"""環境フィールド（テリトリー回復・バイオーム毒）の Phase 1 テスト。"""
+"""???????????????????????? ? Phase 1 ???"""
 import unittest
 
 from src.sim.entities.creature_factory import CreatureFactory
@@ -26,7 +26,7 @@ def _colony_world(**colony_overrides) -> World:
             "world_width": 1000,
             "world_height": 1000,
             "initial_entities": {},
-            "population_limits": {"red_ant": 20, "blue_ant": 20, "Amoeba": 50},
+            "population_limits": {"red_ant": 20, "blue_ant": 20, "springtail": 50},
             "colony": colony,
         }
     )
@@ -39,20 +39,20 @@ def _toxic_biome_world(drain: float = 0.1) -> World:
             "world_width": 1000,
             "world_height": 1000,
             "initial_entities": {},
-            "population_limits": {"Amoeba": 50},
+            "population_limits": {"springtail": 50},
             "world": {
                 "biome_map_cell_size": 64,
                 "biomes": [
                     {
                         "name": "rich",
                         "color": "#2E8B57",
-                        "mana_regen_multiplier": 1.2,
+                        "spawn_rate_multiplier": 1.2,
                     },
                     {
                         "name": "poor",
                         "color": "#8F9E6E",
-                        "mana_regen_multiplier": 0.2,
                         "hp_drain_per_dt": drain,
+                        "spawn_rate_multiplier": 0.25,
                     },
                 ],
                 "biome_noise": {
@@ -82,7 +82,7 @@ class TestFieldEffects(unittest.TestCase):
         world.add_creature(red)
         red.hp = 80.0
 
-        # 赤テリトリー内だが、青コロニーのテリトリー外
+        # ??????????????????????
         blue = factory.create("blue_ant", world=world, x=210, y=210)
         world.add_creature(blue)
         blue.hp = 80.0
@@ -106,7 +106,7 @@ class TestFieldEffects(unittest.TestCase):
     def test_biome_hp_drain(self):
         world = _toxic_biome_world(drain=0.08)
         factory = CreatureFactory()
-        amoeba = factory.create("Amoeba", world=world, x=900, y=900)
+        amoeba = factory.create("springtail", world=world, x=900, y=900)
         world.add_creature(amoeba)
         amoeba.hp = 60.0
 
@@ -119,7 +119,7 @@ class TestFieldEffects(unittest.TestCase):
     def test_poison_resist_reduces_drain(self):
         world = _toxic_biome_world(drain=0.1)
         factory = CreatureFactory()
-        amoeba = factory.create("Amoeba", world=world, x=900, y=900)
+        amoeba = factory.create("springtail", world=world, x=900, y=900)
         world.add_creature(amoeba)
         amoeba.traits["poison_resist"] = 0.5
 
@@ -155,7 +155,7 @@ class TestFieldEffects(unittest.TestCase):
     def test_field_drain_can_kill_via_metabolism(self):
         world = _toxic_biome_world(drain=5.0)
         factory = CreatureFactory()
-        amoeba = factory.create("Amoeba", world=world, x=900, y=900)
+        amoeba = factory.create("springtail", world=world, x=900, y=900)
         world.add_creature(amoeba)
         amoeba.hp = 3.0
 
@@ -179,7 +179,7 @@ def _fog_world(drain: float = 0.1, radius: float = 120.0) -> World:
             "world_width": 1000,
             "world_height": 1000,
             "initial_entities": {},
-            "population_limits": {"red_ant": 20, "Amoeba": 50, "Spider": 10},
+            "population_limits": {"red_ant": 20, "springtail": 50, "Spider": 10},
             "colony": colony_settings(),
             "field_emitters": {
                 "sources": [
@@ -211,7 +211,7 @@ class TestPoisonFogEmitters(unittest.TestCase):
     def test_amoeba_immune_to_poison_fog(self):
         world = _fog_world()
         factory = CreatureFactory()
-        amoeba = factory.create("Amoeba", world=world, x=400, y=400)
+        amoeba = factory.create("springtail", world=world, x=400, y=400)
         world.add_creature(amoeba)
         amoeba.hp = 50.0
 

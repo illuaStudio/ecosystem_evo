@@ -127,10 +127,10 @@ class TestTerritoryAndCastes(unittest.TestCase):
         factory = CreatureFactory()
         worker = factory.create("red_ant", world=world, x=100, y=100)
         world.add_creature(worker)
-        amoeba = factory.create("Amoeba", world=world, x=150, y=100)
+        amoeba = factory.create("springtail", world=world, x=150, y=100)
         world.add_creature(amoeba)
 
-        hunt = HuntAction(target_types=["Amoeba"])
+        hunt = HuntAction(target_types=["springtail"])
         self.assertGreater(hunt.calculate_utility(worker), 0.0)
 
     def test_soldier_hunts_spider_in_territory_only(self):

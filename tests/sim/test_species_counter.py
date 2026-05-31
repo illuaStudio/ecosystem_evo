@@ -21,14 +21,14 @@ class TestSpeciesPopulationCounter(unittest.TestCase):
         world = _empty_world()
         factory = CreatureFactory()
 
-        a = factory.create("Amoeba", world=world, x=50, y=50)
+        a = factory.create("springtail", world=world, x=50, y=50)
         world.add_creature(a)
-        self.assertEqual(world.count_alive_by_species("Amoeba"), 1)
+        self.assertEqual(world.count_alive_by_species("springtail"), 1)
 
         a.hp = 0
         a.update(1.0)
         self.assertFalse(a.alive)
-        self.assertEqual(world.count_alive_by_species("Amoeba"), 0)
+        self.assertEqual(world.count_alive_by_species("springtail"), 0)
 
     def test_stats_helper_uses_world_counter(self):
         world = _empty_world()
@@ -36,10 +36,10 @@ class TestSpeciesPopulationCounter(unittest.TestCase):
         from src.sim.utils.stats_helpers import count_alive_by_species
 
         for i in range(3):
-            c = factory.create("Amoeba", world=world, x=10 + i, y=10)
+            c = factory.create("springtail", world=world, x=10 + i, y=10)
             world.add_creature(c)
 
-        self.assertEqual(count_alive_by_species(world, "Amoeba"), 3)
+        self.assertEqual(count_alive_by_species(world, "springtail"), 3)
 
 
 if __name__ == "__main__":

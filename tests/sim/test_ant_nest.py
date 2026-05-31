@@ -173,7 +173,7 @@ class TestAntNest(unittest.TestCase):
         nest = world.nest_system.get_creature_nest(predator)
 
         factory = CreatureFactory()
-        prey = factory.create("Amoeba", world=world, x=0, y=0)
+        prey = factory.create("springtail", world=world, x=0, y=0)
         world.add_creature(prey)
 
         px, py = entity_xy(predator)
@@ -215,7 +215,7 @@ class TestAntNest(unittest.TestCase):
         self.assertLess(after, before)
         self.assertLess(nest.stored_food, 200.0)
 
-    def test_food_leak_reduces_storage_and_adds_mana_at_nest(self):
+    def test_food_leak_reduces_storage(self):
         world = World.from_json(
             {
                 "name": "FoodLeakTest",
@@ -234,13 +234,10 @@ class TestAntNest(unittest.TestCase):
         nest.stored_food = reserve + 500.0
         food_before = nest.stored_food
 
-        mana_before = world.mana_layer.get_mana_density(nest.x, nest.y)
         for _ in range(200):
             world.nest_system.update(10.0)
-        mana_after = world.mana_layer.get_mana_density(nest.x, nest.y)
 
         self.assertLess(nest.stored_food, food_before)
-        self.assertGreater(mana_after, mana_before)
         leak_per_tick = float(get_colony_profile(world, "red_ant")["food_leak_per_tick"])
         self.assertAlmostEqual(nest.stored_food, reserve + 500.0 - 200.0 * leak_per_tick)
 
@@ -362,7 +359,7 @@ class TestAntNest(unittest.TestCase):
 
         from src.sim.ai.actions import HuntAction
 
-        action = HuntAction(target_types=["Amoeba", "Spider"])
+        action = HuntAction(target_types=["springtail", "Spider"])
         for stored in (0.0, nest.max_food * 0.5, nest.max_food):
             nest.stored_food = stored
             with self.subTest(stored_food=stored):
@@ -373,7 +370,7 @@ class TestAntNest(unittest.TestCase):
         preds = self._spawn_predators(world, 2)
         carrier, other = preds[0], preds[1]
         factory = CreatureFactory()
-        prey = factory.create("Amoeba", world=world, x=0, y=0)
+        prey = factory.create("springtail", world=world, x=0, y=0)
         world.add_creature(prey)
         px, py = entity_xy(carrier)
         prey.pos[0] = px + 10
@@ -408,7 +405,7 @@ class TestAntNest(unittest.TestCase):
         predator.satiety = predator.max_satiety * 0.95
         nest = world.nest_system.get_creature_nest(predator)
         factory = CreatureFactory()
-        prey = factory.create("Amoeba", world=world, x=0, y=0)
+        prey = factory.create("springtail", world=world, x=0, y=0)
         world.add_creature(prey)
         px, py = entity_xy(predator)
         prey.pos[0] = px + 10

@@ -1,4 +1,4 @@
-"""個体差（trait_variance）のサンプリングとファクトリー連携。"""
+"""??? trait_variance ????????????????"""
 import random
 import unittest
 
@@ -12,6 +12,7 @@ from src.sim.entities.species import (
     sample_individual_traits,
 )
 from src.sim.utils.creature_helpers import format_individual_trait_lines
+from src.sim.utils.stats_helpers import TRAIT_DISPLAY_LABELS
 from src.sim.systems.world import World
 
 
@@ -54,11 +55,11 @@ class TestTraitVariance(unittest.TestCase):
         traits = clamp_traits({"base_size": 8.0, "max_size": 6.0})
         self.assertGreaterEqual(traits["max_size"], traits["base_size"])
 
-    def test_factory_create_applies_amoeba_variance(self):
+    def test_factory_create_applies_springtail_variance(self):
         world = World()
         rng = random.Random(42)
         speeds = {
-            CreatureFactory.create("Amoeba", world=world, x=100, y=100, rng=rng).traits[
+            CreatureFactory.create("springtail", world=world, x=100, y=100, rng=rng).traits[
                 "base_speed"
             ]
             for _ in range(20)
@@ -67,7 +68,7 @@ class TestTraitVariance(unittest.TestCase):
 
     def test_offspring_traits_are_independent_of_parent(self):
         world = World()
-        parent = CreatureFactory.create("Amoeba", world=world, x=200, y=200, rng=random.Random(1))
+        parent = CreatureFactory.create("springtail", world=world, x=200, y=200, rng=random.Random(1))
         parent.traits["base_speed"] = 0.99
 
         child = CreatureFactory.create_offspring(
@@ -103,7 +104,13 @@ class TestTraitVariance(unittest.TestCase):
         self.assertGreater(max(speeds) - min(speeds), 0.0)
 
     def test_resolve_trait_variance_json_overrides_default(self):
-        traits = {"base_speed": 0.5, "base_vision": 70.0, "max_hp": 60.0, "max_satiety": 45.0, "metabolism_per_tick": 0.55}
+        traits = {
+            "base_speed": 0.5,
+            "base_vision": 70.0,
+            "max_hp": 60.0,
+            "max_satiety": 45.0,
+            "metabolism_per_tick": 0.55,
+        }
         custom = normalize_trait_variance({
             "base_speed": {"distribution": "normal", "std": 0.05, "min": 0.35, "max": 0.65},
         })
@@ -114,20 +121,20 @@ class TestTraitVariance(unittest.TestCase):
     def test_format_individual_trait_lines_shows_delta(self):
         world = World()
         creature = CreatureFactory.create(
-            "Amoeba", world=world, x=100, y=100, rng=random.Random(7)
+            "springtail", world=world, x=100, y=100, rng=random.Random(7)
         )
         lines = format_individual_trait_lines(creature)
+        speed_label = TRAIT_DISPLAY_LABELS["base_speed"]
         self.assertGreater(len(lines), 0)
-        self.assertTrue(any("基本" in line and "Δ" in line for line in lines))
-        self.assertTrue(any("基礎速度" in line for line in lines))
+        self.assertTrue(any("(" in line and speed_label in line for line in lines))
 
     def test_format_individual_trait_lines_for_ant(self):
         world = World()
         ant = CreatureFactory.create("red_ant", world=world, x=300, y=300, rng=random.Random(3))
         lines = format_individual_trait_lines(ant)
         self.assertGreater(len(lines), 0)
-        self.assertTrue(any("基礎速度" in line for line in lines))
-        self.assertTrue(any("視界" in line for line in lines))
+        self.assertTrue(any(TRAIT_DISPLAY_LABELS["base_speed"] in line for line in lines))
+        self.assertTrue(any(TRAIT_DISPLAY_LABELS["base_vision"] in line for line in lines))
 
     def test_format_individual_trait_lines_same_order_across_species(self):
         world = World()
@@ -142,14 +149,15 @@ class TestTraitVariance(unittest.TestCase):
         spider_labels = labels_for("Spider", 2)
         self.assertEqual(ant_labels, spider_labels)
 
-        amoeba_labels = labels_for("Amoeba", 3)
-        self.assertIn("成長率", amoeba_labels)
-        self.assertLess(
-            amoeba_labels.index("成長率"),
-            amoeba_labels.index("代謝/tick"),
-        )
-        for key in ("基礎速度", "視界", "代謝/tick", "最大HP", "最大満腹"):
-            self.assertIn(key, amoeba_labels)
+        springtail_labels = labels_for("springtail", 3)
+        for key in (
+            TRAIT_DISPLAY_LABELS["base_speed"],
+            TRAIT_DISPLAY_LABELS["base_vision"],
+            TRAIT_DISPLAY_LABELS["metabolism_per_tick"],
+            TRAIT_DISPLAY_LABELS["max_hp"],
+            TRAIT_DISPLAY_LABELS["max_satiety"],
+        ):
+            self.assertIn(key, springtail_labels)
             self.assertIn(key, ant_labels)
 
 

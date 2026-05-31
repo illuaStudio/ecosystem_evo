@@ -1,7 +1,7 @@
-"""シミュレーション層ドメインイベントのテスト。"""
+"""??????????????????????"""
 import unittest
 
-from src.sim.ai.actions import ColonyReproduceAction, SplitAction
+from src.sim.ai.actions import ColonyReproduceAction
 from src.sim.entities.creature_factory import CreatureFactory
 from src.game.mind_policy import MindPolicy
 from src.sim.events import (
@@ -25,7 +25,7 @@ class TestSimEvents(unittest.TestCase):
                 "world_height": 800,
                 "initial_entities": {},
                 "population_limits": {
-                    "Amoeba": 20,
+                    "springtail": 20,
                     "red_ant": 20,
                     "red_ant_queen": 3,
                 },
@@ -48,7 +48,7 @@ class TestSimEvents(unittest.TestCase):
     def test_death_event_on_become_corpse(self):
         world = self._empty_world()
         factory = CreatureFactory()
-        prey = factory.create("Amoeba", world=world, x=100, y=100)
+        prey = factory.create("springtail", world=world, x=100, y=100)
         world.add_creature(prey, spawn_source="initial")
         world.events.drain()
 
@@ -63,7 +63,7 @@ class TestSimEvents(unittest.TestCase):
         world = self._empty_world()
         factory = CreatureFactory()
         ant = factory.create("red_ant", world=world, x=100, y=100)
-        prey = factory.create("Amoeba", world=world, x=105, y=100)
+        prey = factory.create("springtail", world=world, x=105, y=100)
         world.add_creature(ant, spawn_source="initial")
         world.add_creature(prey, spawn_source="initial")
         world.events.drain()
@@ -81,7 +81,7 @@ class TestSimEvents(unittest.TestCase):
         world = self._empty_world()
         factory = CreatureFactory()
         attacker = factory.create("red_ant_soldier", world=world, x=100, y=100)
-        prey = factory.create("Amoeba", world=world, x=110, y=100)
+        prey = factory.create("springtail", world=world, x=110, y=100)
         world.add_creature(attacker, spawn_source="initial")
         world.add_creature(prey, spawn_source="initial")
         world.events.drain()
@@ -124,27 +124,6 @@ class TestSimEvents(unittest.TestCase):
         self.assertIs(spawn_events[0].parent, queen)
         self.assertEqual(spawn_events[0].species_name, "red_ant")
 
-    def test_split_emits_spawn_event(self):
-        world = self._empty_world()
-        factory = CreatureFactory()
-        parent = factory.create("Amoeba", world=world, x=200, y=200)
-        world.add_creature(parent, spawn_source="initial")
-        world.events.drain()
-
-        parent.traits["base_size"] = 16.0
-        parent.satiety = parent.max_satiety
-        parent.age = int(parent.life_cycle.get("mature", 0))
-        parent.repro_cooldown = 0
-
-        action = SplitAction()
-        self.assertTrue(action.execute(parent))
-
-        events = world.events.drain()
-        spawn_events = [e for e in events if isinstance(e, SpawnEvent)]
-        self.assertEqual(len(spawn_events), 1)
-        self.assertEqual(spawn_events[0].source, "split")
-        self.assertIs(spawn_events[0].parent, parent)
-
     def test_colony_defeated_event(self):
         world = self._empty_world()
         factory = CreatureFactory()
@@ -167,7 +146,7 @@ class TestSimEvents(unittest.TestCase):
         received = []
         world.events.subscribe(received.append)
         factory = CreatureFactory()
-        ant = factory.create("Amoeba", world=world, x=50, y=50)
+        ant = factory.create("springtail", world=world, x=50, y=50)
         world.add_creature(ant, spawn_source="initial")
         self.assertEqual(len(received), 1)
         self.assertIsInstance(received[0], SpawnEvent)

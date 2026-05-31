@@ -62,7 +62,7 @@ class TestInventory(unittest.TestCase):
         )
         world.add_creature(ant)
 
-        prey = factory.create("Amoeba", world=world, x=102, y=100)
+        prey = factory.create("springtail", world=world, x=102, y=100)
         world.add_creature(prey)
         prey.hp = 0
         prey.become_corpse()
@@ -79,7 +79,7 @@ class TestInventory(unittest.TestCase):
         ant = factory.create("red_ant", world=world, x=100, y=100)
         world.add_creature(ant)
 
-        prey = factory.create("Amoeba", world=world, x=102, y=100)
+        prey = factory.create("springtail", world=world, x=102, y=100)
         world.add_creature(prey)
         prey.hp = 0
         prey.become_corpse()

@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal, Optional
 
 DeathCause = Literal["hp", "lifespan", "metabolism", "defeat", "unknown"]
-SpawnSource = Literal["initial", "reproduction", "split", "spawn", "game", "debug"]
+SpawnSource = Literal["initial", "reproduction", "spawn", "game", "debug"]
 CombatTargetKind = Literal["creature", "spawn_node"]
 ItemKind = Literal["biomass"]
 

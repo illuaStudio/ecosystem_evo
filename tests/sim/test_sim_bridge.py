@@ -190,7 +190,7 @@ class TestSimBridge(unittest.TestCase):
     def test_spawn_random_position(self):
         world = _world()
         bridge = SimBridge(world)
-        result = bridge.execute(SpawnCreature(species="Amoeba", source="game"))
+        result = bridge.execute(SpawnCreature(species="springtail", source="game"))
         self.assertTrue(result.ok)
         c = result.creature
         self.assertGreaterEqual(c.position.x, 80)

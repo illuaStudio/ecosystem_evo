@@ -17,7 +17,6 @@ RED_ANT_PROFILE = {
     "max_food": 5000,
     "initial_stored_food": 80,
     "food_leak_per_tick": 0.5,
-    "food_to_mana_ratio": 0.35,
     "food_leak_reserve_ratio": 0.15,
     "spawn_spread": 28,
 }
@@ -29,7 +28,6 @@ BLUE_ANT_PROFILE = {
     "max_food": 5000,
     "initial_stored_food": 80,
     "food_leak_per_tick": 0.5,
-    "food_to_mana_ratio": 0.35,
     "food_leak_reserve_ratio": 0.15,
     "spawn_spread": 28,
 }
@@ -41,7 +39,6 @@ YELLOW_ANT_PROFILE = {
     "max_food": 5000,
     "initial_stored_food": 80,
     "food_leak_per_tick": 0.5,
-    "food_to_mana_ratio": 0.35,
     "food_leak_reserve_ratio": 0.15,
     "spawn_spread": 28,
 }

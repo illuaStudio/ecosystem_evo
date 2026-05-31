@@ -33,7 +33,7 @@ class TestHungerBehavior(unittest.TestCase):
     def _ant_and_prey(self, world, ant_satiety_ratio=1.0):
         factory = CreatureFactory()
         ant = factory.create("red_ant", world=world, x=500, y=500)
-        prey = factory.create("Amoeba", world=world, x=512, y=500)
+        prey = factory.create("springtail", world=world, x=512, y=500)
         ant.satiety = ant.max_satiety * ant_satiety_ratio
         world.add_creature(ant)
         world.add_creature(prey)
@@ -67,7 +67,7 @@ class TestHungerBehavior(unittest.TestCase):
         spider = factory.create("Spider", world=world, x=520, y=500)
         world.add_creature(spider)
 
-        hunt = HuntAction(target_types=["Amoeba", "Spider"])
+        hunt = HuntAction(target_types=["springtail", "Spider"])
         self.assertGreater(hunt.calculate_utility(ant), 0.0)
 
     def test_hungry_ant_prefers_nest_when_food_available(self):
@@ -79,7 +79,7 @@ class TestHungerBehavior(unittest.TestCase):
         nest = world.nest_system.get_creature_nest(ant)
         nest.stored_food = 200.0
 
-        hunt = HuntAction(target_types=["Amoeba", "Spider"])
+        hunt = HuntAction(target_types=["springtail", "Spider"])
         feed = FeedAtNestAction()
         self.assertGreater(feed.calculate_utility(ant), hunt.calculate_utility(ant))
 
@@ -92,7 +92,7 @@ class TestHungerBehavior(unittest.TestCase):
         nest = world.nest_system.get_creature_nest(ant)
         nest.stored_food = 0.0
 
-        hunt = HuntAction(target_types=["Amoeba", "Spider"])
+        hunt = HuntAction(target_types=["springtail", "Spider"])
         feed = FeedAtNestAction()
         self.assertGreater(hunt.calculate_utility(ant), 0.0)
         self.assertEqual(feed.calculate_utility(ant), 0.0)
@@ -107,7 +107,7 @@ class TestHungerBehavior(unittest.TestCase):
         nest.stored_food = nest.max_food
 
         hunt = HuntAction(
-            target_types=["Amoeba", "Spider"], colony_hoard_strength=0.8
+            target_types=["springtail", "Spider"], colony_hoard_strength=0.8
         )
         self.assertGreater(hunt.calculate_utility(ant), 0.0)
 
@@ -224,7 +224,7 @@ class TestHungerBehavior(unittest.TestCase):
         self.assertFalse(is_hungry(ant))
         self.assertTrue(needs_self_feed(ant))
 
-        hunt = HuntAction(target_types=["Amoeba", "Spider"])
+        hunt = HuntAction(target_types=["springtail", "Spider"])
         self.assertEqual(hunt.calculate_utility(ant), 0.0)
 
     def test_recovery_clears_at_full_above(self):

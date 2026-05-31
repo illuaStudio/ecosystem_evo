@@ -21,7 +21,7 @@ class CreatureFactory:
 
     @staticmethod
     def create(
-        species_name: str = "Amoeba",
+        species_name: str = "springtail",
         world=None,
         x: float = None,
         y: float = None,

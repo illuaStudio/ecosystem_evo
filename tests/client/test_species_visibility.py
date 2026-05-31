@@ -14,7 +14,7 @@ class TestSpeciesVisibility(unittest.TestCase):
 
         factory = CreatureFactory()
         spider = factory.create("Spider", world=world, x=100, y=100)
-        amoeba = factory.create("Amoeba", world=world, x=200, y=100)
+        amoeba = factory.create("springtail", world=world, x=200, y=100)
 
         self.assertTrue(vis.is_creature_visible(spider))
         vis.toggle_group("spider")

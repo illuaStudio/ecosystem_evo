@@ -8,10 +8,8 @@ from src.config import config
 from src.sim.utils.position_helpers import entity_xy
 from src.sim.utils.spatial_grid import SpatialGrid, iter_creatures_in_radius
 from src.sim.utils.field_effect_cache import FieldEffectCache, invalidate_field_effect_cache
-from src.sim.systems.mana_system import ManaSystem
 from src.sim.systems.movement_system import MovementSystem
 from src.sim.systems.world_biome import WorldBiome
-from src.sim.systems.world_mana import WorldMana
 from src.sim.systems.zone_system import ZoneSystem
 from src.sim.systems.nest_system import NestSystem
 from src.sim.event_bus import EventBus
@@ -87,13 +85,9 @@ class World:
         self.obstacles = []
         self.resources = []
         self.movement_system = MovementSystem()
-        self.mana_system = ManaSystem()
 
         self.biome = WorldBiome(self)
         self.biome.init_from_config(world_data.get("world", {}))
-
-        self.mana_layer = WorldMana(self)
-        self.mana_layer.init_from_config(world_data.get("mana", {}))
 
         self.population_limits = normalize_population_limits(
             world_data.get("population_limits", {})
@@ -197,7 +191,6 @@ class World:
         """生態シミュレーションを dt 分進める（1 = 旧来の 1 シミュ tick）。"""
         self.sim_dt = float(dt)
         self._combat_pairs_this_tick = set()
-        self.mana_layer.regenerate(dt)
         self.spawn_system.update(dt)
         self.nest_system.update(dt)
         self.rebuild_spatial_grid()
@@ -205,7 +198,6 @@ class World:
             creature.update(dt)
         self.movement_system.update(self.creatures, self, dt)
         self.rebuild_spatial_grid()
-        self.mana_system.update(self.creatures, self, dt)
         for creature in self.creatures[:]:
             if creature.is_dead():
                 self.remove_creature(creature)

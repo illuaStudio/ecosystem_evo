@@ -45,14 +45,6 @@ def consume_carcass(predator, carcass, bite_gain: float = 1.35) -> float:
     predator.satiety = min(predator.max_satiety, predator.satiety + gained)
 
     if carcass.remaining_biomass <= 8.0:
-        world = carcass.world
-        if world:
-            cx, cy = entity_xy(carcass)
-            world.mana_layer.return_from_decomposition(
-                carcass.remaining_biomass * 0.8,
-                cx,
-                cy,
-            )
         carcass.remaining_biomass = 0.0
 
     return gained

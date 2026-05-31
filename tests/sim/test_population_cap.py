@@ -1,9 +1,9 @@
-"""ワールド population_limits による繁殖抑制。"""
+"""ワールド population_limits による個体数上限。"""
 import unittest
 
-from src.sim.ai.actions import SplitAction
 from src.sim.entities.creature_factory import CreatureFactory
 from src.sim.systems.world import World
+from src.sim.utils.stats_helpers import is_species_at_population_cap
 
 
 def _empty_world(population_limits=None):
@@ -19,43 +19,27 @@ def _empty_world(population_limits=None):
 
 
 class TestPopulationCap(unittest.TestCase):
-    def test_split_blocked_at_world_cap(self):
+    def test_at_cap_when_alive_equals_limit(self):
         cap = 3
-        world = _empty_world({"Amoeba": cap})
+        world = _empty_world({"springtail": cap})
         factory = CreatureFactory()
 
-        parent = factory.create("Amoeba", world=world, x=100, y=100)
-        world.add_creature(parent)
-        parent.traits["base_size"] = 16.0
-        parent.satiety = parent.max_satiety
-        parent.age = int(parent.life_cycle.get("mature", 0))
-        parent.repro_cooldown = 0
+        for i in range(cap):
+            creature = factory.create("springtail", world=world, x=100 + i, y=100)
+            world.add_creature(creature)
 
-        for i in range(cap - 1):
-            other = factory.create("Amoeba", world=world, x=110 + i, y=100)
-            world.add_creature(other)
+        self.assertTrue(is_species_at_population_cap(world, "springtail"))
 
-        action = SplitAction()
-        self.assertFalse(action.can_execute(parent))
-
-    def test_split_allowed_below_cap(self):
+    def test_below_cap_when_alive_less_than_limit(self):
         cap = 5
-        world = _empty_world({"Amoeba": cap})
+        world = _empty_world({"springtail": cap})
         factory = CreatureFactory()
-
-        parent = factory.create("Amoeba", world=world, x=100, y=100)
-        world.add_creature(parent)
-        parent.traits["base_size"] = 16.0
-        parent.satiety = parent.max_satiety
-        parent.age = int(parent.life_cycle.get("mature", 0))
-        parent.repro_cooldown = 0
 
         for i in range(2):
-            other = factory.create("Amoeba", world=world, x=110 + i, y=100)
-            world.add_creature(other)
+            creature = factory.create("springtail", world=world, x=100 + i, y=100)
+            world.add_creature(creature)
 
-        action = SplitAction()
-        self.assertTrue(action.can_execute(parent))
+        self.assertFalse(is_species_at_population_cap(world, "springtail"))
 
     def test_world_loads_population_limits(self):
         world = World()

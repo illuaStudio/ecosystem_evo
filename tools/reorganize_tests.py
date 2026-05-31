@@ -23,8 +23,6 @@ SIM_TESTS = [
     "test_hunt_carcass_stuck.py",
     "test_hunt_helpers.py",
     "test_inventory.py",
-    "test_mana_steering.py",
-    "test_mana_wander.py",
     "test_movement_standoff.py",
     "test_nest_holes.py",
     "test_population_cap.py",

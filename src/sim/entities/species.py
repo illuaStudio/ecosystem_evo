@@ -62,14 +62,6 @@ def normalize_life_cycle(raw: dict) -> dict:
     return {k: int(v) for k, v in raw.items()}
 
 
-# Amoeba JSON 例（成長=traits、寿命=life_cycle、分裂調整=SplitAction.params）:
-# {
-#   "life_cycle": { "mature": 280, "elder": 1800, "death": 3500 },
-#   "traits": { "base_size": 9.0, "max_size": 18.0, "growth_rate": 0.008, ... },
-#   "mind": { "actions": [{ "name": "SplitAction", "params": { "min_reproduce_size": 8.5, ... } }] }
-# }
-
-
 def normalize_traits(raw: dict) -> dict:
     """JSON の traits を正規化し、欠損キーにデフォルトを補う。"""
     allowed = ESSENTIAL_TRAIT_KEYS | OPTIONAL_TRAIT_KEYS
@@ -245,7 +237,7 @@ def sample_individual_traits(
 
 class Species:
     @classmethod
-    def create(cls, name: str = "Amoeba"):
+    def create(cls, name: str = "springtail"):
         data = config.get_species(name)
         return cls(data)
 

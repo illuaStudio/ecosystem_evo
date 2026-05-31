@@ -66,14 +66,14 @@ class Config:
             return self.worlds["Grassland"]
         return next(iter(self.worlds.values()), None)
 
-    def get_species(self, name: str = "Amoeba") -> Dict:
+    def get_species(self, name: str = "springtail") -> Dict:
         if name in self.species:
             return self.species[name]
         lower = name.lower()
         for key, value in self.species.items():
             if key.lower() == lower:
                 return value
-        return self.species.get("Amoeba", next(iter(self.species.values()), {}))
+        return self.species.get("springtail", next(iter(self.species.values()), {}))
 
 
 config = Config()

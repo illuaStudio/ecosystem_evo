@@ -34,7 +34,6 @@
 |----|------|
 | `initial` | ワールド初期配置 |
 | `reproduction` | `ColonyReproduceAction`（女王など） |
-| `split` | `SplitAction`（無性分裂） |
 | `spawn` | その他（既定） |
 
 ## API

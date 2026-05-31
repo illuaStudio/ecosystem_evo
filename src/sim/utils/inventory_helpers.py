@@ -99,7 +99,7 @@ def _return_biomass_chunk(
     cx: float,
     cy: float,
 ) -> None:
-    """チャンクを死骸へ戻す。死骸がフィールドに無い場合はマナ還元のみ（復活させない）。"""
+    """チャンクを死骸へ戻す。死骸がフィールドに無い場合は破棄する。"""
     if chunk <= 0:
         return
     if (
@@ -110,8 +110,6 @@ def _return_biomass_chunk(
     ):
         carcass.remaining_biomass += chunk
         return
-    if world is not None:
-        world.mana_layer.return_from_decomposition(chunk * 0.65, cx, cy)
 
 
 def try_pickup_carcass(carrier, carcass, contact_padding: float = 8.0) -> bool:
@@ -202,10 +200,6 @@ def consume_inventory_biomass(creature, bite_gain: float = 1.35) -> float:
     if item.amount <= 1.0:
         leftover = item.amount
         inv.clear_slot(slot)
-        world = creature.world
-        if world is not None and leftover > 0:
-            cx, cy = entity_xy(creature)
-            world.mana_layer.return_from_decomposition(leftover * 0.8, cx, cy)
 
     return gained
 
