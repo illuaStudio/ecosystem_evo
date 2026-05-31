@@ -154,6 +154,8 @@ def move_away_from(
     from src.sim.utils.position_helpers import sync_legacy_pos
 
     sync_legacy_pos(creature)
+    MovementSystem.finish_move(creature, getattr(creature, "world", None))
+    sync_legacy_pos(creature)
     return math.hypot(tx - position.x, ty - position.y)
 
 def move_toward(

@@ -33,8 +33,18 @@ class MovementSystem:
                 velocity.vx = 0.0
                 velocity.vy = 0.0
 
-            self._clamp_position(position, world)
-            sync_legacy_pos(entity)
+            self.finish_move(entity, world)
+
+    @staticmethod
+    def finish_move(entity: Any, world: Any | None) -> None:
+        """境界クランプと障害物解決。"""
+        position = getattr(entity, "position", None)
+        if position is None or world is None:
+            return
+        MovementSystem._clamp_position(position, world)
+        resolver = getattr(world, "resolve_creature_position", None)
+        if callable(resolver):
+            position.x, position.y = resolver(entity, position.x, position.y)
 
     @staticmethod
     def wander_step(
@@ -56,6 +66,7 @@ class MovementSystem:
         step = entity.get_current_speed() * speed_multiplier * float(dt)
         position.x += math.cos(math.radians(entity.wander_angle)) * step
         position.y += math.sin(math.radians(entity.wander_angle)) * step
+        MovementSystem.finish_move(entity, world)
         sync_legacy_pos(entity)
 
     @staticmethod
@@ -126,6 +137,7 @@ class MovementSystem:
 
         position.x += (dx / dist) * step
         position.y += (dy / dist) * step
+        MovementSystem.finish_move(entity, getattr(entity, "world", None))
         sync_legacy_pos(entity)
 
         return math.hypot(target_pos[0] - position.x, target_pos[1] - position.y)

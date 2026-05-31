@@ -292,6 +292,29 @@
       }
     }
   },
+  "obstacles": {
+    "types": {
+      "rock": {
+        "shape": "circle",
+        "radius": 22,
+        "render": { "color": [118, 112, 102] }
+      },
+      "fallen_log": {
+        "shape": "rect",
+        "width": 84,
+        "height": 16,
+        "render": { "color": [92, 64, 40] }
+      }
+    },
+    "sources": [
+      { "type": "rock", "x": 360, "y": 480 },
+      { "type": "rock", "x": 520, "y": 620, "radius": 28 },
+      { "type": "rock", "x": 740, "y": 340 },
+      { "type": "fallen_log", "x": 680, "y": 280 },
+      { "type": "fallen_log", "x": 240, "y": 560, "width": 96, "height": 14 },
+      { "type": "fallen_log", "x": 450, "y": 720, "width": 72, "height": 12 }
+    ]
+  },
   "zones": {
     "defaults": {
       "radius": 95.0

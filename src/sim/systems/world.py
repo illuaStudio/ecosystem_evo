@@ -11,6 +11,7 @@ from src.sim.utils.field_effect_cache import FieldEffectCache, invalidate_field_
 from src.sim.systems.movement_system import MovementSystem
 from src.sim.systems.world_biome import WorldBiome
 from src.sim.systems.zone_system import ZoneSystem
+from src.sim.systems.obstacle_system import ObstacleSystem
 from src.sim.systems.nest_system import NestSystem
 from src.sim.event_bus import EventBus
 from src.sim.systems.spawn_system import SpawnSystem
@@ -82,7 +83,6 @@ class World:
         self.spatial_grid = SpatialGrid(self.width, self.height)
         self._spatial_grid_valid = False
         self.field_effect_cache = FieldEffectCache(self)
-        self.obstacles = []
         self.resources = []
         self.movement_system = MovementSystem()
 
@@ -113,6 +113,8 @@ class World:
             legacy_field_emitters=world_data.get("field_emitters"),
             colony_profiles=self.colony_profiles,
         )
+        self.obstacle_system = ObstacleSystem(self)
+        self.obstacle_system.init_from_config(world_data.get("obstacles"))
         self.spawner = WorldSpawner(self)
         self.spawn_system = SpawnSystem(self)
         self.spawn_system.init_from_config(
@@ -224,5 +226,18 @@ class World:
                 best = c
         return best
 
-    def is_valid_position(self, x: float, y: float) -> bool:
-        return 30 <= x <= self.width - 30 and 30 <= y <= self.height - 30
+    def is_valid_position(self, x: float, y: float, body_radius: float = 0.0) -> bool:
+        margin = 30.0
+        if not (margin <= x <= self.width - margin and margin <= y <= self.height - margin):
+            return False
+        return self.obstacle_system.is_walkable(x, y, body_radius)
+
+    def resolve_creature_position(self, creature, x: float, y: float) -> tuple[float, float]:
+        """ワールド端クランプ後、障害物から押し出した座標を返す。"""
+        from src.sim.utils.stats_helpers import current_size
+
+        margin = 30.0
+        px = max(margin, min(self.width - margin, float(x)))
+        py = max(margin, min(self.height - margin, float(y)))
+        body_radius = max(1.0, float(current_size(creature)))
+        return self.obstacle_system.resolve_position(px, py, body_radius)

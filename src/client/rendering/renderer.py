@@ -3,6 +3,7 @@ import pygame
 
 from src.config import config
 from src.client.rendering.zone_renderer import ZoneRenderer
+from src.client.rendering.obstacle_renderer import ObstacleRenderer
 from src.client.rendering.spawn_emitter_renderer import SpawnEmitterRenderer
 from src.client.rendering.creature_renderer import CreatureRenderer
 from src.client.rendering.nest_renderer import NestRenderer
@@ -86,6 +87,7 @@ class Renderer:
             )
             NestRenderer.draw(world, self.screen, camera, nest_id)
             ZoneRenderer.draw(world, self.screen, camera)
+            ObstacleRenderer.draw(world, self.screen, camera)
             SpawnEmitterRenderer.draw(world, self.screen, camera)
             if show_territory and selected_nest is not None:
                 import pygame as _pg

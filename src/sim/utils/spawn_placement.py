@@ -35,6 +35,7 @@ class SpawnPlacementOptions:
     margin: int = DEFAULT_MARGIN
     nest_exclusion_radius: float = 0.0
     fallback_unrestricted: bool = False
+    spawn_body_radius: float = 5.0
 
 
 @dataclass
@@ -80,6 +81,7 @@ def parse_placement_options(
         margin=max(0, int(merged.get("margin", DEFAULT_MARGIN))),
         nest_exclusion_radius=max(0.0, float(merged.get("nest_exclusion_radius", 0.0))),
         fallback_unrestricted=bool(merged.get("fallback_unrestricted", False)),
+        spawn_body_radius=max(0.0, float(merged.get("spawn_body_radius", 5.0))),
     )
 
 
@@ -316,7 +318,7 @@ class SpawnPlacementResolver:
             if candidate is None:
                 continue
             x, y = candidate
-            if self.world.is_valid_position(x, y):
+            if self.world.is_valid_position(x, y, opts.spawn_body_radius):
                 return x, y
         margin = opts.margin
         return (
@@ -410,7 +412,7 @@ class SpawnPlacementResolver:
         opts: SpawnPlacementOptions,
         anchor: SpawnAnchor | None = None,
     ) -> bool:
-        if not self.world.is_valid_position(x, y):
+        if not self.world.is_valid_position(x, y, opts.spawn_body_radius):
             return False
         if opts.respect_zones:
             zone_system = getattr(self.world, "zone_system", None)
