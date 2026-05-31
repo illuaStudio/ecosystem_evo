@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, Tuple
 from src.config import config
 from src.sim.constants.micro_fauna import DEFAULT_MICRO_FAUNA_SPECIES
 from src.sim.entities.creature_factory import CreatureFactory
+from src.sim.utils.spatial_grid import iter_creatures_in_radius
 from src.sim.utils.stats_helpers import count_alive_by_species, is_species_at_population_cap
 
 if TYPE_CHECKING:
@@ -62,15 +63,10 @@ def count_alive_in_radius(
     pool = set(species_pool)
     r2 = radius * radius
     count = 0
-    for creature in world.creatures:
-        if not getattr(creature, "alive", True):
-            continue
+    for creature in iter_creatures_in_radius(world, cx, cy, radius, alive_only=True):
         if creature.species.name not in pool:
             continue
-        dx = float(creature.position.x) - cx
-        dy = float(creature.position.y) - cy
-        if dx * dx + dy * dy <= r2:
-            count += 1
+        count += 1
     return count
 
 

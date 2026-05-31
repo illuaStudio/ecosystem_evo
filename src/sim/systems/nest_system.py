@@ -17,6 +17,7 @@ from src.sim.utils.creature_helpers import (
     resolve_colony_id,
 )
 from src.sim.utils.position_helpers import entity_xy
+from src.sim.utils.field_effect_cache import invalidate_field_effect_cache
 
 if TYPE_CHECKING:
     from src.sim.systems.world import World
@@ -91,6 +92,10 @@ class NestSystem:
         nest.holes.append(self._new_hole(float(x), float(y)))
         self._next_id += 1
         self.nests[nest.id] = nest
+        invalidate_field_effect_cache(self.world)
+        zone_system = getattr(self.world, "zone_system", None)
+        if zone_system is not None:
+            zone_system.sync_colony_clearing(colony_id, nest.x, nest.y)
         return nest
 
     def _colony_settings(self) -> dict:
@@ -106,6 +111,7 @@ class NestSystem:
     def add_hole(self, nest: Nest, x: float, y: float) -> None:
         x, y = self._clamp_to_world(float(x), float(y))
         nest.holes.append(self._new_hole(x, y))
+        invalidate_field_effect_cache(self.world)
 
     def damage_hole(
         self, nest: Nest, hole: NestHole, amount: float, *, attacker_colony_id: str

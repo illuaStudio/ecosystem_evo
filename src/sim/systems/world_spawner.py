@@ -1,4 +1,5 @@
 """初期エンティティの生成を担当。"""
+from dataclasses import replace
 from typing import TYPE_CHECKING, Dict
 
 from src.config import config
@@ -17,6 +18,19 @@ class WorldSpawner:
         self._world = world
         self._resolver = SpawnPlacementResolver(world)
 
+    def _pick_initial_position(self, entry):
+        pos = self._resolver.pick(entry.anchor, entry.options)
+        if pos is not None:
+            return pos
+        fallback = replace(
+            entry.options,
+            respect_zones=False,
+            use_biome_weight=False,
+            fallback_unrestricted=True,
+            attempts=max(entry.options.attempts, 48),
+        )
+        return self._resolver.pick(entry.anchor, fallback)
+
     def spawn_initial_entities(self, world_data: Dict) -> None:
         entries = expand_initial_spawns(world_data, self._world)
         if not entries:
@@ -28,7 +42,7 @@ class WorldSpawner:
                 print(f"警告: 種族 '{entry.species}' の JSON が無いためスキップします")
                 continue
             for _ in range(entry.count):
-                pos = self._resolver.pick(entry.anchor, entry.options)
+                pos = self._pick_initial_position(entry)
                 if pos is None:
                     print(
                         f"警告: 初期スポーン位置を決定できませんでした "

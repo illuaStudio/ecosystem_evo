@@ -16,6 +16,7 @@ from src.sim.utils.creature_helpers import (
     is_trackable_prey,
 )
 from src.sim.utils.position_helpers import entity_xy
+from src.sim.utils.spatial_grid import iter_creatures_in_radius
 
 
 def vision_range(creature) -> float:
@@ -81,14 +82,17 @@ def find_nearest_hostile_creature(
     max_d = vision_range(creature) if max_distance is None else float(max_distance)
     best: TargetRef | None = None
     best_d = float("inf")
+    cx, cy = entity_xy(creature)
 
-    for other in creature.world.creatures:
+    for other in iter_creatures_in_radius(
+        creature.world, cx, cy, max_d, alive_only=True
+    ):
         if other is exclude or not is_hostile_target(creature, other, names):
             continue
         if territory_only and not is_in_creature_territory(creature, other):
             continue
-        d = math.hypot(*(a - b for a, b in zip(entity_xy(creature), entity_xy(other))))
-        if d > max_d or d >= best_d:
+        d = math.hypot(*(a - b for a, b in zip((cx, cy), entity_xy(other))))
+        if d >= best_d:
             continue
         best_d = d
         best = TargetRef.from_creature(other)
@@ -146,8 +150,9 @@ def find_nearest_prey_creature(
     max_d = vision_range(creature) if max_distance is None else float(max_distance)
     best: TargetRef | None = None
     best_d = float("inf")
+    cx, cy = entity_xy(creature)
 
-    for other in creature.world.creatures:
+    for other in iter_creatures_in_radius(creature.world, cx, cy, max_d):
         if other is exclude or not is_edible_prey(
             creature,
             other,
@@ -164,8 +169,8 @@ def find_nearest_prey_creature(
             territory_approach_margin=territory_approach_margin,
         ):
             continue
-        d = math.hypot(*(a - b for a, b in zip(entity_xy(creature), entity_xy(other))))
-        if d > max_d or d >= best_d:
+        d = math.hypot(*(a - b for a, b in zip((cx, cy), entity_xy(other))))
+        if d >= best_d:
             continue
         best_d = d
         best = TargetRef.from_creature(other)

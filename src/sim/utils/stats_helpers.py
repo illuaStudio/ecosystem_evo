@@ -115,6 +115,9 @@ def count_alive_by_species(world, species_name: str) -> int:
     """ワールド上の生存個体数（種族名で集計）。"""
     if world is None:
         return 0
+    counter = getattr(world, "count_alive_by_species", None)
+    if callable(counter):
+        return int(counter(species_name))
     count = 0
     for other in world.creatures:
         if not getattr(other, "alive", True):

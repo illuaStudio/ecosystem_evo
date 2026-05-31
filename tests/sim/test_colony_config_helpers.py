@@ -29,8 +29,8 @@ class TestColonyConfigHelpers(unittest.TestCase):
         world = World()
         profile = get_colony_profile(world, "red_ant")
         self.assertEqual(profile["nest_x"], 120)
-        self.assertEqual(profile["initial_stored_food"], 2000)
-        self.assertAlmostEqual(profile["food_leak_per_tick"], 1.0)
+        self.assertEqual(profile["initial_stored_food"], 1000)
+        self.assertAlmostEqual(profile["food_leak_per_tick"], 0.0)
 
     def test_species_override_spawn_spread(self):
         world = World()

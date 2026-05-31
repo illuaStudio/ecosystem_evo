@@ -216,7 +216,16 @@ class TestAntNest(unittest.TestCase):
         self.assertLess(nest.stored_food, 200.0)
 
     def test_food_leak_reduces_storage_and_adds_mana_at_nest(self):
-        world = World()
+        world = World.from_json(
+            {
+                "name": "FoodLeakTest",
+                "world_width": 3000,
+                "world_height": 3000,
+                "initial_entities": {},
+                "population_limits": {"red_ant": 60},
+                "colony": colony_settings(),
+            }
+        )
         preds = self._spawn_predators(world, 1)
         nest = world.nest_system.get_creature_nest(preds[0])
         reserve = nest.max_food * float(
@@ -232,7 +241,8 @@ class TestAntNest(unittest.TestCase):
 
         self.assertLess(nest.stored_food, food_before)
         self.assertGreater(mana_after, mana_before)
-        self.assertAlmostEqual(nest.stored_food, reserve + 500.0 - 200.0)
+        leak_per_tick = float(get_colony_profile(world, "red_ant")["food_leak_per_tick"])
+        self.assertAlmostEqual(nest.stored_food, reserve + 500.0 - 200.0 * leak_per_tick)
 
     def test_feed_per_member_ratio_divides_by_colony_size(self):
         world = World()

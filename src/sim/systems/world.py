@@ -6,6 +6,8 @@ from typing import Dict, List, Optional, Tuple, Union
 
 from src.config import config
 from src.sim.utils.position_helpers import entity_xy
+from src.sim.utils.spatial_grid import SpatialGrid, iter_creatures_in_radius
+from src.sim.utils.field_effect_cache import FieldEffectCache, invalidate_field_effect_cache
 from src.sim.systems.mana_system import ManaSystem
 from src.sim.systems.movement_system import MovementSystem
 from src.sim.systems.world_biome import WorldBiome
@@ -78,6 +80,10 @@ class World:
         self.humidity = float(env.get("humidity", 50.0))
 
         self.creatures: List = []
+        self._alive_species_counts: Dict[str, int] = {}
+        self.spatial_grid = SpatialGrid(self.width, self.height)
+        self._spatial_grid_valid = False
+        self.field_effect_cache = FieldEffectCache(self)
         self.obstacles = []
         self.resources = []
         self.movement_system = MovementSystem()
@@ -120,6 +126,7 @@ class World:
             legacy_ambient=world_data.get("ambient_spawns"),
         )
         self.spawner.spawn_initial_entities(world_data)
+        self.field_effect_cache.rebuild()
         self.sim_dt = 1.0
 
     @property
@@ -131,6 +138,28 @@ class World:
         """種族のワールド個体数上限。未設定なら None。"""
         return self.population_limits.get(species_name)
 
+    def count_alive_by_species(self, species_name: str) -> int:
+        """生存個体数（O(1) キャッシュ）。"""
+        return self._alive_species_counts.get(species_name, 0)
+
+    def _adjust_alive_species_count(self, species_name: str, delta: int) -> None:
+        if not species_name or delta == 0:
+            return
+        counts = self._alive_species_counts
+        new_val = counts.get(species_name, 0) + delta
+        if new_val <= 0:
+            counts.pop(species_name, None)
+        else:
+            counts[species_name] = new_val
+
+    def on_creature_became_corpse(self, creature) -> None:
+        """死亡→死骸化時に生存カウントを減らす。"""
+        self._adjust_alive_species_count(creature.species.name, -1)
+
+    def rebuild_spatial_grid(self) -> None:
+        self.spatial_grid.rebuild(self.creatures)
+        self._spatial_grid_valid = True
+
     def add_creature(
         self,
         creature,
@@ -140,6 +169,9 @@ class World:
     ) -> None:
         creature.world = self
         self.creatures.append(creature)
+        self._spatial_grid_valid = False
+        if getattr(creature, "alive", True):
+            self._adjust_alive_species_count(creature.species.name, 1)
         if getattr(creature, "colony", None) is not None:
             self.nest_system.assign_creature(
                 creature, creature.species.colony_data
@@ -156,7 +188,10 @@ class World:
 
     def remove_creature(self, creature) -> None:
         if creature in self.creatures:
+            if getattr(creature, "alive", True):
+                self._adjust_alive_species_count(creature.species.name, -1)
             self.creatures.remove(creature)
+            self._spatial_grid_valid = False
 
     def update(self, dt: float = 1.0) -> None:
         """生態シミュレーションを dt 分進める（1 = 旧来の 1 シミュ tick）。"""
@@ -165,9 +200,11 @@ class World:
         self.mana_layer.regenerate(dt)
         self.spawn_system.update(dt)
         self.nest_system.update(dt)
+        self.rebuild_spatial_grid()
         for creature in self.creatures[:]:
             creature.update(dt)
         self.movement_system.update(self.creatures, self, dt)
+        self.rebuild_spatial_grid()
         self.mana_system.update(self.creatures, self, dt)
         for creature in self.creatures[:]:
             if creature.is_dead():
@@ -182,14 +219,15 @@ class World:
     ):
         best = None
         min_dist = float("inf")
-        for c in self.creatures:
-            if c is exclude or not getattr(c, "alive", True):
+        px, py = pos[0], pos[1]
+        for c in iter_creatures_in_radius(self, px, py, max_dist, alive_only=True):
+            if c is exclude:
                 continue
             if species_name and c.species.name != species_name:
                 continue
             cx, cy = entity_xy(c)
-            dist = math.hypot(cx - pos[0], cy - pos[1])
-            if dist < min_dist and dist <= max_dist:
+            dist = math.hypot(cx - px, cy - py)
+            if dist < min_dist:
                 min_dist = dist
                 best = c
         return best

@@ -18,6 +18,7 @@ class WorldMana:
         self.max_mana = 0.0
         self._mana_cols = 0
         self._mana_rows = 0
+        self._regen_multiplier_grid: List[List[float]] = []
 
     def init_from_config(self, mana_cfg: Dict) -> None:
         """座標ごとのマナ残量マップ（2D）を初期化する。"""
@@ -39,15 +40,19 @@ class WorldMana:
         rng = random.Random(seed)
 
         self.mana_density = []
+        self._regen_multiplier_grid = []
         for row in range(self._mana_rows):
             row_data: List[float] = []
+            mult_row: List[float] = []
             cy = row * cell + cell * 0.5
             for col in range(self._mana_cols):
                 cx = col * cell + cell * 0.5
                 mult = world.biome.get_mana_regen_multiplier(cx, cy)
+                mult_row.append(mult)
                 base = rng.uniform(initial_min, initial_max)
                 row_data.append(min(self.mana_density_cap, base * (0.85 + 0.15 * mult)))
             self.mana_density.append(row_data)
+            self._regen_multiplier_grid.append(mult_row)
 
         self.mana = self._compute_total_mana()
         self.max_mana = self._mana_cols * self._mana_rows * self.mana_density_cap
@@ -74,28 +79,26 @@ class WorldMana:
 
     def regenerate(self, dt: float = 1.0) -> None:
         """バイオーム倍率に基づき、マナ密度マップ全体を回復させる。"""
-        world = self._world
         if self.regen_rate <= 0 or not self.mana_density or dt <= 0:
             return
 
         cell_count = self._mana_cols * self._mana_rows
         base_per_cell = (self.regen_rate / cell_count) * float(dt)
-        cell = self.mana_cell_size
         cap = self.mana_density_cap
         regen_total = 0.0
+        mult_grid = self._regen_multiplier_grid
 
         for row in range(self._mana_rows):
-            cy = row * cell + cell * 0.5
+            density_row = self.mana_density[row]
+            mult_row = mult_grid[row]
             for col in range(self._mana_cols):
-                current = self.mana_density[row][col]
+                current = density_row[col]
                 if current >= cap:
                     continue
-                cx = col * cell + cell * 0.5
-                mult = world.biome.get_mana_regen_multiplier(cx, cy)
-                delta = base_per_cell * mult
+                delta = base_per_cell * mult_row[col]
                 new_value = min(cap, current + delta)
                 regen_total += new_value - current
-                self.mana_density[row][col] = new_value
+                density_row[col] = new_value
 
         self.mana += regen_total
 

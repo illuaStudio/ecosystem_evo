@@ -29,6 +29,7 @@ class WorldBiome:
         self._rich_biome: Optional[Dict] = None
         self._poor_biome: Optional[Dict] = None
         self.biome_color_grid: List[List[Tuple[int, int, int]]] = []
+        self._mana_regen_multiplier_grid: List[List[float]] = []
         self.avg_mana_regen_multiplier = 1.0
         self._max_spawn_rate_multiplier = 1.0
 
@@ -42,6 +43,7 @@ class WorldBiome:
         self._rich_biome = None
         self._poor_biome = None
         self.biome_color_grid = []
+        self._mana_regen_multiplier_grid = []
         self.avg_mana_regen_multiplier = 1.0
         self._max_spawn_rate_multiplier = 1.0
 
@@ -68,26 +70,25 @@ class WorldBiome:
 
         for row in range(rows):
             row_colors = []
+            row_mults: List[float] = []
             cy = row * cell + cell * 0.5
             for col in range(cols):
                 cx = col * cell + cell * 0.5
                 biome = self.get_biome_at(cx, cy)
                 row_colors.append(parse_color(biome.get("color", world.background_color)))
+                row_mults.append(float(biome.get("mana_regen_multiplier", 1.0)))
             self.biome_color_grid.append(row_colors)
+            self._mana_regen_multiplier_grid.append(row_mults)
 
     def _compute_average_mana_multiplier(self) -> float:
         """全セルのバイオーム倍率の平均（共有マナ池の自然回復用）。"""
-        if not self.biome_color_grid:
+        if not self._mana_regen_multiplier_grid:
             return 1.0
-        cell = self.biome_cell_size
         total = 0.0
         count = 0
-        for row in range(len(self.biome_color_grid)):
-            for col in range(len(self.biome_color_grid[row])):
-                cx = col * cell + cell * 0.5
-                cy = row * cell + cell * 0.5
-                total += self.get_mana_regen_multiplier(cx, cy)
-                count += 1
+        for row in self._mana_regen_multiplier_grid:
+            total += sum(row)
+            count += len(row)
         return total / count if count else 1.0
 
     def get_biome_at(self, x: float, y: float) -> Dict:
@@ -113,6 +114,14 @@ class WorldBiome:
 
     def get_mana_regen_multiplier(self, x: float, y: float) -> float:
         """座標におけるマナ自然回復の倍率。"""
+        grid = self._mana_regen_multiplier_grid
+        if grid:
+            cell = max(4, self.biome_cell_size)
+            col = int(x // cell)
+            row = int(y // cell)
+            col = max(0, min(len(grid[0]) - 1, col))
+            row = max(0, min(len(grid) - 1, row))
+            return grid[row][col]
         return float(self.get_biome_at(x, y).get("mana_regen_multiplier", 1.0))
 
     def _compute_max_spawn_rate_multiplier(self) -> float:

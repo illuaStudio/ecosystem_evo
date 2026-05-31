@@ -4,6 +4,7 @@ import random
 
 from src.sim.utils.geo_helpers import PointTarget, distance_between
 from src.sim.utils.position_helpers import entity_xy
+from src.sim.utils.spatial_grid import iter_creatures_in_radius
 
 def _movement_blocked_in_shelter(creature) -> bool:
     from src.sim.shelter.state import is_creature_sheltered
@@ -42,12 +43,13 @@ def find_nearest_flee_threat_among(creature, species_names, exclude=None):
     best = None
     min_dist = float("inf")
     vision = creature.get_current_vision()
+    cx, cy = entity_xy(creature)
 
-    for other in creature.world.creatures:
+    for other in iter_creatures_in_radius(creature.world, cx, cy, vision, alive_only=True):
         if other is exclude or not is_flee_threat(creature, other, names):
             continue
         dist = distance_between(creature, other)
-        if dist <= vision and dist < min_dist:
+        if dist < min_dist:
             min_dist = dist
             best = other
     return best
@@ -70,7 +72,8 @@ def update_flee_latch(creature, threat_species) -> None:
         creature.flee_latch = False
         return
     safe = get_flee_safe_distance(creature)
-    for other in creature.world.creatures:
+    cx, cy = entity_xy(creature)
+    for other in iter_creatures_in_radius(creature.world, cx, cy, safe, alive_only=True):
         if other is creature or not is_flee_threat(creature, other, names):
             continue
         if distance_between(creature, other) < safe:
@@ -255,16 +258,12 @@ def count_same_species_near(
 
     species_name = creature.species.name
     count = 0
-    for other in creature.world.creatures:
+    for other in iter_creatures_in_radius(creature.world, x, y, radius, alive_only=True):
         if exclude_self and other is creature:
-            continue
-        if not getattr(other, "alive", True):
             continue
         if other.species.name != species_name:
             continue
-        ox, oy = entity_xy(other)
-        if math.hypot(ox - x, oy - y) <= radius:
-            count += 1
+        count += 1
     return count
 
 def same_species_repulsion_angle(creature, radius: float) -> float | None:
@@ -277,8 +276,8 @@ def same_species_repulsion_angle(creature, radius: float) -> float | None:
     push_x = 0.0
     push_y = 0.0
 
-    for other in creature.world.creatures:
-        if other is creature or not getattr(other, "alive", True):
+    for other in iter_creatures_in_radius(creature.world, cx, cy, radius, alive_only=True):
+        if other is creature:
             continue
         if other.species.name != species_name:
             continue

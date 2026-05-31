@@ -274,6 +274,47 @@ class ZoneSystem:
                 auto_generated=True,
             )
 
+    def sync_colony_clearing(
+        self,
+        colony_id: str,
+        x: float,
+        y: float,
+        *,
+        radius: float | None = None,
+    ) -> None:
+        """巣の実位置に合わせてクリアリング Zone を更新または追加する。"""
+        if not colony_id:
+            return
+        if radius is None:
+            radius = self._clearing_radius_for_colony(colony_id)
+        radius = float(radius)
+        if radius <= 0:
+            return
+
+        for zone in self.zones:
+            if zone.colony_id == colony_id and zone.effects.spawn_rate_multiplier == 0.0:
+                zone.x = float(x)
+                zone.y = float(y)
+                zone.radius = radius
+                zone.auto_generated = True
+                return
+
+        self._add_zone(
+            x=float(x),
+            y=float(y),
+            radius=radius,
+            zone_type="nest_clearing",
+            effects=ZoneEffects(spawn_rate_multiplier=0.0),
+            label=f"{colony_id}_clearing",
+            colony_id=str(colony_id),
+            auto_generated=True,
+        )
+
+    def _clearing_radius_for_colony(self, colony_id: str) -> float:
+        profiles = getattr(self.world, "colony_profiles", None) or {}
+        profile = dict(profiles.get(colony_id) or {})
+        return float(profile.get("spawn_exclusion_radius", DEFAULT_NEST_CLEARING["radius"]))
+
     def _has_colony_clearing(self, colony_id: str) -> bool:
         for zone in self.zones:
             if zone.colony_id == colony_id and zone.effects.spawn_rate_multiplier == 0.0:

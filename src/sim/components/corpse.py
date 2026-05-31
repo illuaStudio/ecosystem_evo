@@ -61,6 +61,7 @@ class CorpseComponent:
         self.initial_biomass = biomass
 
         if was_alive and owner.world is not None:
+            owner.world.on_creature_became_corpse(owner)
             from src.sim.emitters import emit_death
             from src.sim.events import DeathCause
 

@@ -3,6 +3,7 @@
 from src.sim.shelter.state import is_creature_sheltered
 from src.sim.utils.geo_helpers import distance_between, is_in_vision
 from src.sim.utils.position_helpers import entity_xy
+from src.sim.utils.spatial_grid import iter_creatures_in_radius
 
 def is_edible_prey(
     creature,
@@ -121,8 +122,9 @@ def find_nearest_field_carcass_among(creature, species_names, exclude=None):
     best = None
     min_dist = float("inf")
     vision = creature.get_current_vision()
+    cx, cy = entity_xy(creature)
 
-    for other in creature.world.creatures:
+    for other in iter_creatures_in_radius(creature.world, cx, cy, vision, alive_only=False):
         if other is exclude:
             continue
         if other.alive or other.species.name not in names:
@@ -130,7 +132,7 @@ def find_nearest_field_carcass_among(creature, species_names, exclude=None):
         if not carcass_on_field(creature.world, other):
             continue
         dist = distance_between(creature, other)
-        if dist <= vision and dist < min_dist:
+        if dist < min_dist:
             min_dist = dist
             best = other
     return best
@@ -171,12 +173,13 @@ def find_nearest_edible(creature, species_name: str, exclude=None):
     best = None
     min_dist = float("inf")
     vision = creature.get_current_vision()
+    cx, cy = entity_xy(creature)
 
-    for other in creature.world.creatures:
+    for other in iter_creatures_in_radius(creature.world, cx, cy, vision):
         if other is exclude or not is_edible_target(creature, other, species_name):
             continue
         dist = distance_between(creature, other)
-        if dist <= vision and dist < min_dist:
+        if dist < min_dist:
             min_dist = dist
             best = other
     return best
@@ -189,8 +192,9 @@ def find_nearest_carcass_in_vision(creature, species_name: str, exclude=None):
     best = None
     min_dist = float("inf")
     vision = creature.get_current_vision()
+    cx, cy = entity_xy(creature)
 
-    for other in creature.world.creatures:
+    for other in iter_creatures_in_radius(creature.world, cx, cy, vision, alive_only=False):
         if other is exclude:
             continue
         if other.species.name != species_name:
@@ -198,7 +202,7 @@ def find_nearest_carcass_in_vision(creature, species_name: str, exclude=None):
         if not has_edible_carcass(other):
             continue
         dist = distance_between(creature, other)
-        if dist <= vision and dist < min_dist:
+        if dist < min_dist:
             min_dist = dist
             best = other
     return best

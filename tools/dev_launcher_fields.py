@@ -498,6 +498,13 @@ _PARAM_META: dict[str, tuple[str, str, ValueType, float | None, float | None]] =
     "hole_destroy_mana_return_ratio": ("巣穴破壊マナ返却", "巣穴破壊時に返るマナの割合。", "float", 0, 1.0),
     "hole_food_cost": ("巣穴設置コスト", "巣穴追加に必要な食料。", "float", 10, 2000),
     "hole_max_hp": ("巣穴 HP", "追加巣穴の耐久力。", "float", 10, 500),
+    "spawn_exclusion_radius": (
+        "巣周辺スポーン禁止半径",
+        "この半径内では prey などが湧きません（nest_clearing Zone）。",
+        "float",
+        0,
+        400,
+    ),
     "hp_drain_per_dt": ("毒霧 HP 減少", "毒エリア内の1ティック HP 減少量。", "float", 0, 0.5),
     "hp_regen_per_dt": ("テリトリー HP 回復", "自テリトリー内の1ティック HP 回復量。", "float", 0, 0.1),
     "initial_stored_food": ("初期備蓄", "開始時の巣食料。", "float", 0, 10000),
@@ -589,7 +596,7 @@ _MAIN_SECTION_ORDER: dict[str, tuple[str, ...]] = {
         "個体上限",
         "赤コロニー（巣）",
         "巣穴・共通",
-        "毒霧",
+        "エリア（Zone）",
         "その他",
     ),
     "ゲーム進行": ("進行条件",),
@@ -686,6 +693,8 @@ def _infer_main_section(spec: FieldSpec) -> str:
             return "マップ"
         if path[:1] == ("mana",):
             return "マナ"
+        if path[:1] == ("initial_spawns",):
+            return "開始時の個体"
         if path[:1] == ("initial_entities",):
             return "開始時の個体"
         if path[:1] == ("population_limits",):
@@ -694,8 +703,10 @@ def _infer_main_section(spec: FieldSpec) -> str:
             return "赤コロニー（巣）"
         if path[:1] == ("colony",):
             return "巣穴・共通"
+        if path[:1] == ("zones",):
+            return "エリア（Zone）"
         if path[:1] == ("field_emitters",):
-            return "毒霧"
+            return "エリア（Zone）"
 
     if cat == "ゲーム進行":
         return "進行条件"
@@ -816,7 +827,21 @@ def _meta_for_path(path: tuple[PathKey, ...]) -> tuple[str, str, ValueType, floa
         name = _SPECIES_LABELS.get(species, species)
         return (
             f"初期{name}数",
-            f"ゲーム開始時にフィールド上にいる {name} の数。",
+            f"ゲーム開始時にフィールド上にいる {name} の数（initial_entities ショートハンド）。",
+            "int",
+            0,
+            100,
+        )
+    if (
+        len(path) == 6
+        and path[0] == "initial_spawns"
+        and path[1] == "groups"
+        and path[3] == "entries"
+        and path[5] == "count"
+    ):
+        return (
+            "初期スポーン数",
+            "initial_spawns グループ内の当該種の開始個体数。",
             "int",
             0,
             100,
@@ -1016,8 +1041,11 @@ def _finalize_field_specs(base: list[FieldSpec]) -> list[FieldSpec]:
         ("colony", "profiles", "red_ant", "food_to_mana_ratio"),
         ("colony", "profiles", "red_ant", "food_leak_reserve_ratio"),
         ("colony", "profiles", "red_ant", "spawn_spread"),
-        ("field_emitters", "defaults", "radius"),
-        ("field_emitters", "defaults", "hp_drain_per_dt"),
+        ("colony", "profiles", "red_ant", "spawn_exclusion_radius"),
+        ("zones", "defaults", "radius"),
+        ("zones", "types", "poison_fog", "hp_drain_per_dt"),
+        ("zones", "types", "nest_clearing", "radius"),
+        ("initial_spawns", "defaults", "attempts"),
     ]
     for species in (
         "springtail",
@@ -1031,7 +1059,6 @@ def _finalize_field_specs(base: list[FieldSpec]) -> list[FieldSpec]:
         "red_ant_soldier",
         "red_ant_vanguard",
     ):
-        world_paths.append(("initial_entities", species))
         world_paths.append(("population_limits", species))
 
     extras.extend(
@@ -1639,11 +1666,11 @@ _BASE_FIELD_SPECS: list[FieldSpec] = [
     FieldSpec(
         "world_springtail",
         "ワールド",
-        "初期トビムシ数",
-        "ゲーム開始時にスポーンする springtail の数。",
+        "混在パッチ・トビムシ数",
+        "開始時、混在 prey パッチ（780,450 付近）にスポーンする springtail の数。",
         "sim/worlds/world.json",
         "int",
-        ("initial_entities", "springtail"),
+        ("initial_spawns", "groups", 0, "entries", 0, "count"),
         min_val=0,
         max_val=100,
     ),
@@ -1654,7 +1681,7 @@ _BASE_FIELD_SPECS: list[FieldSpec] = [
         "ゲーム開始時の red_ant_queen 数。通常は 1。",
         "sim/worlds/world.json",
         "int",
-        ("initial_entities", "red_ant_queen"),
+        ("initial_spawns", "groups", 4, "entries", 0, "count"),
         min_val=0,
         max_val=3,
     ),
@@ -1665,7 +1692,7 @@ _BASE_FIELD_SPECS: list[FieldSpec] = [
         "ゲーム開始時にフィールド上にいる red_ant の数。",
         "sim/worlds/world.json",
         "int",
-        ("initial_entities", "red_ant"),
+        ("initial_spawns", "groups", 4, "entries", 1, "count"),
         min_val=0,
         max_val=20,
     ),

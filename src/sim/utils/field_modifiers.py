@@ -72,6 +72,10 @@ def sample_field_modifiers(world: Any, creature: Any) -> FieldModifiers:
     if world is None or not getattr(creature, "alive", True):
         return FieldModifiers()
 
+    cache = getattr(world, "field_effect_cache", None)
+    if cache is not None:
+        return cache.sample_for_creature(creature)
+
     x, y = entity_xy(creature)
     biome = _biome_modifiers(world, x, y)
     territory = _territory_modifiers(world, creature, x, y)

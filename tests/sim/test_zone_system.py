@@ -169,6 +169,29 @@ class TestZonePoisonFog(unittest.TestCase):
         self.assertEqual(len(world.zone_system.zones), 1)
         self.assertAlmostEqual(world.zone_system.zones[0].effects.hp_drain_per_dt, 0.05)
 
+    def test_nest_creation_syncs_clearing_zone_to_actual_position(self):
+        world = World()
+        for creature in list(world.creatures):
+            world.remove_creature(creature)
+        world.nest_system.nests.clear()
+        world.zone_system.zones.clear()
+
+        factory = CreatureFactory()
+        queen = factory.create("red_ant_queen", world=world, x=310, y=290)
+        world.add_creature(queen)
+
+        clearing = [
+            z
+            for z in world.zone_system.zones
+            if z.colony_id == "red_ant" and z.effects.spawn_rate_multiplier == 0.0
+        ]
+        self.assertEqual(len(clearing), 1)
+        nest = world.nest_system.get_colony_nest("red_ant")
+        self.assertIsNotNone(nest)
+        self.assertAlmostEqual(clearing[0].x, nest.x)
+        self.assertAlmostEqual(clearing[0].y, nest.y)
+        self.assertFalse(world.zone_system.is_spawn_allowed(nest.x, nest.y))
+
 
 if __name__ == "__main__":
     unittest.main()
