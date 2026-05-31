@@ -22,6 +22,7 @@
     "max_satiety": 200.0,
     "metabolism_per_tick": 0.05,
     "satiety_hungry_below": 0.2,
+    "satiety_feed_below": 0.5,
     "satiety_full_above": 0.9,
     "starvation_hp_per_tick": 0.015
   },

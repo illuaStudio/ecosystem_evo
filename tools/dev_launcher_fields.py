@@ -517,6 +517,7 @@ _PARAM_META: dict[str, tuple[str, str, ValueType, float | None, float | None]] =
     "regen_rate": ("マナ再生率", "マナレイヤーの再生速度。", "float", 0, 5000),
     "return_speed_multiplier": ("巣復帰速度倍率", "巡回中に巣へ戻る速度倍率。", "float", 0.3, 3.0),
     "satiety_full_above": ("十分満腹とみなす率", "この満腹率以上で食事不要。", "float", 0.3, 1.0),
+    "satiety_feed_below": ("食事開始とみなす率", "この満腹率以下で巣食事を開始。", "float", 0.2, 0.8),
     "satiety_hungry_below": ("飢餓とみなす率", "この満腹率以下で飢餓。", "float", 0.01, 0.5),
     "scavenge_contact_padding": ("途中食事接触余白", "巣へ向かう途中の死骸接触距離。", "float", 0, 30),
     "sim_ticks_per_step": ("1ステップの tick 数", "描画1回あたりのシミュ tick。", "int", 1, 100),
@@ -1103,6 +1104,18 @@ _BASE_FIELD_SPECS: list[FieldSpec] = [
         ("traits", "satiety_hungry_below"),
         min_val=0.05,
         max_val=0.5,
+    ),
+    FieldSpec(
+        "queen_feed_below",
+        "女王",
+        "食事を開始する満腹率",
+        "満腹度÷最大満腹度がこの値を下回ると巣食事を開始し、満腹閾値に達するまで継続します。"
+        "飢餓になる前の予防的な食事に使います。",
+        "sim/species/red_ant_queen.json",
+        "float",
+        ("traits", "satiety_feed_below"),
+        min_val=0.2,
+        max_val=0.8,
     ),
     FieldSpec(
         "queen_full_above",

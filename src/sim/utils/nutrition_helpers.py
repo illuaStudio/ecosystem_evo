@@ -27,6 +27,13 @@ def get_satiety_hungry_below(creature) -> float:
     """満腹度比率がこれ以下なら飢餓。"""
     return float(creature.traits.get("satiety_hungry_below", 0.15))
 
+def get_satiety_feed_below(creature) -> float:
+    """満腹度比率がこれ以下で巣食事ラッチを開始（未指定時は飢餓閾値と同じ）。"""
+    traits = creature.traits
+    if "satiety_feed_below" in traits:
+        return float(traits["satiety_feed_below"])
+    return get_satiety_hungry_below(creature)
+
 def get_satiety_full_above(creature) -> float:
     """満腹度比率の目標上限（巣での食事停止・HUD「満腹」表示）。"""
     return float(creature.traits.get("satiety_full_above", 0.85))
@@ -94,13 +101,13 @@ def update_nutrition_recovery(creature) -> None:
         creature.nutrition_recovery = False
         return
     sat = satiety_ratio(creature)
-    if sat <= get_satiety_hungry_below(creature):
+    if sat <= get_satiety_feed_below(creature):
         creature.nutrition_recovery = True
     elif is_nest_feed_satisfied(creature):
         creature.nutrition_recovery = False
 
 def needs_self_feed(creature) -> bool:
-    """自己給餌モード（一度飢餓に入ったら satiety_full_above まで維持）。"""
+    """自己給餌モード（feed_below 以下で開始、satiety_full_above まで維持）。"""
     update_nutrition_recovery(creature)
     return bool(getattr(creature, "nutrition_recovery", False))
 

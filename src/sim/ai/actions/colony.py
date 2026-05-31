@@ -164,6 +164,8 @@ class FeedAtNestAction(Action):
         feed_radius = float(self.params["feed_radius"])
 
         if is_creature_sheltered(creature):
+            if not self._wants_nest_feed(creature):
+                return False
             if not needs_nest_feed(creature) or not self._has_usable_food(creature):
                 return False
             if not ns.is_at_nest(creature, feed_radius):
@@ -226,6 +228,8 @@ class FeedAtNestAction(Action):
         at_nest = ns.is_at_nest(creature, feed_radius)
 
         if is_creature_sheltered(creature):
+            if not self._wants_nest_feed(creature):
+                return 0.0
             if not needs_nest_feed(creature) or not usable or not at_nest:
                 return 0.0
             return 1.0

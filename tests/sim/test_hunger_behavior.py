@@ -340,5 +340,75 @@ class TestHungerBehavior(unittest.TestCase):
         self.assertEqual(feed.calculate_utility(vanguard), 0.0)
 
 
+class TestQueenNestFeeding(unittest.TestCase):
+    def _sheltered_queen(self, satiety_ratio: float):
+        from src.game.command_builder import apply_spawn_profile
+        from src.sim.bridge import SimBridge
+        from src.sim.shelter.state import is_creature_sheltered
+
+        world = World()
+        factory = CreatureFactory()
+        queen = factory.create("red_ant_queen", world=world, x=120, y=120)
+        world.add_creature(queen)
+        apply_spawn_profile(SimBridge(world), queen)
+        queen.satiety = queen.max_satiety * satiety_ratio
+        queen.nutrition_recovery = False
+        update_nutrition_recovery(queen)
+        nest = world.nest_system.get_creature_nest(queen)
+        nest.stored_food = 500.0
+        self.assertTrue(is_creature_sheltered(queen))
+        return world, queen, nest
+
+    def test_queen_feed_below_threshold_from_traits(self):
+        world = World()
+        factory = CreatureFactory()
+        queen = factory.create("red_ant_queen", world=world, x=120, y=120)
+        world.add_creature(queen)
+        from src.sim.utils.creature_helpers import get_satiety_feed_below
+
+        self.assertAlmostEqual(get_satiety_feed_below(queen), 0.5)
+
+    def test_sheltered_queen_does_not_feed_above_feed_below(self):
+        _, queen, _ = self._sheltered_queen(0.60)
+        feed = FeedAtNestAction(feed_radius=38)
+
+        self.assertFalse(needs_self_feed(queen))
+        self.assertEqual(feed.calculate_utility(queen), 0.0)
+        sat_before = queen.satiety
+        feed.execute(queen)
+        self.assertAlmostEqual(queen.satiety, sat_before)
+
+    def test_sheltered_queen_feeds_when_below_feed_below_until_full(self):
+        _, queen, nest = self._sheltered_queen(0.45)
+        feed = FeedAtNestAction(feed_radius=38)
+
+        self.assertTrue(needs_self_feed(queen))
+        self.assertGreater(feed.calculate_utility(queen), 0.0)
+
+        for _ in range(400):
+            if is_satiated(queen):
+                break
+            feed.execute(queen)
+
+        self.assertTrue(is_satiated(queen))
+        self.assertFalse(needs_self_feed(queen))
+        self.assertLess(nest.stored_food, 500.0)
+
+    def test_sheltered_queen_no_chatter_near_full_above(self):
+        _, queen, _ = self._sheltered_queen(0.89)
+        feed = FeedAtNestAction(feed_radius=38)
+
+        self.assertFalse(needs_self_feed(queen))
+        self.assertEqual(feed.calculate_utility(queen), 0.0)
+
+    def test_sheltered_queen_still_feeds_when_hungry(self):
+        _, queen, _ = self._sheltered_queen(0.15)
+        feed = FeedAtNestAction(feed_radius=38)
+
+        self.assertTrue(is_hungry(queen))
+        self.assertTrue(needs_self_feed(queen))
+        self.assertGreater(feed.calculate_utility(queen), 0.0)
+
+
 if __name__ == "__main__":
     unittest.main()

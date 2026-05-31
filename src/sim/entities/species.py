@@ -22,6 +22,7 @@ OPTIONAL_TRAIT_KEYS = frozenset({
     "poison_resist",
     "starvation_hp_per_tick",
     "field_immunities",
+    "satiety_feed_below",
 })
 
 TRAIT_DEFAULTS = {
@@ -83,6 +84,10 @@ def normalize_traits(raw: dict) -> dict:
         full = min(1.0, hungry + 0.05)
     traits["satiety_hungry_below"] = hungry
     traits["satiety_full_above"] = full
+    if "satiety_feed_below" in traits:
+        feed = float(traits["satiety_feed_below"])
+        feed = max(hungry, min(full - 0.01, feed))
+        traits["satiety_feed_below"] = feed
     # max_size 未指定時は base_size と同じ（成長なし種用）
     if "max_size" not in raw and "base_size" in raw:
         traits["max_size"] = float(raw["base_size"])
