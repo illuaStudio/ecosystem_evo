@@ -370,13 +370,22 @@ class SpawnPlacementResolver:
         nest_system = self.world.nest_system
         nest = nest_system.get_colony_nest(colony_id)
         if nest is not None:
-            if nest.holes:
-                hole = random.choice(nest.holes)
-                return float(hole.x), float(hole.y)
+            ws = getattr(self.world, "world_object_system", None)
+            if ws is not None and ws.has_colony_root(colony_id):
+                access = ws.iter_access_points(colony_id)
+                if access:
+                    child = random.choice(access)
+                    return float(child.x), float(child.y)
             return float(nest.x), float(nest.y)
         return self._profile_nest_center(colony_id)
 
     def _profile_nest_center(self, colony_id: str) -> Optional[Tuple[float, float]]:
+        ws = getattr(self.world, "world_object_system", None)
+        if ws is not None:
+            root = ws.get(colony_id)
+            if root is not None:
+                return float(root.x), float(root.y)
+
         from src.sim.utils.colony_config_helpers import get_colony_profile
 
         profile = get_colony_profile(self.world, colony_id)
@@ -439,11 +448,10 @@ class SpawnPlacementResolver:
         return self.world.biome.get_spawn_rate_multiplier(x, y)
 
     def _too_close_to_nest(self, x: float, y: float, radius: float) -> bool:
-        if radius <= 0:
-            return False
-        nests = getattr(self.world.nest_system, "nests", None) or {}
-        for nest in nests.values():
-            if (x - nest.x) ** 2 + (y - nest.y) ** 2 < radius * radius:
+        from src.sim.utils.world_object_helpers import iter_active_colony_roots
+
+        for root in iter_active_colony_roots(self.world):
+            if (x - root.x) ** 2 + (y - root.y) ** 2 < radius * radius:
                 return True
         return False
 

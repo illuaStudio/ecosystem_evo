@@ -8,28 +8,26 @@ from src.game.progression import ProgressionEvaluator, apply_unlock, load_progre
 from src.sim.bridge import SimBridge
 from src.sim.entities.creature_factory import CreatureFactory
 from src.sim.systems.world import World
-from tests.sim.world_fixtures import colony_settings
+from tests.sim.world_fixtures import colony_settings, load_test_world, set_colony_stored_food
 
 
 def _player_world(**overrides) -> World:
-    data = {
-        "name": "ProgressionTest",
-        "world_width": 800,
-        "world_height": 800,
-        "initial_entities": {},
-        "population_limits": {
+    return load_test_world(
+        name="ProgressionTest",
+        world_width=800,
+        world_height=800,
+        population_limits={
             "red_ant": 20,
             "red_ant_queen": 3,
             "red_ant_soldier": 10,
         },
-        "colony": colony_settings(
+        colony=colony_settings(
             faction_species={
                 "red_ant": ["red_ant", "red_ant_soldier", "red_ant_vanguard"],
             },
         ),
-    }
-    data.update(overrides)
-    return World.from_json(data)
+        **overrides,
+    )
 
 
 class TestProgressionLoader(unittest.TestCase):
@@ -61,7 +59,7 @@ class TestProgressionUnlock(unittest.TestCase):
         self.assertEqual([a["name"] for a in queen.mind.action_defs], ["FeedAtNestAction"])
 
         state.set_flag("high_food_reached")
-        nest.stored_food = nest.max_food * 0.55
+        set_colony_stored_food(world, "red_ant", nest.max_food * 0.55)
 
         evaluator = ProgressionEvaluator()
         msgs = evaluator.evaluate(bridge, state, world)
@@ -141,7 +139,7 @@ class TestProgressionUnlock(unittest.TestCase):
         )
         ctrl.reset_for_world(world, bridge=bridge)
 
-        nest.stored_food = nest.max_food * 0.55
+        set_colony_stored_food(world, "red_ant", nest.max_food * 0.55)
         msgs = ctrl.on_tick(world)
 
         progression_msgs = [m for m in msgs if m.source == "progression"]

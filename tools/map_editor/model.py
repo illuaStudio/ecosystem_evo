@@ -6,12 +6,20 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
+from src.sim.utils.object_type_loader import list_type_ids, resolve_type_def
+from src.sim.utils.world_instances import (
+    collapse_legacy_to_instances,
+    instance_to_map_object_props,
+    map_object_to_instance,
+    uses_instances_format,
+)
+
 WORLD_REL_PATH = "sim/worlds/world.json"
 
 
 @dataclass
 class MapObject:
-    """マップ上の1配置（将来 object_types 参照に拡張可能）。"""
+    """マップ上の1配置（world.instances[] と対応）。"""
 
     uid: str
     layer: str
@@ -27,8 +35,12 @@ class MapObject:
         return default
 
 
+SITE_LAYERS = frozenset({"nest", "colony_site"})
+ACCESS_LAYER = "colony_access"
+
+
 class WorldMapDocument:
-    """world.json を MapObject 列として編集し、保存時に各セクションへ展開する。"""
+    """world.json を MapObject 列として編集し、保存時に instances[] へ書き出す。"""
 
     def __init__(self, data: Dict[str, Any]) -> None:
         self.data = data
@@ -57,7 +69,10 @@ class WorldMapDocument:
     def build_preview_data(self) -> Dict[str, Any]:
         """プレビュー用: 初期スポーンなし・生態系 tick なし。"""
         data = copy.deepcopy(self.data)
-        data["initial_spawns"] = {"defaults": data.get("initial_spawns", {}).get("defaults", {}), "groups": []}
+        data["initial_spawns"] = {
+            "defaults": data.get("initial_spawns", {}).get("defaults", {}),
+            "groups": [],
+        }
         return data
 
     def rebuild_preview_world(self):
@@ -67,19 +82,65 @@ class WorldMapDocument:
 
     def _load_objects(self) -> None:
         self.objects.clear()
+        if uses_instances_format(self.data):
+            self._load_from_instances()
+            return
+        self._load_from_legacy_sections()
+
+    def _load_from_instances(self) -> None:
+        for entry in self.data.get("instances") or []:
+            if not isinstance(entry, dict):
+                continue
+            layer = str(entry.get("layer", ""))
+            if not layer:
+                continue
+            self.objects.append(
+                MapObject(
+                    uid=self._new_uid(layer[:4]),
+                    layer=layer,
+                    type_ref=str(entry.get("type", "custom")),
+                    x=float(entry.get("x", 0.0)),
+                    y=float(entry.get("y", 0.0)),
+                    props=instance_to_map_object_props(entry),
+                    source_id=entry.get("id"),
+                )
+            )
+            if entry.get("parent") is not None:
+                self.objects[-1].props["parent"] = entry["parent"]
+            if entry.get("role") is not None:
+                self.objects[-1].props["role"] = entry["role"]
+
+    def _load_from_legacy_sections(self) -> None:
         self._load_obstacles()
         self._load_zones()
         self._load_spawns()
         self._load_nests()
 
     def _flush_objects(self) -> None:
-        by_layer: Dict[str, List[MapObject]] = {}
-        for obj in self.objects:
-            by_layer.setdefault(obj.layer, []).append(obj)
-        self._flush_obstacles(by_layer.get("obstacle", []))
-        self._flush_zones(by_layer.get("zone", []))
-        self._flush_spawns(by_layer.get("spawn", []))
-        self._flush_nests(by_layer.get("nest", []))
+        self._flush_instances()
+        site_objects = self.objects_in_layer("nest") + self.objects_in_layer("colony_site")
+        self._flush_nests(site_objects)
+        self._clear_legacy_sources()
+
+    def _flush_instances(self) -> None:
+        instances = [map_object_to_instance(obj) for obj in self.objects]
+        self.data["instances"] = instances
+
+    def _clear_legacy_sources(self) -> None:
+        obstacles = self.data.setdefault("obstacles", {})
+        if isinstance(obstacles, dict):
+            obstacles.pop("types", None)
+            obstacles["sources"] = []
+
+        zones = self.data.setdefault("zones", {})
+        if isinstance(zones, dict):
+            zones.setdefault("defaults", zones.get("defaults") or {"radius": 95.0})
+            zones.pop("types", None)
+            zones["sources"] = []
+
+        spawns = self.data.setdefault("spawn_emitters", {})
+        if isinstance(spawns, dict):
+            spawns["sources"] = []
 
     def _new_uid(self, prefix: str) -> str:
         return f"{prefix}_{uuid.uuid4().hex[:8]}"
@@ -103,19 +164,6 @@ class WorldMapDocument:
                 )
             )
 
-    def _flush_obstacles(self, objects: List[MapObject]) -> None:
-        block = self.data.setdefault("obstacles", {})
-        block.setdefault("types", block.get("types") or {})
-        sources = []
-        for obj in objects:
-            entry: Dict[str, Any] = {"type": obj.type_ref, "x": obj.x, "y": obj.y}
-            if obj.source_id:
-                entry["id"] = obj.source_id
-            for key, val in obj.props.items():
-                entry[key] = val
-            sources.append(entry)
-        block["sources"] = sources
-
     def _load_zones(self) -> None:
         block = self.data.get("zones") or {}
         for entry in block.get("sources") or []:
@@ -134,20 +182,6 @@ class WorldMapDocument:
                     source_id=entry.get("id"),
                 )
             )
-
-    def _flush_zones(self, objects: List[MapObject]) -> None:
-        block = self.data.setdefault("zones", {})
-        block.setdefault("defaults", block.get("defaults") or {"radius": 95.0})
-        block.setdefault("types", block.get("types") or {})
-        sources = []
-        for obj in objects:
-            entry: Dict[str, Any] = {"type": obj.type_ref, "x": obj.x, "y": obj.y}
-            if obj.source_id:
-                entry["id"] = obj.source_id
-            for key, val in obj.props.items():
-                entry[key] = val
-            sources.append(entry)
-        block["sources"] = sources
 
     def _load_spawns(self) -> None:
         block = self.data.get("spawn_emitters") or {}
@@ -168,20 +202,6 @@ class WorldMapDocument:
                 )
             )
 
-    def _flush_spawns(self, objects: List[MapObject]) -> None:
-        block = self.data.setdefault("spawn_emitters", {})
-        block.setdefault("defaults", block.get("defaults") or {})
-        block.setdefault("types", block.get("types") or {})
-        sources = []
-        for obj in objects:
-            entry: Dict[str, Any] = {"type": obj.type_ref, "x": obj.x, "y": obj.y}
-            if obj.source_id:
-                entry["id"] = obj.source_id
-            for key, val in obj.props.items():
-                entry[key] = val
-            sources.append(entry)
-        block["sources"] = sources
-
     def _load_nests(self) -> None:
         profiles = (self.data.get("colony") or {}).get("profiles") or {}
         for colony_id, profile in profiles.items():
@@ -192,12 +212,24 @@ class WorldMapDocument:
             self.objects.append(
                 MapObject(
                     uid=self._new_uid("nest"),
-                    layer="nest",
-                    type_ref=str(colony_id),
+                    layer="colony_site",
+                    type_ref="colony_site",
                     x=float(profile["nest_x"]),
                     y=float(profile["nest_y"]),
-                    props={},
+                    props={"role": "root"},
                     source_id=str(colony_id),
+                )
+            )
+            cid = str(colony_id)
+            self.objects.append(
+                MapObject(
+                    uid=self._new_uid("acc"),
+                    layer=ACCESS_LAYER,
+                    type_ref="colony_access",
+                    x=float(profile["nest_x"]),
+                    y=float(profile["nest_y"]),
+                    props={"parent": cid, "role": "access"},
+                    source_id=f"{cid}_access_main",
                 )
             )
 
@@ -205,57 +237,155 @@ class WorldMapDocument:
         colony = self.data.setdefault("colony", {})
         profiles = colony.setdefault("profiles", {})
         for obj in objects:
-            profile = profiles.setdefault(obj.type_ref, {})
+            profile_key = str(obj.source_id or obj.type_ref)
+            profile = profiles.setdefault(profile_key, {})
             profile["nest_x"] = float(obj.x)
             profile["nest_y"] = float(obj.y)
 
+    def colony_id_for_site(self, obj: MapObject) -> str:
+        return str(obj.source_id or obj.type_ref)
+
+    def colony_access_for(self, site: MapObject) -> List[MapObject]:
+        colony_id = self.colony_id_for_site(site)
+        return [
+            o
+            for o in self.objects
+            if o.layer == ACCESS_LAYER and str(o.props.get("parent", "")) == colony_id
+        ]
+
+    def move_site_with_access(self, site: MapObject, x: float, y: float) -> None:
+        dx, dy = float(x) - site.x, float(y) - site.y
+        for child in self.colony_access_for(site):
+            child.x += dx
+            child.y += dy
+        site.x = float(x)
+        site.y = float(y)
+
     def objects_in_layer(self, layer: str) -> List[MapObject]:
+        if layer in SITE_LAYERS:
+            return [o for o in self.objects if o.layer in SITE_LAYERS]
         return [o for o in self.objects if o.layer == layer]
+
+    def _inline_obstacle_types(self) -> Dict[str, Any]:
+        return dict((self.data.get("obstacles") or {}).get("types") or {})
+
+    def _inline_zone_types(self) -> Dict[str, Any]:
+        return dict((self.data.get("zones") or {}).get("types") or {})
+
+    def _resolve_zone_merged_def(self, obj: MapObject) -> Dict[str, Any]:
+        defaults = (self.data.get("zones") or {}).get("defaults") or {}
+        merged = resolve_type_def(
+            "zone",
+            obj.type_ref,
+            inline_types=self._inline_zone_types(),
+        )
+        result = dict(merged)
+        result.update(obj.props)
+        result.setdefault("radius", defaults.get("radius", 95.0))
+        return result
+
+    def _resolve_obstacle_merged_def(self, obj: MapObject) -> Dict[str, Any]:
+        merged = resolve_type_def(
+            "obstacle",
+            obj.type_ref,
+            inline_types=self._inline_obstacle_types(),
+        )
+        result = dict(merged)
+        result.update(obj.props)
+        return result
+
+    def rect_half_extents(self, obj: MapObject) -> Optional[tuple[float, float]]:
+        """矩形 shape の half_w, half_h。円形なら None。"""
+        if obj.layer == "obstacle":
+            tdef = self._resolve_obstacle_merged_def(obj)
+        elif obj.layer == "zone":
+            tdef = self._resolve_zone_merged_def(obj)
+        else:
+            return None
+        if str(tdef.get("shape", "circle")).lower() != "rect":
+            return None
+        return (
+            float(tdef.get("width", 160.0)) * 0.5,
+            float(tdef.get("height", 80.0)) * 0.5,
+        )
 
     def type_options(self, layer: str) -> List[str]:
         if layer == "obstacle":
-            types = (self.data.get("obstacles") or {}).get("types") or {}
-            return list(types.keys()) or ["rock", "fallen_log"]
+            options = list_type_ids("obstacle", inline_types=self._inline_obstacle_types())
+            return options or ["rock", "fallen_log"]
         if layer == "zone":
-            types = (self.data.get("zones") or {}).get("types") or {}
-            return list(types.keys()) or ["poison_fog"]
+            options = list_type_ids("zone", inline_types=self._inline_zone_types())
+            return options or ["poison_fog"]
         if layer == "spawn":
             types = (self.data.get("spawn_emitters") or {}).get("types") or {}
             return list(types.keys()) or ["micro_fauna_mixed"]
-        if layer == "nest":
+        if layer in SITE_LAYERS:
             profiles = (self.data.get("colony") or {}).get("profiles") or {}
             return list(profiles.keys()) or ["red_ant"]
         return []
 
     def resolve_radius(self, obj: MapObject) -> float:
         if obj.layer == "obstacle":
-            types = (self.data.get("obstacles") or {}).get("types") or {}
-            tdef = types.get(obj.type_ref) or {}
+            tdef = resolve_type_def(
+                "obstacle",
+                obj.type_ref,
+                inline_types=self._inline_obstacle_types(),
+            )
             if str(tdef.get("shape", "circle")).lower() == "rect":
                 return max(float(tdef.get("width", 40)), float(tdef.get("height", 16))) * 0.5
             return float(obj.get("radius", tdef.get("radius", 20.0)))
         if obj.layer == "zone":
-            defaults = (self.data.get("zones") or {}).get("defaults") or {}
-            types = (self.data.get("zones") or {}).get("types") or {}
-            tdef = types.get(obj.type_ref) or {}
-            return float(obj.get("radius", tdef.get("radius", defaults.get("radius", 95.0))))
+            tdef = self._resolve_zone_merged_def(obj)
+            if str(tdef.get("shape", "circle")).lower() == "rect":
+                return max(float(tdef.get("width", 160.0)), float(tdef.get("height", 80.0))) * 0.5
+            return float(tdef.get("radius", 95.0))
         if obj.layer == "spawn":
             defaults = (self.data.get("spawn_emitters") or {}).get("defaults") or {}
             types = (self.data.get("spawn_emitters") or {}).get("types") or {}
             tdef = types.get(obj.type_ref) or {}
             return float(obj.get("radius", tdef.get("radius", defaults.get("radius", 85.0))))
-        if obj.layer == "nest":
-            profile = ((self.data.get("colony") or {}).get("profiles") or {}).get(obj.type_ref) or {}
+        if obj.layer in SITE_LAYERS:
+            profile = ((self.data.get("colony") or {}).get("profiles") or {}).get(
+                self.colony_id_for_site(obj)
+            ) or {}
             return float(profile.get("territory_radius", 180.0))
+        if obj.layer == ACCESS_LAYER:
+            return 18.0
         return 24.0
 
     def add_object(self, layer: str, type_ref: str, x: float, y: float) -> MapObject:
-        if layer == "nest":
-            existing = [o for o in self.objects if o.layer == "nest" and o.type_ref == type_ref]
+        if layer in SITE_LAYERS:
+            colony_id = type_ref
+            existing = [
+                o
+                for o in self.objects
+                if o.layer in SITE_LAYERS and self.colony_id_for_site(o) == colony_id
+            ]
             if existing:
-                existing[0].x = float(x)
-                existing[0].y = float(y)
+                self.move_site_with_access(existing[0], x, y)
                 return existing[0]
+            obj = MapObject(
+                uid=self._new_uid("site"),
+                layer="colony_site",
+                type_ref="colony_site",
+                x=float(x),
+                y=float(y),
+                props={"role": "root"},
+                source_id=colony_id,
+            )
+            self.objects.append(obj)
+            self.objects.append(
+                MapObject(
+                    uid=self._new_uid("acc"),
+                    layer=ACCESS_LAYER,
+                    type_ref="colony_access",
+                    x=float(x),
+                    y=float(y),
+                    props={"parent": colony_id, "role": "access"},
+                    source_id=f"{colony_id}_access_main",
+                )
+            )
+            return obj
         obj = MapObject(
             uid=self._new_uid(layer[:4]),
             layer=layer,
@@ -271,18 +401,16 @@ class WorldMapDocument:
         self.objects = [o for o in self.objects if o.uid != uid]
 
     def find_at(self, layer: str, wx: float, wy: float, *, all_layers: bool = False) -> Optional[MapObject]:
-        layers = [layer] if not all_layers else ["nest", "spawn", "zone", "obstacle"]
+        layers = [layer] if not all_layers else ["colony_site", "colony_access", "nest", "spawn", "zone", "obstacle"]
         best: Optional[MapObject] = None
         best_dist = float("inf")
         for obj in self.objects:
             if obj.layer not in layers:
                 continue
-            if obj.layer == "obstacle":
-                types = (self.data.get("obstacles") or {}).get("types") or {}
-                tdef = types.get(obj.type_ref) or {}
-                if str(tdef.get("shape", "circle")).lower() == "rect":
-                    hw = float(obj.get("width", tdef.get("width", 40))) * 0.5 + 4
-                    hh = float(obj.get("height", tdef.get("height", 16))) * 0.5 + 4
+            if obj.layer in ("obstacle", "zone"):
+                rect = self.rect_half_extents(obj)
+                if rect is not None:
+                    hw, hh = rect[0] + 4, rect[1] + 4
                     if abs(wx - obj.x) <= hw and abs(wy - obj.y) <= hh:
                         dist = (wx - obj.x) ** 2 + (wy - obj.y) ** 2
                         if dist < best_dist:
@@ -290,10 +418,18 @@ class WorldMapDocument:
                             best = obj
                     continue
             radius = self.resolve_radius(obj) + 6.0
-            if obj.layer == "nest":
+            if obj.layer in SITE_LAYERS:
                 radius = min(radius, 40.0)
             dist_sq = (wx - obj.x) ** 2 + (wy - obj.y) ** 2
             if dist_sq <= radius * radius and dist_sq < best_dist:
                 best_dist = dist_sq
                 best = obj
         return best
+
+    def migrate_to_instances_format(self) -> None:
+        """legacy sections から instances[] へ移行（初回保存用）。"""
+        if uses_instances_format(self.data):
+            return
+        self.data["instances"] = collapse_legacy_to_instances(self.data)
+        self.objects.clear()
+        self._load_from_instances()

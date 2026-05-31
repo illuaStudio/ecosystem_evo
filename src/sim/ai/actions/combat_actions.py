@@ -7,10 +7,10 @@ from src.sim.ai.actions.tracking import (
 from src.sim.combat.target_damage import apply_damage_to_target
 from src.sim.combat.target_query import (
     find_nearest_hostile_creature,
-    find_nearest_spawn_node,
+    find_nearest_colony_access,
     is_trackable_hostile_creature,
-    is_valid_spawn_node,
-    spawn_node_in_range,
+    is_valid_colony_access,
+    colony_access_in_range,
     target_closeness,
     target_position,
 )
@@ -201,7 +201,7 @@ class AttackHoleAction(NestLeashMixin, Action):
         colonies = self._hostile_colonies(creature)
         if not colonies:
             return None
-        return find_nearest_spawn_node(
+        return find_nearest_colony_access(
             creature,
             colonies,
             unrestricted=self._ignore_territory(),
@@ -211,7 +211,7 @@ class AttackHoleAction(NestLeashMixin, Action):
     def _spawn_target_valid(self, creature, ref) -> bool:
         if ref is None:
             return False
-        return is_valid_spawn_node(creature, ref, **self._spawn_filter_kwargs(creature))
+        return is_valid_colony_access(creature, ref, **self._spawn_filter_kwargs(creature))
 
     def calculate_utility(self, creature) -> float:
         if is_creature_colony_defeated(creature):
@@ -249,7 +249,7 @@ class AttackHoleAction(NestLeashMixin, Action):
         max_d = self._max_search_distance(creature)
         if self._target_ref and not self._spawn_target_valid(creature, self._target_ref):
             self._target_ref = None
-        if self._target_ref and not spawn_node_in_range(
+        if self._target_ref and not colony_access_in_range(
             creature, self._target_ref, max_d
         ):
             self._target_ref = None

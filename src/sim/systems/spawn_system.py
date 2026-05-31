@@ -299,9 +299,10 @@ class SpawnSystem:
     def _too_close_to_nest(self, x: float, y: float, radius: float) -> bool:
         if radius <= 0:
             return False
-        nests = getattr(self.world.nest_system, "nests", None) or {}
-        for nest in nests.values():
-            if (x - nest.x) ** 2 + (y - nest.y) ** 2 < radius * radius:
+        from src.sim.utils.world_object_helpers import iter_active_colony_roots
+
+        for root in iter_active_colony_roots(self.world):
+            if (x - root.x) ** 2 + (y - root.y) ** 2 < radius * radius:
                 return True
         return False
 

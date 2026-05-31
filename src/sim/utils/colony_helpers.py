@@ -44,12 +44,6 @@ def get_creature_colony_id(creature) -> str | None:
         return colony.colony_id
     if colony.colony_id:
         return str(colony.colony_id)
-    world = getattr(creature, "world", None)
-    if world is None:
-        return None
-    nest = world.nest_system.get_creature_nest(creature)
-    if nest is not None:
-        return nest.colony_id
     return None
 
 
@@ -69,14 +63,13 @@ def is_point_in_rival_territory(world, colony_id: str, x: float, y: float) -> bo
     """いずれかの敵勢力テリトリー円内か。"""
     if world is None or not colony_id:
         return False
-    ns = getattr(world, "nest_system", None)
-    if ns is None:
-        return False
+    from src.sim.utils.world_object_helpers import iter_active_colony_roots
+
     px, py = float(x), float(y)
-    for nest in ns.nests.values():
-        if not is_rival_colony(world, colony_id, nest.colony_id):
+    for root in iter_active_colony_roots(world):
+        if not is_rival_colony(world, colony_id, root.id):
             continue
-        if is_point_in_nest_territory(world, nest, px, py):
+        if is_point_in_colony_territory(world, root.id, px, py):
             return True
     return False
 
@@ -89,41 +82,42 @@ def is_creature_in_colony_territory(creature, colony_id: str) -> bool:
     world = creature.world
     if world is None:
         return False
-    nest = world.nest_system.get_colony_nest(colony_id)
-    if nest is None:
+    from src.sim.utils.world_object_helpers import get_colony_root
+
+    if get_colony_root(world, colony_id) is None:
         return False
-    return is_point_in_nest_territory(world, nest, cx, cy)
+    return is_point_in_colony_territory(world, colony_id, cx, cy)
 
 
-def can_attack_hole(
+def can_attack_colony_access(
     creature,
-    hole,
-    hole_owner_colony_id: str,
+    access,
+    owner_colony_id: str,
     *,
     unrestricted: bool = False,
 ) -> bool:
-    """兵隊がその敵巣穴を攻撃可能か。
+    """兵隊が敵 colony_access を攻撃可能か。
 
     unrestricted=False（防衛）: 自テリトリー内の敵穴 or 敵テリトリーへの侵攻中。
     unrestricted=True（先兵）: 視界内の敵勢力の穴ならどこでも可。
     """
     world = getattr(creature, "world", None)
     my_id = get_creature_colony_id(creature)
-    if world is None or not my_id or hole is None:
+    if world is None or not my_id or access is None:
         return False
     if is_creature_colony_defeated(creature):
         return False
-    if not is_rival_colony(world, my_id, hole_owner_colony_id):
+    if not is_rival_colony(world, my_id, owner_colony_id):
         return False
     if unrestricted:
         return True
-    hx, hy = float(hole.x), float(hole.y)
+    hx, hy = float(access.x), float(access.y)
     if is_point_in_colony_territory(world, my_id, hx, hy):
         return True
-    return is_creature_in_colony_territory(creature, hole_owner_colony_id)
+    return is_creature_in_colony_territory(creature, owner_colony_id)
 
 
-def find_nearest_attackable_hole(
+def find_nearest_attackable_access(
     creature,
     hostile_colony_ids: tuple[str, ...],
     *,
@@ -131,14 +125,17 @@ def find_nearest_attackable_hole(
     max_distance: float | None = None,
 ):
     """攻撃可能な最寄り敵巣穴（hp > 0）。combat 層への薄いラッパ。"""
-    from src.sim.combat.target_query import find_nearest_spawn_node
+    from src.sim.combat.target_query import find_nearest_colony_access
 
-    ref = find_nearest_spawn_node(
+    ref = find_nearest_colony_access(
         creature,
         hostile_colony_ids,
         unrestricted=unrestricted,
         max_distance=max_distance,
     )
-    if ref is None:
+    if ref is None or ref.world_object is None:
         return None
-    return ref.as_spawn_pair()
+    world = getattr(creature, "world", None)
+    if world is None:
+        return None
+    return (ref.world_object, ref.colony_id or "")

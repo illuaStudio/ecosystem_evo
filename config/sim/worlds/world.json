@@ -8,6 +8,72 @@
     60,
     25
   ],
+  "instances": [
+    {
+      "layer": "spawn",
+      "type": "micro_fauna_mixed",
+      "x": 780.0,
+      "y": 450.0,
+      "radius": 90.0
+    },
+    {
+      "layer": "spawn",
+      "type": "mite_patch",
+      "x": 346.0,
+      "y": 305.5,
+      "radius": 72.0
+    },
+    {
+      "layer": "spawn",
+      "type": "leaf_litter",
+      "x": 353.0,
+      "y": 85.5
+    },
+    {
+      "layer": "spawn",
+      "type": "meadow_edge",
+      "x": 97.0,
+      "y": 379.5
+    },
+    {
+      "layer": "zone",
+      "type": "poison_belt",
+      "x": 520.0,
+      "y": 620.0
+    },
+    {
+      "id": "red_ant",
+      "layer": "colony_site",
+      "type": "colony_site",
+      "role": "root",
+      "x": 120.0,
+      "y": 120.0
+    },
+    {
+      "id": "red_ant_access_main",
+      "layer": "colony_access",
+      "type": "colony_access",
+      "parent": "red_ant",
+      "x": 120.0,
+      "y": 120.0
+    },
+    {
+      "id": "blue_ant",
+      "layer": "colony_site",
+      "type": "colony_site",
+      "role": "root",
+      "x": 505.0,
+      "y": 938.5
+    },
+    {
+      "id": "yellow_ant",
+      "layer": "colony_site",
+      "type": "colony_site",
+      "role": "root",
+      "x": 916.0,
+      "y": 75.5
+    }
+  ],
   "spawn_emitters": {
     "defaults": {
       "species_pool": [
@@ -70,30 +136,7 @@
       "position_attempts": 12,
       "margin": 80
     },
-    "sources": [
-      {
-        "type": "micro_fauna_mixed",
-        "x": 780.0,
-        "y": 450.0,
-        "radius": 90.0
-      },
-      {
-        "type": "mite_patch",
-        "x": 346.0,
-        "y": 305.5,
-        "radius": 72.0
-      },
-      {
-        "type": "leaf_litter",
-        "x": 353.0,
-        "y": 85.5
-      },
-      {
-        "type": "meadow_edge",
-        "x": 97.0,
-        "y": 379.5
-      }
-    ]
+    "sources": []
   },
   "initial_spawns": {
     "defaults": {
@@ -233,11 +276,11 @@
     "Spider": 30
   },
   "colony": {
-    "hole_food_cost": 250.0,
-    "max_holes": 8,
-    "min_hole_spacing": 120.0,
+    "access_food_cost": 250.0,
+    "max_access_points": 8,
+    "min_access_spacing": 120.0,
     "min_food_reserve": 72.0,
-    "hole_max_hp": 120.0,
+    "access_max_hp": 120.0,
     "profiles": {
       "red_ant": {
         "nest_x": 120.0,
@@ -314,7 +357,7 @@
           120,
           180
         ],
-        "nest_hole": [
+        "colony_access": [
           255,
           230,
           180
@@ -323,48 +366,11 @@
     }
   },
   "obstacles": {
-    "types": {
-      "rock": {
-        "shape": "circle",
-        "radius": 22,
-        "render": {
-          "color": [
-            118,
-            112,
-            102
-          ]
-        }
-      },
-      "fallen_log": {
-        "shape": "rect",
-        "width": 84,
-        "height": 16,
-        "render": {
-          "color": [
-            92,
-            64,
-            40
-          ]
-        }
-      }
-    },
     "sources": []
   },
   "zones": {
     "defaults": {
       "radius": 95.0
-    },
-    "types": {
-      "poison_fog": {
-        "hp_drain_per_dt": 0.07,
-        "field_tags": [
-          "poison"
-        ]
-      },
-      "nest_clearing": {
-        "spawn_rate_multiplier": 0.0,
-        "radius": 150.0
-      }
     },
     "sources": []
   },

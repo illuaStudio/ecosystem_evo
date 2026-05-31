@@ -4,6 +4,7 @@ from src.sim.ai.action_config import get_mind_action_param
 from src.sim.ai.actions.base import Action
 from src.sim.shelter.state import is_creature_sheltered
 from src.sim.utils.inventory_helpers import inventory_is_loaded
+from src.sim.utils.world_object_helpers import creature_has_colony_target, parent_stored_food
 from src.sim.utils.creature_helpers import (
     consume_carcass,
     consume_carried_biomass,
@@ -61,7 +62,7 @@ class ReturnToNestAction(Action):
             return False
 
         ns = creature.world.nest_system
-        if ns.get_creature_nest(creature) is None:
+        if not creature_has_colony_target(creature):
             return False
 
         deposit_radius = float(self.params["deposit_radius"])
@@ -89,7 +90,7 @@ class ReturnToNestAction(Action):
             return 0.0
 
         ns = creature.world.nest_system
-        if ns.get_creature_nest(creature) is None:
+        if not creature_has_colony_target(creature):
             return 0.0
 
         tx, ty = ns.nest_target_xy(creature)
@@ -158,7 +159,7 @@ class FeedAtNestAction(Action):
             return False
 
         ns = creature.world.nest_system
-        if ns.get_creature_nest(creature) is None:
+        if not creature_has_colony_target(creature):
             return False
 
         feed_radius = float(self.params["feed_radius"])
@@ -220,7 +221,7 @@ class FeedAtNestAction(Action):
 
         ns = creature.world.nest_system
         nest = ns.get_creature_nest(creature)
-        if nest is None:
+        if not creature_has_colony_target(creature):
             return 0.0
 
         usable = self._has_usable_food(creature)
@@ -240,7 +241,18 @@ class FeedAtNestAction(Action):
             return 0.0
 
         if at_nest and usable:
-            fill = nest.food_ratio
+            from src.sim.utils.colony_helpers import get_creature_colony_id
+            from src.sim.utils.world_object_helpers import colony_food_ratio, parent_stored_food
+
+            cid = get_creature_colony_id(creature)
+            if cid:
+                fill = colony_food_ratio(creature.world, cid)
+            else:
+                ws = creature.world.world_object_system
+                parent_ids = getattr(creature, "nest_parent_object_ids", ()) or ()
+                root = ws.get(parent_ids[0]) if parent_ids else None
+                cap = float(root.storage.max_food) if root and root.storage else 1.0
+                fill = min(1.0, parent_stored_food(creature) / max(cap, 1.0))
             base = 0.55 + fill * 0.45
             return min(1.0, base + (0.25 if needs_self_feed(creature) else 0.0))
 
@@ -281,7 +293,7 @@ class NestPatrolAction(Action):
             return False
 
         ns = creature.world.nest_system
-        if ns.get_creature_nest(creature) is None:
+        if not creature_has_colony_target(creature):
             wander_step(
                 creature,
                 self.params["angle_range"],
@@ -331,7 +343,7 @@ class NestPatrolAction(Action):
 
         hunger = hunger_ratio(creature)
         nest = creature.world.nest_system.get_creature_nest(creature)
-        if nest is None:
+        if not creature_has_colony_target(creature):
             return 0.2
 
         dist = creature.world.nest_system.distance_to_nest(creature)
@@ -344,8 +356,11 @@ class NestPatrolAction(Action):
             return 0.88
 
         if dist <= patrol_r:
+            from src.sim.utils.colony_helpers import get_creature_colony_id
+
+            cid = get_creature_colony_id(creature) or ""
             members = creature.world.nest_system.member_count(
-                nest.id, creature.species.name
+                cid, creature.species.name
             )
             social = min(0.25, (members - 1) * 0.08)
             base = 0.55 if guard else 0.35

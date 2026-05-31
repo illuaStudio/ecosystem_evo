@@ -140,6 +140,53 @@ class ObstacleSystem:
 
         self._build_index()
 
+    def bootstrap_from_world_objects(self) -> bool:
+        """WorldObjectSystem の obstacle から衝突キャッシュを構築。"""
+        ws = getattr(self.world, "world_object_system", None)
+        if ws is None:
+            return False
+
+        obstacles = ws.iter_obstacles()
+        if not obstacles:
+            return False
+
+        self.obstacles.clear()
+        self._cells.clear()
+        for idx, obj in enumerate(obstacles, start=1):
+            if obj.shape == "rect":
+                self.obstacles.append(
+                    ObstacleRect(
+                        id=idx,
+                        obstacle_type=obj.type_ref,
+                        x=float(obj.x),
+                        y=float(obj.y),
+                        half_w=float(obj.half_w),
+                        half_h=float(obj.half_h),
+                        color=obj.color,
+                    )
+                )
+            else:
+                self.obstacles.append(
+                    ObstacleCircle(
+                        id=idx,
+                        obstacle_type=obj.type_ref,
+                        x=float(obj.x),
+                        y=float(obj.y),
+                        radius=float(obj.radius),
+                        color=obj.color,
+                    )
+                )
+        self._build_index()
+        return True
+
+    def init_from_layout(self, layout: Dict | None) -> None:
+        """instances 由来を優先し、なければ legacy obstacles.sources を読む。"""
+        if self.bootstrap_from_world_objects():
+            return
+        from src.sim.utils.object_type_loader import merge_obstacle_config
+
+        self.init_from_config(merge_obstacle_config((layout or {}).get("obstacles")))
+
     def _add_from_entry(
         self,
         entry: Dict,

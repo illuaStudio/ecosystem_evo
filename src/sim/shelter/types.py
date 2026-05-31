@@ -1,13 +1,16 @@
-"""避難所参照（巣穴・将来の hide_spot など）。"""
+"""避難所参照（colony_access WorldObject）。"""
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Literal
+
+ShelterKind = Literal["colony_access"]
 
 
 @dataclass(frozen=True)
 class ShelterRef:
-    kind: str  # "nest_hole"
-    nest_id: int
-    hole_index: int
+    kind: ShelterKind
     x: float
     y: float
+    object_id: str = ""
+    parent_id: str = ""

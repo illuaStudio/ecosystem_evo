@@ -16,6 +16,9 @@ from src.sim.systems.nest_system import NestSystem
 from src.sim.event_bus import EventBus
 from src.sim.systems.spawn_system import SpawnSystem
 from src.sim.systems.world_spawner import WorldSpawner
+from src.sim.utils.object_type_loader import merge_zone_config
+from src.sim.systems.world_object_system import WorldObjectSystem
+from src.sim.utils.world_instances import normalize_world_layout
 
 
 def normalize_population_limits(raw: Dict) -> Dict[str, int]:
@@ -68,13 +71,14 @@ class World:
         return cls.from_json(data)
 
     def _init_from_data(self, world_data: Dict) -> None:
-        self.name = world_data["name"]
-        self.display_name = world_data.get("display_name", self.name)
-        self.width = int(world_data["world_width"])
-        self.height = int(world_data["world_height"])
-        self.background_color = tuple(world_data.get("background_color", [34, 60, 25]))
+        layout = normalize_world_layout(world_data)
+        self.name = layout["name"]
+        self.display_name = layout.get("display_name", self.name)
+        self.width = int(layout["world_width"])
+        self.height = int(layout["world_height"])
+        self.background_color = tuple(layout.get("background_color", [34, 60, 25]))
 
-        env = world_data.get("environment", {})
+        env = layout.get("environment", {})
         self.temperature = float(env.get("temperature", 20.0))
         self.humidity = float(env.get("humidity", 50.0))
 
@@ -87,13 +91,13 @@ class World:
         self.movement_system = MovementSystem()
 
         self.biome = WorldBiome(self)
-        self.biome.init_from_config(world_data.get("world", {}))
+        self.biome.init_from_config(layout.get("world", {}))
 
         self.population_limits = normalize_population_limits(
-            world_data.get("population_limits", {})
+            layout.get("population_limits", {})
         )
 
-        colony_block = dict(world_data.get("colony", {}))
+        colony_block = dict(layout.get("colony", {}))
         self.faction_styles = dict(colony_block.pop("factions", {}))
         self.faction_species = dict(colony_block.pop("faction_species", {}))
         self.colony_profiles = {
@@ -107,21 +111,24 @@ class World:
         self._combat_pairs_this_tick: set[tuple] = set()
 
         self.nest_system = NestSystem(self)
+        self.world_object_system = WorldObjectSystem(self)
+        self.world_object_system.init_from_layout(layout)
+        self.nest_system.bootstrap_from_world_objects()
         self.zone_system = ZoneSystem(self)
         self.zone_system.init_from_config(
-            world_data.get("zones"),
-            legacy_field_emitters=world_data.get("field_emitters"),
+            merge_zone_config(layout.get("zones")),
+            legacy_field_emitters=layout.get("field_emitters"),
             colony_profiles=self.colony_profiles,
         )
         self.obstacle_system = ObstacleSystem(self)
-        self.obstacle_system.init_from_config(world_data.get("obstacles"))
+        self.obstacle_system.init_from_layout(layout)
         self.spawner = WorldSpawner(self)
         self.spawn_system = SpawnSystem(self)
         self.spawn_system.init_from_config(
-            world_data.get("spawn_emitters"),
-            legacy_ambient=world_data.get("ambient_spawns"),
+            layout.get("spawn_emitters"),
+            legacy_ambient=layout.get("ambient_spawns"),
         )
-        self.spawner.spawn_initial_entities(world_data)
+        self.spawner.spawn_initial_entities(layout)
         self.field_effect_cache.rebuild()
         self.sim_dt = 1.0
 

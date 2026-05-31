@@ -5,6 +5,7 @@ from src.sim.ai.actions.colony import FeedAtNestAction
 from src.sim.entities.creature_factory import CreatureFactory
 from src.sim.systems.world import World
 from src.sim.utils.nutrition_helpers import nest_has_usable_food
+from tests.sim.world_fixtures import set_colony_stored_food
 
 
 class TestNestFoodCleanup(unittest.TestCase):
@@ -15,8 +16,7 @@ class TestNestFoodCleanup(unittest.TestCase):
         world.add_creature(ant, spawn_source="initial")
         ant.satiety = ant.max_satiety * 0.10
         nest = world.nest_system.get_creature_nest(ant)
-        nest.stored_food = 8.0
-        nest.max_food = 5000.0
+        set_colony_stored_food(world, nest.colony_id, 8.0)
 
         self.assertTrue(nest_has_usable_food(ant))
         self.assertGreater(FeedAtNestAction().calculate_utility(ant), 0.0)
@@ -28,8 +28,7 @@ class TestNestFoodCleanup(unittest.TestCase):
         world.add_creature(ant, spawn_source="initial")
         ant.satiety = 0.0
         nest = world.nest_system.get_creature_nest(ant)
-        nest.stored_food = 49.0
-        nest.max_food = 5000.0
+        set_colony_stored_food(world, nest.colony_id, 49.0)
 
         self.assertTrue(nest_has_usable_food(ant))
         while nest.stored_food > 0 and ant.satiety < ant.max_satiety:
@@ -40,12 +39,16 @@ class TestNestFoodCleanup(unittest.TestCase):
         world = World()
         nest = world.nest_system.get_colony_nest("red_ant")
         self.assertIsNotNone(nest)
+        root = world.world_object_system.get("red_ant")
+        self.assertIsNotNone(root)
+        root.storage.stored_food = 49.0
         nest.stored_food = 49.0
         nest.max_food = 5000.0
 
         world.nest_system.update(dt=1.0)
 
         self.assertEqual(nest.stored_food, 49.0)
+        self.assertEqual(root.storage.stored_food, 49.0)
 
 
 if __name__ == "__main__":

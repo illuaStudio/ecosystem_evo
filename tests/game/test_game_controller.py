@@ -9,17 +9,29 @@ from src.game.mind_policy import MindPolicy
 from src.sim.bridge import SimBridge
 from src.sim.emitters import emit_colony_defeated, emit_combat_started_creature
 from src.sim.systems.world import World
-from tests.sim.world_fixtures import colony_settings
+from tests.sim.world_fixtures import (
+    BLUE_ANT_PROFILE,
+    RED_ANT_PROFILE,
+    colony_settings,
+    load_test_world,
+    set_colony_stored_food,
+)
 
 
 def _player_world(**overrides) -> World:
-    data = {
-        "name": "GameLayerTest",
-        "world_width": 800,
-        "world_height": 800,
-        "initial_entities": {},
-        "population_limits": {"red_ant": 20, "red_ant_queen": 3, "blue_ant": 10},
-        "colony": colony_settings(
+    return load_test_world(
+        name="GameLayerTest",
+        world_width=800,
+        world_height=800,
+        population_limits={"red_ant": 20, "red_ant_queen": 3, "blue_ant": 10},
+        colony=colony_settings(
+            profiles={
+                "red_ant": {
+                    **RED_ANT_PROFILE,
+                    "initial_stored_food": 600,
+                },
+                "blue_ant": dict(BLUE_ANT_PROFILE),
+            },
             factions={
                 "red_ant": {"label": "R"},
                 "blue_ant": {"label": "B"},
@@ -29,9 +41,8 @@ def _player_world(**overrides) -> World:
                 "blue_ant": ["blue_ant"],
             },
         ),
-    }
-    data.update(overrides)
-    return World.from_json(data)
+        **overrides,
+    )
 
 
 class TestGameMonitor(unittest.TestCase):
@@ -48,7 +59,7 @@ class TestGameMonitor(unittest.TestCase):
 
         state = GameState(player_colony_id="red_ant")
 
-        nest.stored_food = nest.max_food * 0.05
+        set_colony_stored_food(world, "red_ant", nest.max_food * 0.05)
         alerts = monitor.check(world, state)
         self.assertEqual(len(alerts), 1)
         self.assertIn("低下", alerts[0].message)
@@ -146,7 +157,7 @@ class TestGameController(unittest.TestCase):
 
         ctrl = self._controller(world)
         ctrl.reset_for_world(world, bridge=ctrl.bridge)
-        nest.stored_food = nest.max_food * 0.05
+        set_colony_stored_food(world, "red_ant", nest.max_food * 0.05)
 
         msgs = ctrl.on_tick(world)
         low_msgs = [m for m in msgs if m.source == "monitor" and "低下" in m.text]

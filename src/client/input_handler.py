@@ -60,7 +60,7 @@ class InputHandler:
         wx = event.pos[0] + self.engine.camera.x
         wy = event.pos[1] + self.engine.camera.y
         self.engine.selected_creature = None
-        self.engine.selected_nest = None
+        self.engine.selected_colony_id = None
 
         from src.sim.shelter.state import is_creature_sheltered
 
@@ -85,9 +85,9 @@ class InputHandler:
 
         nest_system = getattr(self.engine.world, "nest_system", None)
         if nest_system is not None:
-            nest = nest_system.find_nest_at(wx, wy)
-            if nest is not None:
-                self.engine.selected_nest = nest
+            colony_id = nest_system.find_colony_at(wx, wy)
+            if colony_id is not None:
+                self.engine.selected_colony_id = colony_id
 
     def _handle_keydown(self, event):
         """キー操作"""
@@ -102,7 +102,7 @@ class InputHandler:
         elif event.key == pygame.K_p:
             self.engine.debug_spawn_colony_member("red_ant")
         elif event.key == pygame.K_h:
-            self._add_nest_hole_at_cursor()
+            self._add_colony_access_at_cursor()
         elif event.key == pygame.K_d:
             self.engine.show_debug = not getattr(self.engine, 'show_debug', False)
         elif event.key == pygame.K_t:
@@ -119,8 +119,8 @@ class InputHandler:
         elif event.key == pygame.K_ESCAPE:
             return False
 
-    def _add_nest_hole_at_cursor(self) -> None:
-        """マウス位置に巣穴を追加（選択中の巣、なければカーソル付近の巣）。"""
+    def _add_colony_access_at_cursor(self) -> None:
+        """マウス位置に colony_access を追加（選択中の巣、なければカーソル付近の巣）。"""
         world = self.engine.world
         nest_system = getattr(world, "nest_system", None)
         if nest_system is None:
@@ -130,12 +130,12 @@ class InputHandler:
         wx = mx + self.engine.camera.x
         wy = my + self.engine.camera.y
 
-        nest = self.engine.selected_nest
-        if nest is None:
-            nest = nest_system.find_nest_at(wx, wy, pick_radius=80.0)
-        if nest is None:
+        colony_id = self.engine.selected_colony_id
+        if colony_id is None:
+            colony_id = nest_system.find_colony_at(wx, wy, pick_radius=80.0)
+        if colony_id is None:
             return
 
-        _ok, msg = nest_system.try_place_hole(nest, wx, wy)
+        _ok, msg = nest_system.try_place_hole(colony_id, wx, wy)
         self.engine.notify(msg, source="game")
-        self.engine.selected_nest = nest
+        self.engine.selected_colony_id = colony_id

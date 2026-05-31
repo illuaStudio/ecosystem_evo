@@ -489,8 +489,8 @@ _PARAM_META: dict[str, tuple[str, str, ValueType, float | None, float | None]] =
     "guard_mode": ("防衛巡回モード", "テリトリー防衛向けの巡回。", "bool", None, None),
     "hide_radius": ("巣穴に隠れる半径", "この距離内で避難完了。", "float", 10, 80),
     "high_food_ratio": ("産卵解禁閾値", "巣備蓄率がこの値以上で産卵解禁。", "float", 0.05, 1.0),
-    "hole_food_cost": ("巣穴設置コスト", "巣穴追加に必要な食料。", "float", 10, 2000),
-    "hole_max_hp": ("巣穴 HP", "追加巣穴の耐久力。", "float", 10, 500),
+    "access_food_cost": ("接続点設置コスト", "接続点追加に必要な食料。", "float", 10, 2000),
+    "access_max_hp": ("接続点 HP", "追加接続点の耐久力。", "float", 10, 500),
     "spawn_exclusion_radius": (
         "巣周辺スポーン禁止半径",
         "この半径内では prey などが湧きません（nest_clearing Zone）。",
@@ -505,13 +505,13 @@ _PARAM_META: dict[str, tuple[str, str, ValueType, float | None, float | None]] =
     "low_food_ratio": ("低備蓄アラート", "この備蓄率未満で警告。", "float", 0.01, 0.5),
     "max_colony_members": ("コロニー個体上限", "この数以上で産卵停止。", "int", 1, 100),
     "max_food": ("巣食料上限", "巣に貯められる食料の最大量。", "float", 100, 50000),
-    "max_holes": ("巣穴数上限", "コロニーが持てる巣穴の最大数。", "int", 1, 20),
+    "max_access_points": ("接続点数上限", "コロニーが持てる接続点の最大数。", "int", 1, 20),
     "max_hp": ("最大 HP", "体力上限。", "float", 10, 3000),
     "max_satiety": ("最大満腹度", "満腹度の上限。", "float", 10, 1000),
     "metabolism_per_tick": ("代謝/tick", "1 ティックあたり減る満腹度（ポイント、％ではない）。", "float", 0.001, 1.0),
     "milestone_workers": ("兵隊解禁働きアリ数", "働きアリがこの数以上で兵隊解禁。", "int", 1, 50),
     "min_food_reserve": ("最低食料備蓄", "操作後も残す食料の下限。", "float", 0, 1000),
-    "min_hole_spacing": ("巣穴最小間隔", "巣穴同士の最小距離（px）。", "float", 20, 400),
+    "min_access_spacing": ("接続点最小間隔", "接続点同士の最小距離（px）。", "float", 20, 400),
     "nest_leash_radius": ("巣からの最大距離", "この距離を超えると行動を止める。0=無制限。", "float", 0, 400),
     "nest_pull_strength": ("巣への引き戻し", "巡回中に巣方向へ引く強さ。", "float", 0, 2.0),
     "nest_x": ("巣 X 座標", "コロニー巣の X 位置。", "float", 0, 5000),
@@ -586,7 +586,7 @@ _MAIN_SECTION_ORDER: dict[str, tuple[str, ...]] = {
         "開始時の個体",
         "個体上限",
         "赤コロニー（巣）",
-        "巣穴・共通",
+        "接続点・共通",
         "エリア（Zone）",
         "その他",
     ),
@@ -691,7 +691,7 @@ def _infer_main_section(spec: FieldSpec) -> str:
         if len(path) >= 3 and path[:2] == ("colony", "profiles"):
             return "赤コロニー（巣）"
         if path[:1] == ("colony",):
-            return "巣穴・共通"
+            return "接続点・共通"
         if path[:1] == ("zones",):
             return "エリア（Zone）"
         if path[:1] == ("field_emitters",):
@@ -1009,11 +1009,11 @@ def _finalize_field_specs(base: list[FieldSpec]) -> list[FieldSpec]:
     world_paths: list[tuple[PathKey, ...]] = [
         ("world_width",),
         ("world_height",),
-        ("colony", "hole_food_cost"),
-        ("colony", "max_holes"),
-        ("colony", "min_hole_spacing"),
+        ("colony", "access_food_cost"),
+        ("colony", "max_access_points"),
+        ("colony", "min_access_spacing"),
         ("colony", "min_food_reserve"),
-        ("colony", "hole_max_hp"),
+        ("colony", "access_max_hp"),
         ("colony", "territory_effects", "hp_regen_per_dt"),
         ("colony", "profiles", "red_ant", "nest_x"),
         ("colony", "profiles", "red_ant", "nest_y"),
@@ -1231,7 +1231,7 @@ _BASE_FIELD_SPECS: list[FieldSpec] = [
         "queen_repro_reserve",
         "女王",
         "最低食料備蓄",
-        "巣穴の新設や産卵のあとも、巣に残しておく必要がある食料量の下限。",
+        "接続点の新設や産卵のあとも、巣に残しておく必要がある食料量の下限。",
         "sim/worlds/world.json",
         "float",
         ("colony", "min_food_reserve"),
@@ -1701,13 +1701,13 @@ _BASE_FIELD_SPECS: list[FieldSpec] = [
         max_val=50,
     ),
     FieldSpec(
-        "world_hole_cost",
+        "world_access_cost",
         "ワールド",
-        "巣穴設置コスト",
-        "プレイヤーが巣穴を追加するときに消費する食料量。",
+        "接続点設置コスト",
+        "プレイヤーが接続点を追加するときに消費する食料量。",
         "sim/worlds/world.json",
         "float",
-        ("colony", "hole_food_cost"),
+        ("colony", "access_food_cost"),
         min_val=50,
         max_val=1000,
     ),

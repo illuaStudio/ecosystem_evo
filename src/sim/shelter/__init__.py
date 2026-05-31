@@ -11,9 +11,10 @@ from src.sim.shelter.helpers import (
     sync_shelter_after_defeat,
 )
 from src.sim.shelter.state import clear_creature_shelter, is_creature_sheltered
-from src.sim.shelter.types import ShelterRef
+from src.sim.shelter.types import ShelterKind, ShelterRef
 
 __all__ = [
+    "ShelterKind",
     "ShelterRef",
     "clear_creature_shelter",
     "collect_threat_species_from_mind",

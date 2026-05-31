@@ -15,6 +15,8 @@ class GameState:
     flags: dict[str, bool] = field(default_factory=dict)
     applied_unlocks: set[str] = field(default_factory=set)
 
+    nest_parent_object_ids: tuple[str, ...] = field(default_factory=tuple)
+
     def set_flag(self, name: str, value: bool = True) -> bool:
         """フラグを更新し、False→True への変化なら True（初回トリガー用）。"""
         was = self.flags.get(name, False)

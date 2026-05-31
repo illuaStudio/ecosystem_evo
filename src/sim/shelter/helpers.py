@@ -65,45 +65,34 @@ def _threat_blocks_approach(
 
 
 def resolve_nest_shelter(creature, threat=None) -> ShelterRef | None:
-    """所属巣のうち、脅威で塞がれていない最寄り巣穴。"""
-    world = getattr(creature, "world", None)
+    """所属コロニーの colony_access から最寄り避難所を解決。"""
     colony = getattr(creature, "colony", None)
+    world = getattr(creature, "world", None)
     if world is None or colony is None:
         return None
     if _is_colony_defeated(creature):
         return None
+    from src.sim.utils.world_object_helpers import resolve_shelter_from_colony
 
-    ns = world.nest_system
-    nest = ns.get_creature_nest(creature)
-    if nest is None or not (nest.holes or []):
-        return None
-
-    approach_radius = get_hide_radius(creature)
-    cx, cy = entity_xy(creature)
-    ranked = sorted(
-        enumerate(nest.holes),
-        key=lambda item: math.hypot(item[1].x - cx, item[1].y - cy),
-    )
-    for idx, hole in ranked:
-        if float(getattr(hole, "hp", 0)) <= 0:
-            continue
-        if _threat_blocks_approach(
-            creature, hole.x, hole.y, threat, approach_radius=approach_radius
-        ):
-            continue
-        return ShelterRef(
-            kind="nest_hole",
-            nest_id=nest.id,
-            hole_index=idx,
-            x=float(hole.x),
-            y=float(hole.y),
-        )
-    return None
+    return resolve_shelter_from_colony(world, colony.colony_id, creature, threat)
 
 
 def resolve_creature_shelter(creature, threat=None) -> ShelterRef | None:
-    """現状は巣穴のみ。将来 hide_spot をここに追加。"""
-    return resolve_nest_shelter(creature, threat)
+    """親オブジェクト優先。未設定時は勢力の colony_access。"""
+    from src.sim.utils.world_object_helpers import (
+        resolve_shelter_from_colony,
+        resolve_shelter_from_parents,
+    )
+
+    ref = resolve_shelter_from_parents(creature, threat)
+    if ref is not None:
+        return ref
+
+    colony = getattr(creature, "colony", None)
+    world = getattr(creature, "world", None)
+    if colony is not None and world is not None:
+        return resolve_shelter_from_colony(world, colony.colony_id, creature, threat)
+    return None
 
 
 def shelter_distance(creature, ref: ShelterRef) -> float:

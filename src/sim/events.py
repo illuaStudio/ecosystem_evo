@@ -6,7 +6,7 @@ from typing import Any, Literal, Optional
 
 DeathCause = Literal["hp", "lifespan", "metabolism", "defeat", "unknown"]
 SpawnSource = Literal["initial", "reproduction", "spawn", "game", "debug"]
-CombatTargetKind = Literal["creature", "spawn_node"]
+CombatTargetKind = Literal["creature", "world_object"]
 ItemKind = Literal["biomass"]
 
 
@@ -51,8 +51,7 @@ class CombatStartedEvent(SimEvent):
     target_kind: CombatTargetKind = "creature"
     target_creature: Any = field(default=None, repr=False)
     target_colony_id: Optional[str] = None
-    target_nest_id: Optional[int] = None
-    target_hole_index: Optional[int] = None
+    target_object_id: Optional[str] = None
 
 
 @dataclass(frozen=True, kw_only=True)

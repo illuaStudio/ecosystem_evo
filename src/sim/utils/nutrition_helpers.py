@@ -136,16 +136,19 @@ def get_haul_max_carry(creature, default: float = 50.0) -> float:
     return _max(creature, default=default)
 
 def nest_stored_food(creature, default: float = 0.0) -> float:
-    world = getattr(creature, "world", None)
-    if world is None:
+    from src.sim.utils.world_object_helpers import (
+        get_creature_colony_root,
+        get_creature_nest_parent_ids,
+        parent_stored_food,
+    )
+
+    if get_creature_nest_parent_ids(creature):
+        return parent_stored_food(creature, default=default)
+
+    root = get_creature_colony_root(creature)
+    if root is None or root.storage is None:
         return default
-    colony = getattr(creature, "colony", None)
-    if colony is None:
-        return default
-    nest = world.nest_system.get_creature_nest(creature)
-    if nest is None:
-        return default
-    return float(nest.stored_food)
+    return float(root.storage.stored_food)
 
 def nest_has_food(creature, min_food: float = 8.0) -> bool:
     """stored_food が絶対量の下限を超えるか（粗い判定）。"""
@@ -178,15 +181,17 @@ def nest_feed_satiety_gain_estimate(creature) -> float:
     colony = getattr(creature, "colony", None)
     if colony is None:
         return 0.0
-    nest = world.nest_system.get_creature_nest(creature)
-    if nest is None or nest.stored_food <= 0:
+    from src.sim.utils.world_object_helpers import get_creature_colony_root
+
+    root = get_creature_colony_root(creature)
+    if root is None or root.storage is None or root.storage.stored_food <= 0:
         return 0.0
 
     max_sat = float(creature.max_satiety)
     if float(creature.satiety) >= max_sat:
         return 0.0
 
-    take = min(nest.stored_food, float(feed_per_tick))
+    take = min(root.storage.stored_food, float(feed_per_tick))
     gain = take * float(bite_gain)
     room = max_sat - float(creature.satiety)
     return min(gain, room)

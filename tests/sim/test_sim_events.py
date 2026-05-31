@@ -132,9 +132,13 @@ class TestSimEvents(unittest.TestCase):
         nest = world.nest_system.get_colony_nest("red_ant")
         world.events.drain()
 
-        for hole in list(nest.holes):
-            hole.hp = 0
-            world.nest_system._remove_hole(nest, hole)
+        world.faction_species = {"red_ant": ["red_ant"], "blue_ant": ["blue_ant"]}
+        ws = world.world_object_system
+        for access in list(ws.iter_access_points("red_ant")):
+            access.hp = 0.8
+            world.nest_system.damage_access(
+                access, "red_ant", 5.0, attacker_colony_id="blue_ant"
+            )
 
         events = world.events.drain()
         defeated = [e for e in events if isinstance(e, ColonyDefeatedEvent)]

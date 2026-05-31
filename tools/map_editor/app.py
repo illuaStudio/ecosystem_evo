@@ -20,19 +20,21 @@ from src.client.rendering.spawn_emitter_renderer import SpawnEmitterRenderer
 from src.client.rendering.zone_renderer import ZoneRenderer
 from src.client.rendering.nest_renderer import get_faction_style
 
-LAYER_ORDER = ["obstacle", "zone", "spawn", "nest"]
+LAYER_ORDER = ["obstacle", "zone", "spawn", "colony_site"]
 LAYER_LABELS = {
     "obstacle": "障害物",
     "zone": "Zone（毒霧等）",
     "spawn": "湧きエミッタ",
-    "nest": "巣（コロニー）",
+    "colony_site": "拠点（コロニー）",
+    "nest": "拠点（コロニー）",
 }
 LAYER_KEYS = {
     pygame.K_1: "obstacle",
     pygame.K_2: "zone",
     pygame.K_3: "spawn",
-    pygame.K_4: "nest",
+    pygame.K_4: "colony_site",
 }
+SITE_LAYERS = frozenset({"nest", "colony_site"})
 HUD_LEFT = 280
 HUD_TOP = 88
 
@@ -113,8 +115,8 @@ class MapEditorApp:
         obj = next((o for o in self.doc.objects if o.uid == self.selected_uid), None)
         if obj is None:
             return
-        if obj.layer == "nest":
-            self.status = "巣は削除できません（移動のみ）"
+        if obj.layer in SITE_LAYERS:
+            self.status = "拠点は削除できません（移動のみ）"
             return
         self.doc.remove_object(self.selected_uid)
         self.selected_uid = None
@@ -138,7 +140,7 @@ class MapEditorApp:
             return
         if button == 3:
             hit = self.doc.find_at(self.active_layer, wx, wy, all_layers=True)
-            if hit and hit.layer != "nest":
+            if hit and hit.layer not in SITE_LAYERS:
                 self.doc.remove_object(hit.uid)
                 if self.selected_uid == hit.uid:
                     self.selected_uid = None
@@ -184,8 +186,11 @@ class MapEditorApp:
             wx, wy = self._screen_to_world(*pos)
             obj = next((o for o in self.doc.objects if o.uid == self._dragging_uid), None)
             if obj is not None:
-                obj.x = wx
-                obj.y = wy
+                if obj.layer in SITE_LAYERS:
+                    self.doc.move_site_with_access(obj, wx, wy)
+                else:
+                    obj.x = wx
+                    obj.y = wy
                 self._mark_dirty()
 
     def _handle_key(self, event: pygame.event.Event) -> None:
@@ -281,34 +286,36 @@ class MapEditorApp:
             return
         sx = int(obj.x - self.camera.x)
         sy = int(obj.y - self.camera.y)
-        if obj.layer == "obstacle":
-            types = (self.doc.data.get("obstacles") or {}).get("types") or {}
-            tdef = types.get(obj.type_ref) or {}
-            if str(tdef.get("shape", "circle")).lower() == "rect":
-                hw = int(float(obj.get("width", tdef.get("width", 40))) * 0.5)
-                hh = int(float(obj.get("height", tdef.get("height", 16))) * 0.5)
-                pygame.draw.rect(
-                    self.screen,
-                    (255, 255, 100),
-                    pygame.Rect(sx - hw - 3, sy - hh - 3, hw * 2 + 6, hh * 2 + 6),
-                    2,
-                )
-                return
+        rect = self.doc.rect_half_extents(obj)
+        if rect is not None:
+            hw, hh = int(rect[0]) + 3, int(rect[1]) + 3
+            pygame.draw.rect(
+                self.screen,
+                (255, 255, 100),
+                pygame.Rect(sx - hw, sy - hh, hw * 2, hh * 2),
+                2,
+            )
+            return
         radius = int(self.doc.resolve_radius(obj)) + 4
         pygame.draw.circle(self.screen, (255, 255, 80), (sx, sy), radius, 2)
 
     def _draw_nest_markers(self) -> None:
-        for obj in self.doc.objects_in_layer("nest"):
+        for obj in self.doc.objects_in_layer("colony_site"):
             sx = int(obj.x - self.camera.x)
             sy = int(obj.y - self.camera.y)
-            style = get_faction_style(self.world, obj.type_ref)
+            colony_id = self.doc.colony_id_for_site(obj)
+            style = get_faction_style(self.world, colony_id)
             outer = style.get("nest_outer", (90, 45, 30))
             inner = style.get("nest_inner_base", (180, 90, 40))
             tr = min(36, int(self.doc.resolve_radius(obj) * 0.2))
             pygame.draw.circle(self.screen, outer, (sx, sy), tr + 4, 2)
             pygame.draw.circle(self.screen, inner, (sx, sy), tr)
-            label = style.get("label", obj.type_ref[:1])
+            label = style.get("label", colony_id[:1])
             self.screen.blit(self.small_font.render(str(label), True, (255, 240, 220)), (sx - 6, sy - 8))
+        for obj in self.doc.objects_in_layer("colony_access"):
+            sx = int(obj.x - self.camera.x)
+            sy = int(obj.y - self.camera.y)
+            pygame.draw.circle(self.screen, (200, 160, 80), (sx, sy), 6, 2)
 
     def _draw_frame(self) -> None:
         self.renderer.screen = self.screen

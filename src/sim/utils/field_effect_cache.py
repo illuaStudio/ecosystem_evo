@@ -59,11 +59,11 @@ class FieldEffectCache:
         for cid in (getattr(world, "faction_species", {}) or {}):
             if cid:
                 ids.add(str(cid))
-        ns = getattr(world, "nest_system", None)
-        if ns is not None:
-            for nest in ns.nests.values():
-                if nest.colony_id:
-                    ids.add(str(nest.colony_id))
+        from src.sim.utils.world_object_helpers import iter_active_colony_roots
+
+        for root in iter_active_colony_roots(world):
+            if root.id:
+                ids.add(str(root.id))
         return tuple(sorted(ids))
 
     def _resolve_territory_modifiers(self) -> FieldModifiers:

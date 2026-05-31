@@ -47,7 +47,17 @@ class GameDirector:
         """ワールド開始時: スポーンプロファイル等の初期適用。"""
         if self.bridge is None:
             return
+        from src.sim.utils.world_object_helpers import set_creature_nest_parent_ids
+
+        parent_ids = self.state.nest_parent_object_ids
+        if not parent_ids:
+            parent_ids = (self.state.player_colony_id,)
+
         for creature in world.creatures:
+            colony_data = getattr(creature.species, "colony_data", None) or {}
+            inv = getattr(creature, "inventory", None)
+            if colony_data.get("enabled") or (inv is not None and inv.slot_count > 0):
+                set_creature_nest_parent_ids(creature, parent_ids)
             apply_spawn_profile(self.bridge, creature)
 
     def on_sim_events(
@@ -66,13 +76,18 @@ class GameDirector:
 
     def update_derived_levels(self, world: "World") -> None:
         """危険度・安定度・文明度の更新。"""
-        nest = world.nest_system.get_colony_nest(self.state.player_colony_id)
-        if nest is None:
+        if self.state.has_flag("player_colony_defeated"):
             self.state.stability_level = 0.0
-            return
-
-        food_factor = min(1.0, nest.food_ratio / 0.5)
-        self.state.stability_level = max(0.0, min(1.0, 0.3 + food_factor * 0.7))
+        else:
+            root = world.nest_system.get_colony_root(self.state.player_colony_id)
+            if root is None:
+                self.state.stability_level = 0.0
+            else:
+                food_factor = min(
+                    1.0,
+                    world.nest_system.colony_food_ratio(self.state.player_colony_id) / 0.5,
+                )
+                self.state.stability_level = max(0.0, min(1.0, 0.3 + food_factor * 0.7))
 
         danger = 0.0
         if self.state.has_flag("first_enemy_contact"):
@@ -166,7 +181,7 @@ class GameDirector:
 
             target_cid = get_creature_colony_id(event.target_creature)
             player_attacked = target_cid == player_id
-        elif event.target_kind == "spawn_node":
+        elif event.target_kind == "world_object":
             player_attacked = event.target_colony_id == player_id
 
         if not player_attacked:
@@ -185,6 +200,7 @@ class GameDirector:
         if event.colony_id == self.state.player_colony_id:
             self.user_message = event.message
             self.state.stability_level = 0.0
+            self.state.set_flag("player_colony_defeated")
             return [
                 GameMessage(
                     text=event.message,

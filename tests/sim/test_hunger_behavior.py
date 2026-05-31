@@ -355,7 +355,9 @@ class TestQueenNestFeeding(unittest.TestCase):
         queen.nutrition_recovery = False
         update_nutrition_recovery(queen)
         nest = world.nest_system.get_creature_nest(queen)
-        nest.stored_food = 500.0
+        from tests.sim.world_fixtures import set_colony_stored_food
+
+        set_colony_stored_food(world, nest.colony_id, 500.0)
         self.assertTrue(is_creature_sheltered(queen))
         return world, queen, nest
 

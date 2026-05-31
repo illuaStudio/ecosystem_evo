@@ -16,7 +16,12 @@ from src.config import config
 from src.sim.utils.creature_helpers import distance_to_point
 from src.sim.utils.position_helpers import entity_xy
 from src.sim.utils.colony_config_helpers import get_colony_profile, get_min_food_reserve
-from tests.sim.world_fixtures import colony_settings
+from tests.sim.world_fixtures import (
+    RED_ANT_PROFILE,
+    colony_settings,
+    load_test_world,
+    set_colony_stored_food,
+)
 
 
 def _repro_food_cost(params: dict) -> float:
@@ -30,15 +35,15 @@ def _repro_member_species(params: dict) -> list[str]:
 class TestAntNest(unittest.TestCase):
     def _empty_world(self) -> World:
         """????????????????blue_ant ???????????????????"""
-        return World.from_json(
-            {
-                "name": "AntNestTest",
-                "world_width": 3000,
-                "world_height": 3000,
-                "initial_entities": {},
-                "population_limits": {"red_ant": 60, "blue_ant": 60},
-                "colony": colony_settings(),
-            }
+        return load_test_world(
+            name="AntNestTest",
+            world_width=3000,
+            world_height=3000,
+            population_limits={"red_ant": 60, "blue_ant": 60},
+            colony=colony_settings(
+                profiles={"red_ant": dict(RED_ANT_PROFILE)},
+                faction_species={"red_ant": ["red_ant"]},
+            ),
         )
 
     def _spawn_predators(self, world, count: int = 3):
@@ -60,8 +65,8 @@ class TestAntNest(unittest.TestCase):
             p = factory.create("red_ant", world=world, x=x, y=y)
             world.add_creature(p)
             preds.append(p)
-        nest_ids = {p.colony.nest_id for p in preds}
-        self.assertEqual(len(nest_ids), 1)
+        colony_ids = {p.colony.colony_id for p in preds}
+        self.assertEqual(len(colony_ids), 1)
         self.assertEqual(len(world.nest_system.nests), 1)
 
     def test_initial_predators_spawn_near_nest_anchor(self):
@@ -101,16 +106,17 @@ class TestAntNest(unittest.TestCase):
         factory = CreatureFactory()
         first = factory.create("red_ant", world=world, x=300, y=300)
         world.add_creature(first)
-        nest_id = first.colony.nest_id
+        colony_id = first.colony.colony_id
 
         second = factory.create("red_ant", world=world, x=900, y=900)
         world.add_creature(second)
-        self.assertEqual(second.colony.nest_id, nest_id)
+        self.assertEqual(second.colony.colony_id, colony_id)
         self.assertEqual(len(world.nest_system.nests), 1)
 
     def test_new_nest_gets_initial_stored_food_from_colony_cfg(self):
-        world = World.from_json(
-            {"name": "Test", "world_width": 1000, "world_height": 1000, "colony": colony_settings()}
+        world = load_test_world(
+            name="Test",
+            colony=colony_settings(profiles={}, faction_species={}),
         )
         factory = CreatureFactory()
         ant = factory.create("red_ant", world=world, x=100, y=100)
@@ -128,9 +134,7 @@ class TestAntNest(unittest.TestCase):
         self.assertAlmostEqual(nest.max_food, 500.0)
 
     def test_initial_stored_food_clamped_to_max_food(self):
-        world = World.from_json(
-            {"name": "Test", "world_width": 1000, "world_height": 1000, "colony": colony_settings()}
-        )
+        world = load_test_world(name="Test")
         factory = CreatureFactory()
         ant = factory.create("red_ant", world=world, x=100, y=100)
         world.nest_system.assign_creature(
@@ -145,9 +149,7 @@ class TestAntNest(unittest.TestCase):
         self.assertAlmostEqual(nest.stored_food, 80.0)
 
     def test_joining_existing_nest_does_not_reset_stored_food(self):
-        world = World.from_json(
-            {"name": "Test", "world_width": 1000, "world_height": 1000, "colony": colony_settings()}
-        )
+        world = load_test_world(name="Test")
         factory = CreatureFactory()
         first = factory.create("red_ant", world=world, x=300, y=300)
         world.nest_system.assign_creature(
@@ -162,7 +164,7 @@ class TestAntNest(unittest.TestCase):
             second,
             {"single_colony": True, "max_food": 400.0, "initial_stored_food": 200.0},
         )
-        self.assertEqual(second.colony.nest_id, nest.id)
+        self.assertEqual(second.colony.colony_id, nest.colony_id)
         self.assertAlmostEqual(nest.stored_food, 50.0)
 
     def test_hunt_pickup_and_deposit_increases_nest_storage(self):
@@ -206,7 +208,7 @@ class TestAntNest(unittest.TestCase):
         preds = self._spawn_predators(world, 1)
         predator = preds[0]
         nest = world.nest_system.get_creature_nest(predator)
-        nest.stored_food = 200.0
+        set_colony_stored_food(world, nest.colony_id, 200.0)
         predator.satiety = predator.max_satiety * 0.2
 
         before = hunger_ratio(predator)
@@ -216,37 +218,36 @@ class TestAntNest(unittest.TestCase):
         self.assertLess(nest.stored_food, 200.0)
 
     def test_food_leak_reduces_storage(self):
-        world = World.from_json(
-            {
-                "name": "FoodLeakTest",
-                "world_width": 3000,
-                "world_height": 3000,
-                "initial_entities": {},
-                "population_limits": {"red_ant": 60},
-                "colony": colony_settings(),
-            }
+        world = load_test_world(
+            name="FoodLeakTest",
+            world_width=3000,
+            world_height=3000,
+            population_limits={"red_ant": 60},
         )
         preds = self._spawn_predators(world, 1)
         nest = world.nest_system.get_creature_nest(preds[0])
         reserve = nest.max_food * float(
             get_colony_profile(world, "red_ant")["food_leak_reserve_ratio"]
         )
-        nest.stored_food = reserve + 500.0
+        set_colony_stored_food(world, "red_ant", reserve + 500.0)
         food_before = nest.stored_food
 
-        for _ in range(200):
-            world.nest_system.update(10.0)
+        dt = 10.0
+        ticks = 200
+        for _ in range(ticks):
+            world.nest_system.update(dt)
 
         self.assertLess(nest.stored_food, food_before)
         leak_per_tick = float(get_colony_profile(world, "red_ant")["food_leak_per_tick"])
-        self.assertAlmostEqual(nest.stored_food, reserve + 500.0 - 200.0 * leak_per_tick)
+        expected = reserve + 500.0 - ticks * leak_per_tick * dt
+        self.assertAlmostEqual(nest.stored_food, max(reserve, expected))
 
     def test_feed_per_member_ratio_divides_by_colony_size(self):
         world = World()
         for c in list(world.creatures):
             if c.species.name == "red_ant":
                 world.remove_creature(c)
-        world.nest_system.nests.clear()
+        world.nest_system.clear_all_colony_sites()
         preds = self._spawn_predators(world, 3)
         nest = world.nest_system.get_creature_nest(preds[0])
         nest.stored_food = 200.0
@@ -289,7 +290,7 @@ class TestAntNest(unittest.TestCase):
 
         reserve = get_min_food_reserve(world)
 
-        nest.stored_food = reserve + cost + 10
+        set_colony_stored_food(world, nest.colony_id, reserve + cost + 10)
         members_before = world.nest_system.count_colony_members(
             nest.id, _repro_member_species(params)
         )
@@ -495,7 +496,7 @@ class TestAntNest(unittest.TestCase):
         preds = self._spawn_predators(world, 1)
         ant = preds[0]
         nest = world.nest_system.get_creature_nest(ant)
-        nest.stored_food = nest.max_food
+        set_colony_stored_food(world, nest.colony_id, nest.max_food)
 
         ant.inventory.slots[0].item = BiomassItem(amount=42.0)
         px, py = entity_xy(ant)

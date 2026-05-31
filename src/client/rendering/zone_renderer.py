@@ -49,9 +49,8 @@ class ZoneRenderer:
         return None
 
     @staticmethod
-    def _draw_zone(
+    def _draw_circle_zone(
         screen,
-        camera,
         sx: int,
         sy: int,
         radius: int,
@@ -67,6 +66,25 @@ class ZoneRenderer:
         screen.blit(surf, (sx - pad, sy - pad))
 
     @staticmethod
+    def _draw_rect_zone(
+        screen,
+        sx: int,
+        sy: int,
+        half_w: int,
+        half_h: int,
+        fill_rgba: tuple[int, int, int, int],
+        line_rgba: tuple[int, int, int, int],
+    ) -> None:
+        pad = 8
+        w = half_w * 2 + pad * 2
+        h = half_h * 2 + pad * 2
+        surf = pygame.Surface((w, h), pygame.SRCALPHA)
+        rect = pygame.Rect(pad, pad, half_w * 2, half_h * 2)
+        pygame.draw.rect(surf, fill_rgba, rect)
+        pygame.draw.rect(surf, line_rgba, rect, 2)
+        screen.blit(surf, (sx - half_w - pad, sy - half_h - pad))
+
+    @staticmethod
     def draw(world, screen, camera) -> None:
         system = getattr(world, "zone_system", None)
         if system is None:
@@ -79,22 +97,26 @@ class ZoneRenderer:
 
             sx = int(zone.x - camera.x)
             sy = int(zone.y - camera.y)
-            radius = int(zone.radius)
-            if not (
-                -radius - 20 <= sx <= camera.screen_w + radius + 20
-                and -radius - 20 <= sy <= camera.screen_h + radius + 20
-            ):
-                continue
+            fill = _rgba(style.get("zone_fill"), POISON_FOG_STYLE["zone_fill"])
+            line = _rgba(style.get("zone_line"), POISON_FOG_STYLE["zone_line"])
 
-            ZoneRenderer._draw_zone(
-                screen,
-                camera,
-                sx,
-                sy,
-                radius,
-                _rgba(style.get("zone_fill"), POISON_FOG_STYLE["zone_fill"]),
-                _rgba(style.get("zone_line"), POISON_FOG_STYLE["zone_line"]),
-            )
+            if zone.is_rect:
+                half_w = int(zone.half_w)
+                half_h = int(zone.half_h)
+                if not (
+                    -half_w - 20 <= sx <= camera.screen_w + half_w + 20
+                    and -half_h - 20 <= sy <= camera.screen_h + half_h + 20
+                ):
+                    continue
+                ZoneRenderer._draw_rect_zone(screen, sx, sy, half_w, half_h, fill, line)
+            else:
+                radius = int(zone.radius)
+                if not (
+                    -radius - 20 <= sx <= camera.screen_w + radius + 20
+                    and -radius - 20 <= sy <= camera.screen_h + radius + 20
+                ):
+                    continue
+                ZoneRenderer._draw_circle_zone(screen, sx, sy, radius, fill, line)
 
             if zone.effects.hp_drain_per_dt > 0:
                 outer = _rgba(style.get("core_outer"), (*POISON_FOG_STYLE["core_outer"], 255))[:3]

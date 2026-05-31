@@ -24,35 +24,35 @@ class GameMonitor:
     def check(self, world: "World", state: "GameState") -> list[MonitorAlert]:
         alerts: list[MonitorAlert] = []
         colony_id = state.player_colony_id
-        nest = world.nest_system.get_colony_nest(colony_id)
-        if nest is None:
+        if world.nest_system.get_colony_root(colony_id) is None:
             return alerts
 
         low_ratio = float(self.settings.get("low_food_ratio", 0.10))
-        if nest.food_ratio < low_ratio:
+        food_ratio = world.nest_system.colony_food_ratio(colony_id)
+        if food_ratio < low_ratio:
             if state.set_flag("low_food_warned"):
                 alerts.append(
                     MonitorAlert(
                         "low_food",
-                        f"備蓄が {nest.food_ratio * 100:.0f}% まで低下しました",
+                        f"備蓄が {food_ratio * 100:.0f}% まで低下しました",
                     )
                 )
-        elif nest.food_ratio >= low_ratio * 1.5:
+        elif food_ratio >= low_ratio * 1.5:
             state.flags["low_food_warned"] = False
 
         high_ratio = float(self.settings.get("high_food_ratio", 0.50))
-        if nest.food_ratio >= high_ratio:
+        if food_ratio >= high_ratio:
             if state.set_flag("high_food_reached"):
                 alerts.append(
                     MonitorAlert(
                         "high_food",
-                        f"備蓄が {nest.food_ratio * 100:.0f}% に達しました",
+                        f"備蓄が {food_ratio * 100:.0f}% に達しました",
                     )
                 )
 
         worker_species = self._colony_member_species(world, colony_id)
         if worker_species:
-            count = world.nest_system.count_colony_members(nest.id, worker_species)
+            count = world.nest_system.count_colony_members(colony_id, worker_species)
             milestone = int(self.settings.get("milestone_workers", 5))
             if count >= milestone and state.set_flag("workers_milestone"):
                 alerts.append(

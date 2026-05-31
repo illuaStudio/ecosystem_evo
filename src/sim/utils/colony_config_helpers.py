@@ -48,11 +48,33 @@ def get_colony_profile(world, colony_id: str) -> dict:
 
 
 def get_min_food_reserve(world) -> float:
-    """巣穴設置・産卵で共有する最低食料備蓄。"""
+    """接続点設置・産卵で共有する最低食料備蓄。"""
     cfg = get_colony_settings(world)
     if "min_food_reserve" not in cfg:
         raise KeyError("world colony.min_food_reserve が未設定です")
     return float(cfg["min_food_reserve"])
+
+
+def _colony_cfg_value(cfg: dict, key: str, legacy_key: str, default):
+    if key in cfg:
+        return cfg[key]
+    return cfg.get(legacy_key, default)
+
+
+def get_access_food_cost(cfg: dict) -> float:
+    return float(_colony_cfg_value(cfg, "access_food_cost", "hole_food_cost", 250.0))
+
+
+def get_max_access_points(cfg: dict) -> int:
+    return int(_colony_cfg_value(cfg, "max_access_points", "max_holes", 8))
+
+
+def get_min_access_spacing(cfg: dict) -> float:
+    return float(_colony_cfg_value(cfg, "min_access_spacing", "min_hole_spacing", 120.0))
+
+
+def get_access_max_hp(cfg: dict) -> float:
+    return float(_colony_cfg_value(cfg, "access_max_hp", "hole_max_hp", 120.0))
 
 
 def resolve_colony_runtime_cfg(

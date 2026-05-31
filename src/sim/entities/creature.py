@@ -46,6 +46,7 @@ class Creature(BaseEntity):
         self.nutrition_recovery = False
         self.flee_latch = False
         self.shelter = None
+        self.nest_parent_object_ids: tuple[str, ...] = ()
 
         self.world = None
         self.last_pos = self.pos.copy()

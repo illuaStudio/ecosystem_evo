@@ -1,0 +1,11 @@
+{
+  "id": "fallen_log",
+  "category": "obstacle",
+  "label": "倒木",
+  "shape": "rect",
+  "width": 84,
+  "height": 16,
+  "render": {
+    "color": [92, 64, 40]
+  }
+}

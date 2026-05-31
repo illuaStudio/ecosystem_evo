@@ -4,14 +4,13 @@ from __future__ import annotations
 import math
 
 from src.sim.combat.target_ref import TargetKind, TargetRef
-from src.sim.utils.colony_helpers import can_attack_hole, is_colony_defeated
+from src.sim.utils.colony_helpers import can_attack_colony_access, is_colony_defeated
 from src.sim.utils.creature_helpers import (
     closeness_ratio,
     is_edible_prey,
     is_hostile_target,
     is_creature_threatening_territory,
     is_in_creature_territory,
-    is_in_vision,
     is_trackable_hostile,
     is_trackable_prey,
 )
@@ -28,9 +27,32 @@ def vision_range(creature) -> float:
 def target_position(ref: TargetRef) -> tuple[float, float]:
     if ref.kind is TargetKind.CREATURE and ref.creature is not None:
         return entity_xy(ref.creature)
-    if ref.kind is TargetKind.SPAWN_NODE and ref.hole is not None:
-        return float(ref.hole.x), float(ref.hole.y)
+    if ref.kind is TargetKind.WORLD_OBJECT and ref.world_object is not None:
+        return float(ref.world_object.x), float(ref.world_object.y)
     return (0.0, 0.0)
+
+
+def iter_targets(world, kinds: tuple[TargetKind, ...] | list[TargetKind]):
+    """ワールド上の戦闘対象を列挙。"""
+    kind_set = set(kinds)
+    if TargetKind.CREATURE in kind_set:
+        for c in world.creatures:
+            yield TargetRef.from_creature(c)
+
+    if TargetKind.WORLD_OBJECT not in kind_set:
+        return
+
+    ws = getattr(world, "world_object_system", None)
+    if ws is None:
+        return
+
+    for root in ws.iter_roots():
+        if is_colony_defeated(world, root.id):
+            continue
+        for child in ws.get_children(root.id):
+            if float(getattr(child, "max_hp", 0)) <= 0 or child.is_destroyed:
+                continue
+            yield TargetRef.from_world_object(child, root.id)
 
 
 def distance_to_target(creature, ref: TargetRef) -> float:
@@ -47,25 +69,6 @@ def target_closeness(creature, ref: TargetRef, *, max_distance: float | None = N
         return 0.0
     d = distance_to_target(creature, ref)
     return max(0.0, min(1.0, 1.0 - d / max_d))
-
-
-def iter_targets(world, kinds: tuple[TargetKind, ...] | list[TargetKind]):
-    """ワールド上の戦闘対象を列挙。"""
-    kind_set = set(kinds)
-    if TargetKind.CREATURE in kind_set:
-        for c in world.creatures:
-            yield TargetRef.from_creature(c)
-    if TargetKind.SPAWN_NODE in kind_set:
-        ns = getattr(world, "nest_system", None)
-        if ns is None:
-            return
-        for nest in ns.nests.values():
-            if is_colony_defeated(world, nest.colony_id):
-                continue
-            for hole in nest.holes or []:
-                if float(getattr(hole, "hp", 0)) <= 0:
-                    continue
-                yield TargetRef.from_spawn_node(nest, hole)
 
 
 def find_nearest_hostile_creature(
@@ -209,7 +212,7 @@ def is_trackable_prey_creature(
     return True
 
 
-def find_nearest_spawn_node(
+def find_nearest_colony_access(
     creature,
     hostile_colony_ids: tuple[str, ...],
     *,
@@ -226,16 +229,19 @@ def find_nearest_spawn_node(
     best: TargetRef | None = None
     best_d = float("inf")
 
-    for ref in iter_targets(creature.world, (TargetKind.SPAWN_NODE,)):
-        nest = ref.nest
-        hole = ref.hole
-        if nest is None or hole is None or nest.colony_id not in hostile_colony_ids:
+    for ref in iter_targets(creature.world, (TargetKind.WORLD_OBJECT,)):
+        colony_id = ref.colony_id
+        if not colony_id or colony_id not in hostile_colony_ids:
             continue
-        if not can_attack_hole(
-            creature, hole, nest.colony_id, unrestricted=unrestricted
+        access = ref.world_object
+        if access is None:
+            continue
+        if not can_attack_colony_access(
+            creature, access, colony_id, unrestricted=unrestricted
         ):
             continue
-        d = math.hypot(float(hole.x) - cx, float(hole.y) - cy)
+        tx, ty = float(access.x), float(access.y)
+        d = math.hypot(tx - cx, ty - cy)
         if d > max_d or d >= best_d:
             continue
         best_d = d
@@ -243,38 +249,37 @@ def find_nearest_spawn_node(
     return best
 
 
-def is_valid_spawn_node(
+def is_valid_colony_access(
     creature,
     ref: TargetRef,
     *,
     hostile_colony_ids: tuple[str, ...],
     unrestricted: bool = False,
 ) -> bool:
-    if ref.kind is not TargetKind.SPAWN_NODE or creature.world is None:
+    if creature.world is None or ref.kind is not TargetKind.WORLD_OBJECT:
         return False
-    nest, hole = ref.nest, ref.hole
-    if nest is None or hole is None:
+    access = ref.world_object
+    colony_id = ref.colony_id
+    if access is None or not colony_id:
         return False
-    ns = creature.world.nest_system
-    live = ns.nests.get(nest.id)
-    if live is None or live is not nest:
+    ws = getattr(creature.world, "world_object_system", None)
+    live = ws.get(access.id) if ws is not None else None
+    if live is None or live is not access:
         return False
-    if hole not in (nest.holes or []):
+    if is_colony_defeated(creature.world, colony_id):
         return False
-    if is_colony_defeated(creature.world, nest.colony_id):
+    if float(live.hp) <= 0 or live.is_destroyed:
         return False
-    if float(getattr(hole, "hp", 0)) <= 0:
+    if colony_id not in hostile_colony_ids:
         return False
-    if nest.colony_id not in hostile_colony_ids:
-        return False
-    return can_attack_hole(
-        creature, hole, nest.colony_id, unrestricted=unrestricted
+    return can_attack_colony_access(
+        creature, live, colony_id, unrestricted=unrestricted
     )
 
 
-def spawn_node_in_range(creature, ref: TargetRef, max_distance: float) -> bool:
-    if ref.kind is not TargetKind.SPAWN_NODE or ref.hole is None:
+def colony_access_in_range(creature, ref: TargetRef, max_distance: float) -> bool:
+    if ref.kind is not TargetKind.WORLD_OBJECT:
         return False
-    if float(getattr(ref.hole, "hp", 0)) <= 0:
+    if ref.world_object is None or float(ref.world_object.hp) <= 0:
         return False
     return distance_to_target(creature, ref) <= float(max_distance)

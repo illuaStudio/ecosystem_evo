@@ -1,0 +1,8 @@
+{
+  "id": "colony_site",
+  "category": "colony",
+  "label": "コロニー拠点（親）",
+  "role": "root",
+  "max_food": 5000,
+  "initial_stored_food": 80
+}

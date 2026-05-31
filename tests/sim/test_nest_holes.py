@@ -8,7 +8,7 @@ from src.sim.utils.creature_helpers import (
     is_point_in_nest_territory,
     resolve_colony_id,
 )
-from tests.sim.world_fixtures import colony_settings
+from tests.sim.world_fixtures import colony_settings, set_colony_stored_food
 
 
 def _colony_world(**overrides) -> World:
@@ -24,9 +24,9 @@ def _colony_world(**overrides) -> World:
             "yellow_ant": 20,
         },
         "colony": {
-            "hole_food_cost": 250,
-            "max_holes": 8,
-            "min_hole_spacing": 120,
+            "access_food_cost": 250,
+            "max_access_points": 8,
+            "min_access_spacing": 120,
             **colony_settings(),
         },
     }
@@ -72,7 +72,7 @@ class TestNestHolesAndColonyId(unittest.TestCase):
         worker = factory.create("red_ant", world=world, x=200, y=200)
         world.add_creature(worker)
         nest = world.nest_system.get_creature_nest(worker)
-        nest.stored_food = 5000.0
+        set_colony_stored_food(world, nest.colony_id, 5000.0)
 
         radius = 180.0
         edge_x = 200.0 + radius - 10
@@ -91,7 +91,7 @@ class TestNestHolesAndColonyId(unittest.TestCase):
         worker = factory.create("red_ant", world=world, x=200, y=200)
         world.add_creature(worker)
         nest = world.nest_system.get_creature_nest(worker)
-        nest.stored_food = 5000.0
+        set_colony_stored_food(world, nest.colony_id, 5000.0)
 
         ok, msg = world.nest_system.try_place_hole(nest, 600.0, 600.0)
         self.assertFalse(ok)
@@ -103,7 +103,7 @@ class TestNestHolesAndColonyId(unittest.TestCase):
         worker = factory.create("red_ant", world=world, x=300, y=300)
         world.add_creature(worker)
         nest = world.nest_system.get_creature_nest(worker)
-        nest.stored_food = 400.0
+        set_colony_stored_food(world, nest.colony_id, 400.0)
         before = nest.stored_food
 
         ok, _ = world.nest_system.try_place_hole(nest, 450.0, 300.0)
@@ -116,7 +116,7 @@ class TestNestHolesAndColonyId(unittest.TestCase):
         worker = factory.create("red_ant", world=world, x=100, y=100)
         world.add_creature(worker)
         nest = world.nest_system.get_creature_nest(worker)
-        nest.stored_food = 5000.0
+        set_colony_stored_food(world, nest.colony_id, 5000.0)
 
         ok, _ = world.nest_system.try_place_hole(nest, 250.0, 100.0)
         self.assertTrue(ok)
@@ -132,7 +132,7 @@ class TestNestHolesAndColonyId(unittest.TestCase):
         soldier = factory.create("red_ant_soldier", world=world, x=105, y=100)
         world.add_creature(soldier)
         nest = world.nest_system.get_creature_nest(worker)
-        nest.stored_food = 5000.0
+        set_colony_stored_food(world, nest.colony_id, 5000.0)
 
         prey_x = 100.0 + 180 + 150
         prey = factory.create("Spider", world=world, x=prey_x, y=100)

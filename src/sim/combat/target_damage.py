@@ -24,13 +24,17 @@ def apply_damage_to_target(
         try_attack_only(attacker, prey, attack_power=float(amount))
         return float(amount)
 
-    if ref.kind is TargetKind.SPAWN_NODE:
-        nest, hole = ref.nest, ref.hole
-        if attacker.world is None or nest is None or hole is None:
+    if ref.kind is TargetKind.WORLD_OBJECT:
+        access = ref.world_object
+        colony_id = ref.colony_id
+        if attacker.world is None or access is None or not colony_id:
             return 0.0
         cid = attacker_colony_id or get_creature_colony_id(attacker) or ""
-        dealt = attacker.world.nest_system.damage_hole(
-            nest, hole, float(amount), attacker_colony_id=cid
+        dealt = attacker.world.nest_system.damage_access(
+            access,
+            colony_id,
+            float(amount),
+            attacker_colony_id=cid,
         )
         if dealt > 0:
             from src.sim.emitters import maybe_emit_combat_from_damage

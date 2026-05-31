@@ -56,7 +56,7 @@ class Renderer:
         creatures,
         camera,
         selected_creature,
-        selected_nest,
+        selected_colony_id,
         paused,
         show_debug=False,
         map_view_mode="biome",
@@ -77,27 +77,27 @@ class Renderer:
         self._draw_background(world, camera, map_view_mode)
 
         if world is not None:
-            nest_id = selected_nest.id if selected_nest is not None else None
+            colony_id = selected_colony_id
             NestRenderer.draw_territories(
                 world,
                 self.screen,
                 camera,
                 show_territory=show_territory,
-                selected_nest_id=nest_id,
+                selected_colony_id=colony_id,
             )
-            NestRenderer.draw(world, self.screen, camera, nest_id)
+            NestRenderer.draw(world, self.screen, camera, colony_id)
             ZoneRenderer.draw(world, self.screen, camera)
             ObstacleRenderer.draw(world, self.screen, camera)
             SpawnEmitterRenderer.draw(world, self.screen, camera)
-            if show_territory and selected_nest is not None:
+            if show_territory and colony_id is not None:
                 import pygame as _pg
 
                 mx, my = _pg.mouse.get_pos()
-                NestRenderer.draw_hole_placement_preview(
+                NestRenderer.draw_colony_access_placement_preview(
                     world,
                     self.screen,
                     camera,
-                    selected_nest,
+                    colony_id,
                     mx + camera.x,
                     my + camera.y,
                 )
@@ -132,7 +132,7 @@ class Renderer:
                 world, camera, selected_creature, species_visibility
             )
 
-        has_selection = selected_creature is not None or selected_nest is not None
+        has_selection = selected_creature is not None or selected_colony_id is not None
         self._draw_hud_panels(has_selection=has_selection, show_debug=show_debug)
 
         if selected_creature:
@@ -176,24 +176,27 @@ class Renderer:
                 )
 
             colony = getattr(sc, "colony", None)
-            if colony is not None and world is not None:
-                nest = world.nest_system.get_creature_nest(sc)
-                if nest is not None:
+            if colony is not None and world is not None and colony.colony_id:
+                cid = colony.colony_id
+                root = world.nest_system.get_colony_root(cid)
+                if root is not None and root.storage is not None:
                     texts.append(
-                        f"巣 #{nest.id}: 食料 {nest.stored_food:.0f}/{nest.max_food:.0f}"
+                        f"コロニー {cid}: 食料 "
+                        f"{root.storage.stored_food:.0f}/{root.storage.max_food:.0f}"
                     )
                     texts.append(
-                        f"  備蓄率 {nest.food_ratio * 100:.0f}%"
+                        f"  備蓄率 {world.nest_system.colony_food_ratio(cid) * 100:.0f}%"
                     )
                     texts.append(
-                        f"コロニー: {world.nest_system.total_member_count(nest.id)} 匹"
+                        f"コロニー: {world.nest_system.total_member_count(cid)} 匹"
                     )
-                    from src.sim.utils.creature_helpers import get_territory_radius_for_nest
+                    from src.sim.utils.creature_helpers import get_territory_radius_for_colony
+                    from src.sim.utils.world_object_helpers import colony_access_count
 
-                    hole_n = len(getattr(nest, "holes", []) or [])
+                    access_n = colony_access_count(world, cid)
                     texts.append(
-                        f"勢力 {nest.colony_id} | テリトリー半径 "
-                        f"{get_territory_radius_for_nest(world, nest):.0f} px | 巣穴 {hole_n}"
+                        f"勢力 {cid} | テリトリー半径 "
+                        f"{get_territory_radius_for_colony(world, cid):.0f} px | 接続点 {access_n}"
                     )
                 carry_line = format_carry_status(sc)
                 if carry_line is not None:
@@ -237,8 +240,8 @@ class Renderer:
                 self.screen.blit(self.small_font.render(text, True, (255, 255, 255)), (15, y))
                 y += 24
 
-        elif selected_nest is not None and world is not None:
-            y = self._draw_nest_detail_panel(selected_nest, world, y=130)
+        elif selected_colony_id is not None and world is not None:
+            y = self._draw_colony_detail_panel(selected_colony_id, world, y=130)
 
         status = "【PAUSED】" if paused else "実行中"
         self.screen.blit(
@@ -516,33 +519,52 @@ class Renderer:
         label = font.render("TARGET", True, (255, 220, 160))
         self.screen.blit(label, (sx - 22, sy - size - 32))
 
-    def _draw_nest_detail_panel(self, nest, world, y: int = 130) -> int:
-        """選択中の巣の詳細 HUD。戻り値は次の描画 Y。"""
-        from src.sim.utils.colony_config_helpers import get_colony_profile
+    def _draw_colony_detail_panel(self, colony_id: str, world, y: int = 130) -> int:
+        """選択中のコロニー詳細 HUD。戻り値は次の描画 Y。"""
+        from src.sim.utils.colony_config_helpers import (
+            get_colony_profile,
+            get_access_food_cost,
+            get_max_access_points,
+        )
+        from src.sim.utils.world_object_helpers import (
+            colony_access_count,
+            colony_food_ratio,
+            colony_site_xy,
+            colony_stored_food,
+            colony_max_food,
+            get_colony_root,
+            owner_species_for_colony,
+        )
 
         ns = world.nest_system
-        total = ns.total_member_count(nest.id)
+        total = ns.total_member_count(colony_id)
+        root = get_colony_root(world, colony_id)
 
         leak_per_tick = float(
-            get_colony_profile(world, nest.colony_id).get("food_leak_per_tick", 0)
+            get_colony_profile(world, colony_id).get("food_leak_per_tick", 0)
         )
 
         self.screen.blit(
-            self.font.render("【選択中の巣】", True, (255, 200, 120)), (15, y)
+            self.font.render("【選択中のコロニー】", True, (255, 200, 120)), (15, y)
         )
         y += 35
 
         colony_world = getattr(world, "colony_settings", {}) or {}
-        hole_cost = float(colony_world.get("hole_food_cost", 250))
-        max_holes = int(colony_world.get("max_holes", 8))
-        hole_count = len(getattr(nest, "holes", []) or [])
+        access_cost = get_access_food_cost(colony_world)
+        max_access = get_max_access_points(colony_world)
+        access_count = colony_access_count(world, colony_id)
+        sx, sy = colony_site_xy(world, colony_id)
+        owner = owner_species_for_colony(world, colony_id)
+        stored = colony_stored_food(world, colony_id)
+        cap = colony_max_food(world, colony_id)
+        ratio = colony_food_ratio(world, colony_id)
 
         texts = [
-            f"巣 #{nest.id}  勢力:{nest.colony_id}  種:{nest.owner_species}",
-            f"位置: ({nest.x:.0f}, {nest.y:.0f})",
-            f"巣穴: {hole_count}/{max_holes}  (H:カーソルに設置 / 費用 {hole_cost:.0f})",
-            f"食料: {nest.stored_food:.1f} / {nest.max_food:.0f}",
-            f"備蓄率: {nest.food_ratio * 100:.1f}%",
+            f"勢力:{colony_id}  種:{owner}",
+            f"位置: ({sx:.0f}, {sy:.0f})",
+            f"接続点: {access_count}/{max_access}  (H:カーソルに設置 / 費用 {access_cost:.0f})",
+            f"食料: {stored:.1f} / {cap:.0f}",
+            f"備蓄率: {ratio * 100:.1f}%",
             f"コロニー: {total} 匹",
         ]
         if leak_per_tick > 0:

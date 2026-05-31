@@ -1,4 +1,4 @@
-"""マップ上の円形エリア（Zone）と属性合成を管理する。"""
+"""マップ上のエリア（Zone：円・軸平行矩形）と属性合成を管理する。"""
 from __future__ import annotations
 
 import math
@@ -27,6 +27,25 @@ def _normalize_tags(raw: Any) -> Tuple[str, ...]:
     if isinstance(raw, str):
         return (raw,)
     return tuple(str(x) for x in raw if x)
+
+
+def _geometry_from_data(
+    data: Dict[str, Any],
+    global_defaults: Dict[str, Any],
+) -> Tuple[str, float, float, float]:
+    """shape, radius, half_w, half_h を data から解決。"""
+    shape = str(data.get("shape", "circle")).lower()
+    if shape == "rect":
+        width = float(data.get("width", 160.0))
+        height = float(data.get("height", 80.0))
+        return (
+            "rect",
+            0.0,
+            max(1.0, width * 0.5),
+            max(1.0, height * 0.5),
+        )
+    radius = float(data.get("radius", global_defaults.get("radius", 80.0)))
+    return ("circle", max(0.0, radius), 0.0, 0.0)
 
 
 @dataclass
@@ -61,17 +80,34 @@ class Zone:
     zone_type: str
     x: float
     y: float
-    radius: float
+    shape: str = "circle"
+    radius: float = 0.0
+    half_w: float = 0.0
+    half_h: float = 0.0
     effects: ZoneEffects = field(default_factory=ZoneEffects)
     label: str = ""
     colony_id: str = ""
     auto_generated: bool = False
 
+    @property
+    def is_rect(self) -> bool:
+        return str(self.shape).lower() == "rect"
+
+    def bounding_radius(self) -> float:
+        if self.is_rect:
+            return math.hypot(max(0.0, self.half_w), max(0.0, self.half_h))
+        return max(0.0, self.radius)
+
     def contains(self, x: float, y: float) -> bool:
+        px, py = float(x), float(y)
+        if self.is_rect:
+            if self.half_w <= 0 or self.half_h <= 0:
+                return False
+            return abs(px - self.x) <= self.half_w and abs(py - self.y) <= self.half_h
         if self.radius <= 0:
             return False
-        dx = float(x) - self.x
-        dy = float(y) - self.y
+        dx = px - self.x
+        dy = py - self.y
         return dx * dx + dy * dy <= self.radius * self.radius
 
 
@@ -160,9 +196,12 @@ class ZoneSystem:
         *,
         x: float,
         y: float,
-        radius: float,
         zone_type: str,
         effects: ZoneEffects,
+        shape: str = "circle",
+        radius: float = 0.0,
+        half_w: float = 0.0,
+        half_h: float = 0.0,
         label: str = "",
         colony_id: str = "",
         auto_generated: bool = False,
@@ -173,7 +212,10 @@ class ZoneSystem:
                 zone_type=zone_type,
                 x=float(x),
                 y=float(y),
+                shape=str(shape),
                 radius=max(0.0, float(radius)),
+                half_w=max(0.0, float(half_w)),
+                half_h=max(0.0, float(half_h)),
                 effects=effects,
                 label=label,
                 colony_id=colony_id,
@@ -190,12 +232,16 @@ class ZoneSystem:
             return
         data = self._resolve_entry(entry, global_defaults)
         effects = self._effects_from_data(data)
+        shape, radius, half_w, half_h = _geometry_from_data(data, global_defaults)
         self._add_zone(
             x=float(data["x"]),
             y=float(data["y"]),
-            radius=float(data.get("radius", global_defaults.get("radius", 80.0))),
             zone_type=str(data.get("type", "custom")),
             effects=effects,
+            shape=shape,
+            radius=radius,
+            half_w=half_w,
+            half_h=half_h,
             label=str(data.get("label", data.get("type", ""))),
         )
 
@@ -222,9 +268,10 @@ class ZoneSystem:
         self._add_zone(
             x=float(x),
             y=float(y),
-            radius=radius,
             zone_type=str(data.get("type", "nest_clearing")),
             effects=effects,
+            shape="circle",
+            radius=radius,
             label=str(data.get("label", f"{colony_id}_clearing")),
             colony_id=colony_id,
         )
@@ -242,12 +289,16 @@ class ZoneSystem:
             hp_drain_per_dt=max(0.0, float(merged.get("hp_drain_per_dt", 0.0))),
             field_tags=_normalize_tags(merged.get("tags", merged.get("field_tags", ("poison",)))),
         )
+        shape, radius, half_w, half_h = _geometry_from_data(merged, global_defaults)
         self._add_zone(
             x=float(merged["x"]),
             y=float(merged["y"]),
-            radius=float(merged.get("radius", 95.0)),
             zone_type=zone_type,
             effects=effects,
+            shape=shape,
+            radius=radius,
+            half_w=half_w,
+            half_h=half_h,
             label=str(merged.get("label", zone_type)),
         )
 
@@ -266,9 +317,10 @@ class ZoneSystem:
             self._add_zone(
                 x=float(nest_x),
                 y=float(nest_y),
-                radius=radius,
                 zone_type="nest_clearing",
                 effects=ZoneEffects(spawn_rate_multiplier=0.0),
+                shape="circle",
+                radius=radius,
                 label=f"{colony_id}_clearing",
                 colony_id=str(colony_id),
                 auto_generated=True,
@@ -302,9 +354,10 @@ class ZoneSystem:
         self._add_zone(
             x=float(x),
             y=float(y),
-            radius=radius,
             zone_type="nest_clearing",
             effects=ZoneEffects(spawn_rate_multiplier=0.0),
+            shape="circle",
+            radius=radius,
             label=f"{colony_id}_clearing",
             colony_id=str(colony_id),
             auto_generated=True,

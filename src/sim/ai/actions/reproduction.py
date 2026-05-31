@@ -63,10 +63,11 @@ class ColonyReproduceAction(ReproductionAction):
     def _member_species(self) -> list[str]:
         return [str(s) for s in self.params["member_species"]]
 
-    def _pick_offspring_species(self, nest) -> str | None:
+    def _pick_offspring_species(self, world, colony_id: str) -> str | None:
         entries = self.params.get("offspring") or []
+        owner = world.nest_system.owner_species_for_colony(colony_id) if world else colony_id
         if not entries:
-            return nest.owner_species if nest is not None else None
+            return owner
 
         total = sum(float(e.get("weight", 1.0)) for e in entries)
         if total <= 0:
@@ -83,13 +84,13 @@ class ColonyReproduceAction(ReproductionAction):
 
         sp = chosen.get("species")
         if sp in (None, "", "__owner__"):
-            return nest.owner_species if nest is not None else None
+            return owner
         return str(sp)
 
-    def _creature_nest(self, creature):
-        if creature.world is None:
-            return None
-        return creature.world.nest_system.get_creature_nest(creature)
+    def _creature_colony_id(self, creature) -> str | None:
+        from src.sim.utils.colony_helpers import get_creature_colony_id
+
+        return get_creature_colony_id(creature)
 
     def reproduction_readiness(self, creature) -> tuple[bool, str]:
         """繁殖可否と理由（UI・テスト用）。"""
@@ -98,8 +99,8 @@ class ColonyReproduceAction(ReproductionAction):
         if getattr(creature, "colony", None) is None:
             return False, "コロニー未所属"
 
-        nest = self._creature_nest(creature)
-        if nest is None:
+        colony_id = self._creature_colony_id(creature)
+        if not colony_id:
             return False, "巣なし"
 
         cost = float(self.params["food_cost"])
@@ -110,7 +111,7 @@ class ColonyReproduceAction(ReproductionAction):
         if max_members <= 0:
             return False, "繁殖未設定"
 
-        offspring_species = self._pick_offspring_species(nest)
+        offspring_species = self._pick_offspring_species(creature.world, colony_id)
         if offspring_species and is_species_at_population_cap(
             creature.world, offspring_species
         ):
@@ -123,19 +124,22 @@ class ColonyReproduceAction(ReproductionAction):
         member_species = self._member_species()
         ns = creature.world.nest_system
         if member_species:
-            members = ns.count_colony_members(nest.id, member_species)
+            members = ns.count_colony_members(colony_id, member_species)
         else:
-            members = ns.total_member_count(nest.id)
+            members = ns.total_member_count(colony_id)
 
         if members >= max_members:
             return False, f"個体数上限 ({members}/{max_members})"
 
         reserve = self._min_food_reserve(creature)
         needed = reserve + cost
-        if nest.stored_food < needed:
+        from src.sim.utils.world_object_helpers import colony_stored_food
+
+        stored = colony_stored_food(creature.world, colony_id)
+        if stored < needed:
             return (
                 False,
-                f"備蓄不足 (要 {needed:.0f}, 現在 {nest.stored_food:.0f})",
+                f"備蓄不足 (要 {needed:.0f}, 現在 {stored:.0f})",
             )
 
         return True, f"繁殖可能 ({members}/{max_members})"
@@ -163,20 +167,24 @@ class ColonyReproduceAction(ReproductionAction):
             return None
 
         ns = creature.world.nest_system
-        nest = self._creature_nest(creature)
-        if nest is None:
+        colony_id = self._creature_colony_id(creature)
+        if not colony_id:
             return None
 
         cost = float(self.params["food_cost"])
-        if not ns.try_consume_food(nest, cost):
+        if not ns.try_consume_food(colony_id, cost):
             return None
 
         from src.config import config
         from src.sim.entities.creature_factory import CreatureFactory
 
-        offspring_species = self._pick_offspring_species(nest)
+        offspring_species = self._pick_offspring_species(creature.world, colony_id)
         if not offspring_species:
-            nest.stored_food += cost
+            from src.sim.utils.world_object_helpers import get_colony_root
+
+            root = get_colony_root(creature.world, colony_id)
+            if root is not None and root.storage is not None:
+                root.storage.deposit(cost)
             return None
 
         offspring_cfg = config.get_species(offspring_species).get("colony", {})
@@ -186,10 +194,10 @@ class ColonyReproduceAction(ReproductionAction):
     def execute(self, creature) -> bool:
         if not self.can_execute(creature):
             ns = creature.world.nest_system if creature.world else None
-            nest = self._creature_nest(creature)
+            colony_id = self._creature_colony_id(creature)
             spawn_radius = float(self.params["spawn_radius"])
 
-            if ns is not None and nest is not None and not ns.is_at_nest(
+            if ns is not None and colony_id and not ns.is_at_nest(
                 creature, spawn_radius
             ):
                 tx, ty = ns.nest_target_xy(creature)
@@ -217,8 +225,8 @@ class ColonyReproduceAction(ReproductionAction):
             return 0.0
 
         ns = creature.world.nest_system
-        nest = self._creature_nest(creature)
-        if nest is None:
+        colony_id = self._creature_colony_id(creature)
+        if not colony_id:
             return 0.0
 
         cost = float(self.params["food_cost"])
@@ -226,13 +234,17 @@ class ColonyReproduceAction(ReproductionAction):
         max_members = max(1, int(self.params["max_colony_members"]))
         member_species = self._member_species()
         if member_species:
-            members = ns.count_colony_members(nest.id, member_species)
+            members = ns.count_colony_members(colony_id, member_species)
         else:
-            members = ns.total_member_count(nest.id)
+            members = ns.total_member_count(colony_id)
 
         headroom = max(0.0, (max_members - members) / max_members)
-        surplus = nest.stored_food - reserve - cost
-        denom = max(1.0, nest.max_food - reserve - cost)
+        from src.sim.utils.world_object_helpers import colony_max_food, colony_stored_food
+
+        stored = colony_stored_food(creature.world, colony_id)
+        cap = colony_max_food(creature.world, colony_id)
+        surplus = stored - reserve - cost
+        denom = max(1.0, cap - reserve - cost)
         food_factor = max(0.0, min(1.0, surplus / denom))
 
         at_nest = ns.is_at_nest(creature, float(self.params["spawn_radius"]))

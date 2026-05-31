@@ -351,12 +351,16 @@ class HuntAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action
         if needs_self_feed(creature) or not creature.world:
             return 1.0
         ns = creature.world.nest_system
-        nest = ns.get_creature_nest(creature)
-        if nest is None:
+        from src.sim.utils.colony_helpers import get_creature_colony_id
+
+        colony_id = get_creature_colony_id(creature)
+        if not colony_id or ns.get_colony_root(colony_id) is None:
             return 1.0
         if ns.distance_to_nest(creature) > float(self.params.get("nest_hunt_dampen_radius", 55.0)):
             return 1.0
-        if nest.food_ratio < float(self.params.get("nest_hunt_dampen_food_ratio", 0.75)):
+        if ns.colony_food_ratio(colony_id) < float(
+            self.params.get("nest_hunt_dampen_food_ratio", 0.75)
+        ):
             return 1.0
         return float(self.params.get("nest_hunt_dampen_factor", 0.2))
 
@@ -377,8 +381,9 @@ class HuntAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action
         if not creature.world:
             return 0.0
 
-        nest = creature.world.nest_system.get_creature_nest(creature)
-        if nest is None:
+        from src.sim.utils.colony_helpers import get_creature_colony_id
+
+        if not get_creature_colony_id(creature):
             return 0.0
 
         return float(self.params["colony_hoard_strength"])

@@ -32,7 +32,7 @@ class GameApp:
         self.world = None
         self.paused = False
         self.selected_creature = None
-        self.selected_nest = None
+        self.selected_colony_id: str | None = None
         self.show_debug = config.client.get("debug_hud", False)
         self.debug_game_messages = config.client.get("debug_game_messages", False)
         self.map_view_mode = "biome"
@@ -78,7 +78,7 @@ class GameApp:
         self.game_controller = GameController(bridge=self.sim_bridge)
         self.game_controller.debug_sim_events = debug_sim
         self.selected_creature = None
-        self.selected_nest = None
+        self.selected_colony_id: str | None = None
         self.user_message = ""
         self.message_feed.clear()
         self.species_visibility.reset_for_world(self.world)
@@ -147,7 +147,7 @@ class GameApp:
     def _update_camera_pan_insets(self) -> None:
         extra = float(config.client.get("camera_pan_extra", 16))
         has_selection = (
-            self.selected_creature is not None or self.selected_nest is not None
+            self.selected_creature is not None or self.selected_colony_id is not None
         )
         sw = self.screen.get_width()
         top = (
@@ -182,7 +182,7 @@ class GameApp:
             self.world.creatures,
             self.camera,
             self.selected_creature,
-            self.selected_nest,
+            self.selected_colony_id,
             self.paused,
             self.show_debug,
             self.map_view_mode,

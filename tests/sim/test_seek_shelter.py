@@ -6,12 +6,12 @@ from src.sim.ai.actions import SeekShelterAction
 from src.sim.entities.creature_factory import CreatureFactory
 from src.sim.shelter.helpers import enter_creature_shelter, resolve_nest_shelter
 from src.sim.shelter.state import clear_creature_shelter, is_creature_sheltered
-from src.sim.shelter.types import ShelterRef
 from src.sim.utils.combat_helpers import bite
 from src.sim.utils.creature_helpers import is_trackable_prey
 from src.sim.utils.movement_helpers import update_flee_latch
 from src.sim.utils.position_helpers import entity_xy
 from tests.sim.test_hole_combat import _hole_world
+from tests.sim.test_hole_combat_helpers import damage_colony_access, primary_access
 
 
 class TestSeekShelter(unittest.TestCase):
@@ -75,9 +75,9 @@ class TestSeekShelter(unittest.TestCase):
         world.add_creature(spider)
 
         nest = world.nest_system.get_creature_nest(ant)
-        hole = nest.holes[0]
-        spider.position.x = hole.x
-        spider.position.y = hole.y
+        access = primary_access(world, nest.colony_id)
+        spider.position.x = access.x
+        spider.position.y = access.y
 
         ref = resolve_nest_shelter(ant, spider)
         self.assertIsNone(ref)
@@ -105,8 +105,10 @@ class TestSeekShelter(unittest.TestCase):
         enter_creature_shelter(worker, ref)
 
         nest = world.nest_system.get_creature_nest(worker)
-        hole = nest.holes[0]
-        world.nest_system.damage_hole(nest, hole, 500, attacker_colony_id="blue_ant")
+        access = primary_access(world, nest.colony_id)
+        damage_colony_access(
+            world, nest.colony_id, access, 500, attacker_colony_id="blue_ant"
+        )
 
         self.assertLessEqual(worker.hp, 0.0)
         self.assertTrue(soldier.alive)

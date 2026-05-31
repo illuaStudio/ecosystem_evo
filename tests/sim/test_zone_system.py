@@ -173,8 +173,10 @@ class TestZonePoisonFog(unittest.TestCase):
         world = World()
         for creature in list(world.creatures):
             world.remove_creature(creature)
-        world.nest_system.nests.clear()
+        world.nest_system.clear_all_colony_sites()
         world.zone_system.zones.clear()
+        world.world_object_system.objects.clear()
+        world.world_object_system._children.clear()
 
         factory = CreatureFactory()
         queen = factory.create("red_ant_queen", world=world, x=310, y=290)
@@ -191,6 +193,91 @@ class TestZonePoisonFog(unittest.TestCase):
         self.assertAlmostEqual(clearing[0].x, nest.x)
         self.assertAlmostEqual(clearing[0].y, nest.y)
         self.assertFalse(world.zone_system.is_spawn_allowed(nest.x, nest.y))
+
+
+class TestZoneRectShape(unittest.TestCase):
+    def test_rect_zone_contains_axis_aligned(self):
+        world = _zone_world(
+            zones={
+                "sources": [
+                    {
+                        "type": "poison_belt",
+                        "shape": "rect",
+                        "x": 400,
+                        "y": 400,
+                        "width": 200,
+                        "height": 60,
+                        "hp_drain_per_dt": 0.1,
+                        "field_tags": ["poison"],
+                    }
+                ]
+            }
+        )
+        zone = world.zone_system.zones[0]
+        self.assertTrue(zone.is_rect)
+        self.assertAlmostEqual(zone.half_w, 100.0)
+        self.assertAlmostEqual(zone.half_h, 30.0)
+        self.assertTrue(zone.contains(400, 400))
+        self.assertTrue(zone.contains(450, 415))
+        self.assertFalse(zone.contains(510, 400))
+        self.assertFalse(zone.contains(400, 440))
+
+    def test_rect_poison_applies_inside_only(self):
+        world = World.from_json(
+            {
+                "name": "RectPoison",
+                "world_width": 1000,
+                "world_height": 1000,
+                "initial_entities": {},
+                "zones": {
+                    "sources": [
+                        {
+                            "type": "poison_belt",
+                            "shape": "rect",
+                            "x": 300,
+                            "y": 300,
+                            "width": 120,
+                            "height": 80,
+                            "hp_drain_per_dt": 0.15,
+                            "field_tags": ["poison"],
+                        }
+                    ]
+                },
+            }
+        )
+        factory = CreatureFactory()
+        inside = factory.create("red_ant", world=world, x=300, y=300)
+        outside = factory.create("red_ant", world=world, x=500, y=500)
+
+        inside_mod = sample_field_modifiers(world, inside)
+        outside_mod = sample_field_modifiers(world, outside)
+        self.assertAlmostEqual(inside_mod.hp_drain_per_dt, 0.15)
+        self.assertAlmostEqual(outside_mod.hp_drain_per_dt, 0.0)
+
+    def test_instances_rect_zone_loads_from_object_type(self):
+        world = World.from_json(
+            {
+                "name": "RectInstance",
+                "world_width": 1000,
+                "world_height": 1000,
+                "initial_entities": {},
+                "instances": [
+                    {
+                        "layer": "zone",
+                        "type": "poison_belt",
+                        "x": 200,
+                        "y": 200,
+                    }
+                ],
+                "zones": {"defaults": {"radius": 95.0}, "sources": []},
+            }
+        )
+        zone = next(z for z in world.zone_system.zones if z.zone_type == "poison_belt")
+        self.assertTrue(zone.is_rect)
+        self.assertAlmostEqual(zone.half_w, 100.0)
+        self.assertAlmostEqual(zone.half_h, 30.0)
+        self.assertTrue(world.zone_system.sample_at(200, 200).hp_drain_per_dt > 0)
+        self.assertAlmostEqual(world.zone_system.sample_at(400, 400).hp_drain_per_dt, 0.0)
 
 
 if __name__ == "__main__":

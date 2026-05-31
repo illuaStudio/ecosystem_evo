@@ -102,10 +102,15 @@ def emit_item_found(
     )
 
 
-def _combat_key(attacker, *, target_creature=None, nest_id=None, hole_index=None) -> tuple:
+def _combat_key(
+    attacker,
+    *,
+    target_creature=None,
+    target_object_id: str | None = None,
+) -> tuple:
     if target_creature is not None:
         return ("creature", id(attacker), id(target_creature))
-    return ("spawn_node", id(attacker), nest_id, hole_index)
+    return ("world_object", id(attacker), str(target_object_id or ""))
 
 
 def emit_combat_started_creature(world: "World", attacker, target_creature) -> None:
@@ -129,18 +134,17 @@ def emit_combat_started_creature(world: "World", attacker, target_creature) -> N
     )
 
 
-def emit_combat_started_spawn_node(
+def emit_combat_started_colony_access(
     world: "World",
     attacker,
     *,
-    nest_id: int,
-    hole_index: int,
+    access_id: str,
     target_colony_id: Optional[str],
 ) -> None:
-    if world is None or attacker is None:
+    if world is None or attacker is None or not access_id:
         return
     pairs = world._combat_pairs_this_tick
-    key = _combat_key(attacker, nest_id=nest_id, hole_index=hole_index)
+    key = _combat_key(attacker, target_object_id=str(access_id))
     if key in pairs:
         return
     pairs.add(key)
@@ -150,10 +154,9 @@ def emit_combat_started_spawn_node(
             attacker=attacker,
             attacker_species=attacker.species.name,
             attacker_colony_id=_colony_id(attacker),
-            target_kind="spawn_node",
+            target_kind="world_object",
             target_colony_id=target_colony_id,
-            target_nest_id=nest_id,
-            target_hole_index=hole_index,
+            target_object_id=str(access_id),
         )
     )
 
@@ -186,15 +189,14 @@ def maybe_emit_combat_from_damage(
         emit_combat_started_creature(world, attacker, ref.creature)
         return
 
-    if ref.kind is TargetKind.SPAWN_NODE and ref.nest is not None:
-        hole_index = None
-        holes = ref.nest.holes or []
-        if ref.hole is not None and ref.hole in holes:
-            hole_index = holes.index(ref.hole)
-        emit_combat_started_spawn_node(
+    if ref.kind is TargetKind.WORLD_OBJECT:
+        access = ref.world_object
+        if access is None:
+            return
+        emit_combat_started_colony_access(
             world,
             attacker,
-            nest_id=ref.nest.id,
-            hole_index=hole_index if hole_index is not None else -1,
-            target_colony_id=ref.nest.colony_id,
+            access_id=access.id,
+            target_colony_id=ref.colony_id or access.parent_id,
         )
+        return

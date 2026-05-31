@@ -85,6 +85,40 @@ class TestObstacleSystem(unittest.TestCase):
         dist = ((creature.position.x - 500) ** 2 + (creature.position.y - 500) ** 2) ** 0.5
         self.assertGreaterEqual(dist, 40 + 5 - 0.5)
 
+    def test_instances_format_blocks_walkability(self):
+        world = World.from_json(
+            {
+                "name": "ObstacleInstances",
+                "world_width": 1000,
+                "world_height": 1000,
+                "initial_entities": {},
+                "instances": [
+                    {
+                        "id": "rock_center",
+                        "layer": "obstacle",
+                        "type": "rock",
+                        "x": 500,
+                        "y": 500,
+                        "radius": 40,
+                    },
+                ],
+                "world": {
+                    "biome_map_cell_size": 64,
+                    "biomes": [{"name": "rich", "color": "#2E8B57", "spawn_rate_multiplier": 1.0}],
+                    "biome_noise": {
+                        "scale": 0.003,
+                        "octaves": 2,
+                        "persistence": 0.55,
+                        "lacunarity": 2.2,
+                        "threshold": 0.5,
+                        "seed": 1,
+                    },
+                },
+            }
+        )
+        self.assertFalse(world.is_valid_position(500, 500, body_radius=5))
+        self.assertEqual(len(world.world_object_system.iter_obstacles()), 1)
+
     def test_spatial_index_returns_only_nearby(self):
         world = _obstacle_world()
         system = world.obstacle_system

@@ -1,40 +1,44 @@
-"""戦闘・狩猟の対象ハンドル（段階A: Creature と NestHole を統一参照）。"""
+"""戦闘・狩猟の対象ハンドル（Creature / WorldObject）。"""
 from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from src.sim.systems.nest_system import Nest, NestHole
+    from src.sim.entities.world_object import WorldObject
 
 
 class TargetKind(Enum):
     CREATURE = "creature"
-    SPAWN_NODE = "spawn_node"
+    WORLD_OBJECT = "world_object"
 
 
 @dataclass(frozen=True, slots=True)
 class TargetRef:
     kind: TargetKind
     creature: object | None = None
-    nest: Nest | None = None
-    hole: NestHole | None = None
+    world_object: Optional["WorldObject"] = None
+    colony_id: str | None = None
 
     @staticmethod
     def from_creature(creature) -> TargetRef:
         return TargetRef(kind=TargetKind.CREATURE, creature=creature)
 
     @staticmethod
-    def from_spawn_node(nest: Nest, hole: NestHole) -> TargetRef:
-        return TargetRef(kind=TargetKind.SPAWN_NODE, nest=nest, hole=hole)
+    def from_world_object(obj: "WorldObject", colony_id: str) -> TargetRef:
+        return TargetRef(
+            kind=TargetKind.WORLD_OBJECT,
+            world_object=obj,
+            colony_id=str(colony_id),
+        )
 
     def as_creature(self):
         if self.kind is TargetKind.CREATURE:
             return self.creature
         return None
 
-    def as_spawn_pair(self) -> tuple | None:
-        if self.kind is TargetKind.SPAWN_NODE and self.nest is not None and self.hole is not None:
-            return (self.hole, self.nest)
+    def as_world_object(self) -> Optional["WorldObject"]:
+        if self.kind is TargetKind.WORLD_OBJECT:
+            return self.world_object
         return None

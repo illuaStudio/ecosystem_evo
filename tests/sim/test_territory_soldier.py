@@ -12,27 +12,28 @@ from src.sim.utils.creature_helpers import (
     needs_self_feed,
 )
 from src.sim.utils.position_helpers import entity_xy
-from tests.sim.world_fixtures import colony_settings
+from tests.sim.world_fixtures import colony_settings, load_test_world
 
 
 def _colony_world() -> World:
-    return World.from_json(
-        {
-            "name": "TerritoryTest",
-            "world_width": 1000,
-            "world_height": 1000,
-            "initial_entities": {},
-            "population_limits": {
-                "red_ant": 20,
-                "red_ant_soldier": 10,
-                "blue_ant": 20,
-                "blue_ant_soldier": 10,
-                "yellow_ant": 20,
-                "yellow_ant_soldier": 10,
-                "Spider": 10,
+    return load_test_world(
+        name="TerritoryTest",
+        population_limits={
+            "red_ant": 20,
+            "red_ant_soldier": 10,
+            "blue_ant": 20,
+            "blue_ant_soldier": 10,
+            "yellow_ant": 20,
+            "yellow_ant_soldier": 10,
+            "Spider": 10,
+        },
+        colony=colony_settings(
+            faction_species={
+                "red_ant": ["red_ant", "red_ant_soldier"],
+                "blue_ant": ["blue_ant", "blue_ant_soldier"],
+                "yellow_ant": ["yellow_ant", "yellow_ant_soldier"],
             },
-            "colony": colony_settings(),
-        }
+        ),
     )
 
 
@@ -155,16 +156,19 @@ class TestTerritoryAndCastes(unittest.TestCase):
     def test_defense_hunt_spider_outside_territory_in_vision(self):
         world = _colony_world()
         factory = CreatureFactory()
-        worker = factory.create("red_ant", world=world, x=100, y=100)
+        worker = factory.create("red_ant", world=world, x=120, y=120)
         world.add_creature(worker)
-        soldier = factory.create("red_ant_soldier", world=world, x=105, y=100)
+        soldier = factory.create("red_ant_soldier", world=world, x=125, y=120)
         world.add_creature(soldier)
 
         nest = world.nest_system.get_creature_nest(soldier)
         territory_r = float(world.colony_profiles["red_ant"]["territory_radius"])
         vision = soldier.get_current_vision()
         sx, sy = entity_xy(soldier)
-        min_outside_x = nest.x + territory_r + 5
+        from src.sim.utils.world_object_helpers import iter_colony_access_xy
+
+        tcx, _tcy = iter_colony_access_xy(world, nest.colony_id)[0]
+        min_outside_x = tcx + territory_r + 5
         max_in_vision_x = sx + vision * 0.92
         self.assertGreater(
             max_in_vision_x,
@@ -198,7 +202,7 @@ class TestTerritoryAndCastes(unittest.TestCase):
         soldier = factory.create("red_ant_soldier", world=world, x=105, y=100)
         world.add_creature(soldier)
 
-        approaching = factory.create("Spider", world=world, x=285, y=100)
+        approaching = factory.create("Spider", world=world, x=310, y=100)
         world.add_creature(approaching)
         self.assertFalse(is_in_creature_territory(soldier, approaching))
         self.assertTrue(

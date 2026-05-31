@@ -17,6 +17,7 @@ class Config:
         self.client = self._load("client/display.json")
         self.worlds = self._load_all("sim/worlds")
         self.species = self._load_all("sim/species")
+        self.object_types = self._load_object_types("sim/object_types")
 
     def _load(self, rel_path: str) -> Dict:
         path = self.base_path / rel_path
@@ -46,6 +47,26 @@ class Config:
                 print(f"警告: {json_file.name} に 'name' キーがありません")
         return data
 
+    def _load_object_types(self, folder: str) -> Dict:
+        data: Dict = {}
+        folder_path = self.base_path / folder
+        if not folder_path.exists():
+            return data
+
+        for json_file in sorted(folder_path.glob("*.json")):
+            try:
+                with open(json_file, encoding="utf-8") as f:
+                    item = json.load(f)
+            except (json.JSONDecodeError, OSError) as e:
+                print(f"警告: {json_file.name} の読み込みに失敗: {e}")
+                continue
+            type_id = item.get("id")
+            if not type_id:
+                print(f"警告: {json_file.name} に 'id' キーがありません")
+                continue
+            data[str(type_id)] = item
+        return data
+
     def reload_all(self) -> None:
         """全 JSON をディスクから再読み込み（R リセット時など）。"""
         self.sim = self._load("sim/engine.json")
@@ -54,6 +75,7 @@ class Config:
         self.client = self._load("client/display.json")
         self.worlds = self._load_all("sim/worlds")
         self.species = self._load_all("sim/species")
+        self.object_types = self._load_object_types("sim/object_types")
 
     def get_world(self, name: str = "Grassland") -> Optional[Dict]:
         if name in self.worlds:
@@ -74,6 +96,15 @@ class Config:
             if key.lower() == lower:
                 return value
         return self.species.get("springtail", next(iter(self.species.values()), {}))
+
+    def get_object_type(self, type_id: str) -> Dict:
+        if type_id in self.object_types:
+            return self.object_types[type_id]
+        lower = type_id.lower()
+        for key, value in self.object_types.items():
+            if key.lower() == lower:
+                return value
+        return {}
 
 
 config = Config()
