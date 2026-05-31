@@ -101,23 +101,94 @@
       }
     ]
   },
-  "initial_entities": {
-    "springtail": 4,
-    "soil_mite": 4,
-    "aphid_larva": 4,
-    "woodlouse": 4,
-    "grub": 4,
-    "red_ant_queen": 1,
-    "red_ant": 2,
-    "red_ant_soldier": 0,
-    "red_ant_vanguard": 0,
-    "blue_ant": 0,
-    "blue_ant_soldier": 0,
-    "blue_ant_vanguard": 0,
-    "yellow_ant": 0,
-    "yellow_ant_soldier": 0,
-    "yellow_ant_vanguard": 0,
-    "Spider": 0
+  "initial_spawns": {
+    "defaults": {
+      "respect_zones": true,
+      "use_biome_weight": false,
+      "attempts": 20,
+      "margin": 80
+    },
+    "groups": [
+      {
+        "id": "prey_meadow_mixed",
+        "anchor": {
+          "type": "area",
+          "x": 780,
+          "y": 450,
+          "radius": 90
+        },
+        "entries": [
+          { "species": "springtail", "count": 2 },
+          { "species": "aphid_larva", "count": 2 },
+          { "species": "soil_mite", "count": 1 },
+          { "species": "woodlouse", "count": 1 },
+          { "species": "grub", "count": 1 }
+        ]
+      },
+      {
+        "id": "prey_mite_patch",
+        "anchor": {
+          "type": "area",
+          "x": 220,
+          "y": 750,
+          "radius": 72
+        },
+        "entries": [
+          { "species": "soil_mite", "count": 3 }
+        ]
+      },
+      {
+        "id": "prey_leaf_litter",
+        "anchor": {
+          "type": "area",
+          "x": 650,
+          "y": 200,
+          "radius": 70
+        },
+        "entries": [
+          { "species": "woodlouse", "count": 3 },
+          { "species": "grub", "count": 3 }
+        ]
+      },
+      {
+        "id": "prey_meadow_edge",
+        "anchor": {
+          "type": "area",
+          "x": 400,
+          "y": 860,
+          "radius": 75
+        },
+        "entries": [
+          { "species": "springtail", "count": 2 },
+          { "species": "aphid_larva", "count": 2 }
+        ]
+      },
+      {
+        "id": "red_colony",
+        "placement": {
+          "respect_zones": false,
+          "use_biome_weight": false
+        },
+        "entries": [
+          {
+            "species": "red_ant_queen",
+            "count": 1,
+            "anchor": {
+              "type": "profile_nest",
+              "colony_id": "red_ant"
+            }
+          },
+          {
+            "species": "red_ant",
+            "count": 2,
+            "anchor": {
+              "type": "nest",
+              "colony_id": "red_ant"
+            }
+          }
+        ]
+      }
+    ]
   },
   "population_limits": {
     "springtail": 50,
@@ -155,7 +226,8 @@
         "food_leak_per_tick": 0.0,
         "food_to_mana_ratio": 0.35,
         "food_leak_reserve_ratio": 0.15,
-        "spawn_spread": 28.0
+        "spawn_spread": 28.0,
+        "spawn_exclusion_radius": 150.0
       },
       "blue_ant": {
         "nest_x": 500,
@@ -166,7 +238,8 @@
         "food_leak_per_tick": 0.5,
         "food_to_mana_ratio": 0.35,
         "food_leak_reserve_ratio": 0.15,
-        "spawn_spread": 28
+        "spawn_spread": 28,
+        "spawn_exclusion_radius": 150.0
       },
       "yellow_ant": {
         "nest_x": 880,
@@ -177,7 +250,8 @@
         "food_leak_per_tick": 0.5,
         "food_to_mana_ratio": 0.35,
         "food_leak_reserve_ratio": 0.15,
-        "spawn_spread": 28
+        "spawn_spread": 28,
+        "spawn_exclusion_radius": 150.0
       }
     },
     "territory_effects": {
@@ -229,25 +303,35 @@
       }
     }
   },
-  "field_emitters": {
+  "zones": {
     "defaults": {
-      "type": "poison_fog",
-      "radius": 95.0,
-      "hp_drain_per_dt": 0.07,
-      "tags": [
-        "poison"
-      ]
+      "radius": 95.0
+    },
+    "types": {
+      "poison_fog": {
+        "hp_drain_per_dt": 0.07,
+        "field_tags": [
+          "poison"
+        ]
+      },
+      "nest_clearing": {
+        "spawn_rate_multiplier": 0.0,
+        "radius": 150.0
+      }
     },
     "sources": [
       {
+        "type": "poison_fog",
         "x": 500,
         "y": 500
       },
       {
+        "type": "poison_fog",
         "x": 320,
         "y": 620
       },
       {
+        "type": "poison_fog",
         "x": 680,
         "y": 380,
         "radius": 75,

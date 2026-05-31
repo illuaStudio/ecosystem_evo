@@ -268,7 +268,7 @@ class SpawnSystem:
             return False
 
         x, y = pos
-        if emitter.use_biome_weight and not self._accept_biome_spawn(x, y):
+        if not self._accept_spawn_at(x, y, emitter.use_biome_weight):
             return False
 
         creature = self._factory.create(species, world=self.world, x=x, y=y)
@@ -286,66 +286,19 @@ class SpawnSystem:
         return random.choice(available)
 
     def _pick_spawn_position(self, emitter: SpawnEmitter) -> Optional[Tuple[float, float]]:
-        if emitter.is_ambient:
-            return self._pick_ambient_position(emitter)
-        return self._pick_point_position(emitter)
+        from src.sim.utils.spawn_placement import SpawnPlacementResolver
 
-    def _pick_point_position(self, emitter: SpawnEmitter) -> Optional[Tuple[float, float]]:
-        attempts = emitter.position_attempts
-        exclusion = emitter.nest_exclusion_radius
-        radius = max(1.0, emitter.radius)
-        best: Optional[Tuple[float, float, float]] = None
-
-        for _ in range(attempts):
-            angle = random.uniform(0, 2 * math.pi)
-            dist = radius * math.sqrt(random.random())
-            x = emitter.x + math.cos(angle) * dist
-            y = emitter.y + math.sin(angle) * dist
-            if not self.world.is_valid_position(x, y):
-                continue
-            if self._too_close_to_nest(x, y, exclusion):
-                continue
-            mult = (
-                self.world.biome.get_spawn_rate_multiplier(x, y)
-                if emitter.use_biome_weight
-                else 1.0
-            )
-            if best is None or mult > best[2]:
-                best = (x, y, mult)
-
-        if best is None:
+        resolver = SpawnPlacementResolver(self.world)
+        anchor = SpawnPlacementResolver.anchor_from_emitter(
+            emitter, is_ambient=emitter.is_ambient
+        )
+        options = SpawnPlacementResolver.options_from_emitter(emitter)
+        pos = resolver.pick(anchor, options)
+        if pos is not None and self._too_close_to_nest(
+            pos[0], pos[1], emitter.nest_exclusion_radius
+        ):
             return None
-        return best[0], best[1]
-
-    def _pick_ambient_position(self, emitter: SpawnEmitter) -> Optional[Tuple[float, float]]:
-        world = self.world
-        margin = emitter.margin
-        attempts = emitter.position_attempts
-        exclusion = emitter.nest_exclusion_radius
-        x_min = margin
-        y_min = margin
-        x_max = max(x_min, int(world.width) - margin)
-        y_max = max(y_min, int(world.height) - margin)
-
-        best: Optional[Tuple[float, float, float]] = None
-        for _ in range(attempts):
-            x = random.uniform(x_min, x_max)
-            y = random.uniform(y_min, y_max)
-            if not world.is_valid_position(x, y):
-                continue
-            if self._too_close_to_nest(x, y, exclusion):
-                continue
-            mult = (
-                world.biome.get_spawn_rate_multiplier(x, y)
-                if emitter.use_biome_weight
-                else 1.0
-            )
-            if best is None or mult > best[2]:
-                best = (x, y, mult)
-
-        if best is None:
-            return None
-        return best[0], best[1]
+        return pos
 
     def _too_close_to_nest(self, x: float, y: float, radius: float) -> bool:
         if radius <= 0:
@@ -356,11 +309,12 @@ class SpawnSystem:
                 return True
         return False
 
+    def _accept_spawn_at(self, x: float, y: float, use_biome_weight: bool) -> bool:
+        from src.sim.utils.spawn_placement import SpawnPlacementResolver
+
+        return SpawnPlacementResolver(self.world).accept_probabilistic(
+            x, y, use_biome_weight=use_biome_weight
+        )
+
     def _accept_biome_spawn(self, x: float, y: float) -> bool:
-        mult = self.world.biome.get_spawn_rate_multiplier(x, y)
-        if mult <= 0:
-            return False
-        rich_mult = self.world.biome.get_max_spawn_rate_multiplier()
-        if rich_mult <= 0:
-            return True
-        return random.random() < min(1.0, mult / rich_mult)
+        return self._accept_spawn_at(x, y, use_biome_weight=True)

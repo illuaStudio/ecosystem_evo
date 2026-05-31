@@ -60,11 +60,11 @@ def _territory_modifiers(world: Any, creature: Any, x: float, y: float) -> Field
     return FieldModifiers(hp_regen_per_dt=regen, hp_drain_per_dt=drain)
 
 
-def _emitter_modifiers(world: Any, creature: Any, x: float, y: float) -> FieldModifiers:
-    system = getattr(world, "field_emitter_system", None)
+def _zone_modifiers(world: Any, creature: Any, x: float, y: float) -> FieldModifiers:
+    system = getattr(world, "zone_system", None)
     if system is None:
         return FieldModifiers()
-    return system.sample_modifiers(creature, x, y)
+    return system.sample_hp_modifiers(creature, x, y)
 
 
 def sample_field_modifiers(world: Any, creature: Any) -> FieldModifiers:
@@ -75,7 +75,7 @@ def sample_field_modifiers(world: Any, creature: Any) -> FieldModifiers:
     x, y = entity_xy(creature)
     biome = _biome_modifiers(world, x, y)
     territory = _territory_modifiers(world, creature, x, y)
-    emitters = _emitter_modifiers(world, creature, x, y)
+    emitters = _zone_modifiers(world, creature, x, y)
     return biome.merged_with(territory).merged_with(emitters)
 
 

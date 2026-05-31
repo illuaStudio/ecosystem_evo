@@ -238,9 +238,9 @@ class TestPoisonFogEmitters(unittest.TestCase):
         apply_field_hp_effects(ant, dt=10.0)
         self.assertEqual(ant.hp, 100.0)
 
-    def test_field_emitters_loaded_on_world(self):
+    def test_zones_loaded_on_world(self):
         world = _fog_world()
-        self.assertEqual(len(world.field_emitter_system.emitters), 1)
-        emitter = world.field_emitter_system.emitters[0]
-        self.assertEqual(emitter.emitter_type, "poison_fog")
-        self.assertAlmostEqual(emitter.x, 400.0)
+        poison = [z for z in world.zone_system.zones if z.zone_type == "poison_fog"]
+        self.assertEqual(len(poison), 1)
+        zone = poison[0]
+        self.assertAlmostEqual(zone.x, 400.0)

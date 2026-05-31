@@ -32,12 +32,29 @@ class CreatureFactory:
         if world is None:
             raise ValueError("CreatureFactory.create() には 'world' 引数が必須です。")
 
-        # Worldの範囲内でランダム生成
+        # Worldの範囲内でランダム生成（共通 placement resolver）
         margin = 80
-        if x is None:
-            x = random.randint(margin, int(world.width) - margin)
-        if y is None:
-            y = random.randint(margin, int(world.height) - margin)
+        if x is None or y is None:
+            from src.sim.utils.spawn_placement import (
+                SpawnAnchor,
+                SpawnPlacementOptions,
+                SpawnPlacementResolver,
+            )
+
+            resolver = SpawnPlacementResolver(world)
+            pos = resolver.pick(
+                SpawnAnchor(type="world"),
+                SpawnPlacementOptions(margin=margin, attempts=32),
+            )
+            if pos is not None:
+                if x is None:
+                    x = pos[0]
+                if y is None:
+                    y = pos[1]
+            if x is None:
+                x = random.randint(margin, int(world.width) - margin)
+            if y is None:
+                y = random.randint(margin, int(world.height) - margin)
 
         creature = Creature(x, y, species_name)
         creature.world = world

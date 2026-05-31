@@ -304,15 +304,28 @@ class NestSystem:
 
     def spawn_position(self, species_name: str, colony_cfg: dict | None = None) -> tuple[float, float]:
         """巣の位置付近にスポーン座標を返す（初期配置・P 追加用）。"""
+        from src.sim.utils.spawn_placement import (
+            SpawnAnchor,
+            SpawnPlacementOptions,
+            SpawnPlacementResolver,
+        )
+
         cfg = colony_cfg or {}
         colony_id = resolve_colony_id(species_name, cfg)
         runtime_cfg = resolve_colony_runtime_cfg(self.world, colony_id, cfg)
         spread = float(runtime_cfg["spawn_spread"])
-        nest = self.get_colony_nest(colony_id)
-        if nest is not None:
-            hole = random.choice(nest.holes) if nest.holes else None
-            hx, hy = (hole.x, hole.y) if hole is not None else (nest.x, nest.y)
-            return self._offset_near(hx, hy, spread)
+        resolver = SpawnPlacementResolver(self.world)
+        anchor = SpawnAnchor(type="nest", colony_id=colony_id, spread=spread)
+        pos = resolver.pick(
+            anchor,
+            SpawnPlacementOptions(
+                respect_zones=False,
+                use_biome_weight=False,
+                attempts=8,
+            ),
+        )
+        if pos is not None:
+            return pos
         ax, ay = self._nest_anchor(runtime_cfg)
         return self._offset_near(ax, ay, spread)
 

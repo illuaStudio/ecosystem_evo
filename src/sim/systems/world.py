@@ -10,7 +10,7 @@ from src.sim.systems.mana_system import ManaSystem
 from src.sim.systems.movement_system import MovementSystem
 from src.sim.systems.world_biome import WorldBiome
 from src.sim.systems.world_mana import WorldMana
-from src.sim.systems.field_emitter_system import FieldEmitterSystem
+from src.sim.systems.zone_system import ZoneSystem
 from src.sim.systems.nest_system import NestSystem
 from src.sim.event_bus import EventBus
 from src.sim.systems.spawn_system import SpawnSystem
@@ -107,8 +107,12 @@ class World:
         self._combat_pairs_this_tick: set[tuple] = set()
 
         self.nest_system = NestSystem(self)
-        self.field_emitter_system = FieldEmitterSystem(self)
-        self.field_emitter_system.init_from_config(world_data.get("field_emitters"))
+        self.zone_system = ZoneSystem(self)
+        self.zone_system.init_from_config(
+            world_data.get("zones"),
+            legacy_field_emitters=world_data.get("field_emitters"),
+            colony_profiles=self.colony_profiles,
+        )
         self.spawner = WorldSpawner(self)
         self.spawn_system = SpawnSystem(self)
         self.spawn_system.init_from_config(
