@@ -1,5 +1,15 @@
 """テスト用ワールド JSON 断片（コード既定フォールバックなし）。"""
 
+MICRO_FAUNA_PREY = (
+    "springtail",
+    "soil_mite",
+    "aphid_larva",
+    "woodlouse",
+    "grub",
+)
+
+DEFAULT_TEST_PREY = MICRO_FAUNA_PREY[0]
+
 RED_ANT_PROFILE = {
     "nest_x": 120,
     "nest_y": 120,

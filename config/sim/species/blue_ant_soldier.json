@@ -71,7 +71,7 @@
         "weight": 14.0,
         "description": "視界内のクモを常に排除。テリトリー接近時はさらに優先",
         "params": {
-          "target_type": "Amoeba",
+          "target_type": "springtail",
           "target_types": [
             "Spider"
           ],

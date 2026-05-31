@@ -490,7 +490,7 @@ class Renderer:
         )
 
         hotkey_map = {
-            "amoeba": "1",
+            "micro_fauna": "1",
             "red_ant": "2",
             "blue_ant": "3",
             "yellow_ant": "4",

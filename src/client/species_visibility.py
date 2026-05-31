@@ -5,9 +5,11 @@ from dataclasses import dataclass
 
 from src.config import config
 
+from src.sim.constants.micro_fauna import DEFAULT_MICRO_FAUNA_SPECIES
+
 # (group_id, 表示名, 種名タプル)
 DEFAULT_VISIBILITY_GROUPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
-    ("amoeba", "アメーバ", ("Amoeba",)),
+    ("micro_fauna", "極小虫", DEFAULT_MICRO_FAUNA_SPECIES),
     ("red_ant", "赤アリ", ("red_ant", "red_ant_soldier", "red_ant_vanguard")),
     ("blue_ant", "青アリ", ("blue_ant", "blue_ant_soldier", "blue_ant_vanguard")),
     ("yellow_ant", "黄アリ", ("yellow_ant", "yellow_ant_soldier", "yellow_ant_vanguard")),
@@ -15,7 +17,7 @@ DEFAULT_VISIBILITY_GROUPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
 )
 
 GROUP_HOTKEYS: dict[int, str] = {
-    ord("1"): "amoeba",
+    ord("1"): "micro_fauna",
     ord("2"): "red_ant",
     ord("3"): "blue_ant",
     ord("4"): "yellow_ant",

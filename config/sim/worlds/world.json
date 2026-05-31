@@ -14,8 +14,27 @@
     "density_initial_min": 80.0,
     "density_initial_max": 150.0
   },
+  "ambient_spawns": {
+    "species_pool": [
+      "springtail",
+      "soil_mite",
+      "aphid_larva",
+      "woodlouse",
+      "grub"
+    ],
+    "target_population": 40,
+    "spawn_rate_per_dt": 0.08,
+    "nest_exclusion_radius": 120.0,
+    "max_attempts_per_tick": 4,
+    "position_attempts": 12,
+    "margin": 80
+  },
   "initial_entities": {
-    "Amoeba": 20,
+    "springtail": 4,
+    "soil_mite": 4,
+    "aphid_larva": 4,
+    "woodlouse": 4,
+    "grub": 4,
     "red_ant_queen": 1,
     "red_ant": 2,
     "red_ant_soldier": 0,
@@ -29,7 +48,11 @@
     "Spider": 0
   },
   "population_limits": {
-    "Amoeba": 50,
+    "springtail": 50,
+    "soil_mite": 50,
+    "aphid_larva": 50,
+    "woodlouse": 50,
+    "grub": 50,
     "red_ant_queen": 3,
     "red_ant": 20,
     "red_ant_soldier": 10,
@@ -167,13 +190,15 @@
         "name": "rich",
         "display_name": "豊かなエリア",
         "color": "#2E8B57",
-        "mana_regen_multiplier": 1.2
+        "mana_regen_multiplier": 1.2,
+        "spawn_rate_multiplier": 1.2
       },
       {
         "name": "poor",
         "display_name": "貧しいエリア",
         "color": "#8F9E6E",
-        "mana_regen_multiplier": 0.2
+        "mana_regen_multiplier": 0.2,
+        "spawn_rate_multiplier": 0.25
       }
     ],
     "biome_noise": {

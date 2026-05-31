@@ -30,6 +30,7 @@ class WorldBiome:
         self._poor_biome: Optional[Dict] = None
         self.biome_color_grid: List[List[Tuple[int, int, int]]] = []
         self.avg_mana_regen_multiplier = 1.0
+        self._max_spawn_rate_multiplier = 1.0
 
     def init_from_config(self, world_cfg: Dict) -> None:
         """ノイズマップとバイオーム定義を構築（Renderer 用グリッドも生成）。"""
@@ -42,6 +43,7 @@ class WorldBiome:
         self._poor_biome = None
         self.biome_color_grid = []
         self.avg_mana_regen_multiplier = 1.0
+        self._max_spawn_rate_multiplier = 1.0
 
         if len(self.biomes) < 2:
             return
@@ -54,6 +56,7 @@ class WorldBiome:
         self._poor_biome = self.biome_by_name.get("poor", self.biomes[-1])
         self._build_biome_color_grid()
         self.avg_mana_regen_multiplier = self._compute_average_mana_multiplier()
+        self._max_spawn_rate_multiplier = self._compute_max_spawn_rate_multiplier()
 
     def _build_biome_color_grid(self) -> None:
         """描画用: セル単位でバイオーム色を事前計算。"""
@@ -111,3 +114,23 @@ class WorldBiome:
     def get_mana_regen_multiplier(self, x: float, y: float) -> float:
         """座標におけるマナ自然回復の倍率。"""
         return float(self.get_biome_at(x, y).get("mana_regen_multiplier", 1.0))
+
+    def _compute_max_spawn_rate_multiplier(self) -> float:
+        if not self.biomes:
+            return 1.0
+        values = [
+            float(b.get("spawn_rate_multiplier", b.get("mana_regen_multiplier", 1.0)))
+            for b in self.biomes
+        ]
+        return max(values) if values else 1.0
+
+    def get_max_spawn_rate_multiplier(self) -> float:
+        """バイオーム定義上の最大スポーン倍率。"""
+        return self._max_spawn_rate_multiplier
+
+    def get_spawn_rate_multiplier(self, x: float, y: float) -> float:
+        """座標における環境スポーンの倍率。"""
+        biome = self.get_biome_at(x, y)
+        if "spawn_rate_multiplier" in biome:
+            return float(biome["spawn_rate_multiplier"])
+        return float(biome.get("mana_regen_multiplier", 1.0))

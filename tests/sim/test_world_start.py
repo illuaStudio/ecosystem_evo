@@ -1,7 +1,8 @@
-"""スタートワールド（1勢力・女王+働きアリ+アメーバ）のスモークテスト。"""
+"""スタートワールド（1勢力・女王+働きアリ+極小虫）のスモークテスト。"""
 import unittest
 
 from src.config import config
+from src.sim.constants.micro_fauna import DEFAULT_MICRO_FAUNA_SPECIES
 from src.sim.systems.world import World
 
 
@@ -24,16 +25,27 @@ class TestWorldStart(unittest.TestCase):
         world = World()
         queens = sum(1 for c in world.creatures if c.species.name == "red_ant_queen")
         workers = sum(1 for c in world.creatures if c.species.name == "red_ant")
-        amoebas = sum(1 for c in world.creatures if c.species.name == "Amoeba")
+        micro_fauna = sum(
+            1 for c in world.creatures if c.species.name in DEFAULT_MICRO_FAUNA_SPECIES
+        )
         self.assertEqual(queens, 1)
         self.assertEqual(workers, 2)
-        self.assertEqual(amoebas, 20)
+        self.assertEqual(micro_fauna, 20)
         self.assertEqual(len(world.creatures), 23)
 
     def test_species_still_in_config(self):
         self.assertIn("red_ant", config.species)
         self.assertIn("blue_ant", config.species)
-        self.assertIn("Amoeba", config.species)
+        for name in DEFAULT_MICRO_FAUNA_SPECIES:
+            self.assertIn(name, config.species)
+
+    def test_ambient_spawner_configured(self):
+        world = World()
+        self.assertIsNotNone(world.ambient_spawner.config)
+        self.assertEqual(
+            tuple(world.ambient_spawner.species_pool),
+            DEFAULT_MICRO_FAUNA_SPECIES,
+        )
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 {
   "name": "blue_ant",
-  "description": "青コロニーの働きアリ。アメーバを狩って巣へ貯蔵。他勢力の兵隊・クモからは逃げる。",
+  "description": "青コロニーの働きアリ。極小虫を狩って巣へ貯蔵。他勢力の兵隊・クモからは逃げる。",
   "color": [
     60,
     90,
@@ -63,7 +63,11 @@
           "feed_radius": 38,
           "approach_speed_multiplier": 0.95,
           "scavenge_species": [
-            "Amoeba",
+            "springtail",
+            "soil_mite",
+            "aphid_larva",
+            "woodlouse",
+            "grub",
             "Spider"
           ],
           "scavenge_contact_padding": 10.0,
@@ -73,11 +77,15 @@
       {
         "name": "HuntAction",
         "weight": 4.2,
-        "description": "視界内の近い死骸を優先し回収。なければアメーバを狩る（クモは死骸のみ）",
+        "description": "視界内の近い死骸を優先し回収。なければ極小虫を狩る（クモは死骸のみ）",
         "params": {
-          "target_type": "Amoeba",
+          "target_type": "springtail",
           "target_types": [
-            "Amoeba",
+            "springtail",
+            "soil_mite",
+            "aphid_larva",
+            "woodlouse",
+            "grub",
             "Spider"
           ],
           "speed_multiplier": 1.35,

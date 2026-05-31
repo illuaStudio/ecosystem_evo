@@ -96,7 +96,7 @@ class InputHandler:
         elif event.key == pygame.K_SPACE:
             self.engine.paused = not self.engine.paused
         elif event.key == pygame.K_a:
-            self.engine.debug_spawn_creature("Amoeba")
+            self.engine.debug_spawn_creature("springtail")
         elif event.key == pygame.K_s:
             self.engine.debug_spawn_creature("Spider")
         elif event.key == pygame.K_p:

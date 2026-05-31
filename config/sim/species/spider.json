@@ -1,6 +1,6 @@
 {
   "name": "Spider",
-  "description": "大型のクモ。空腹時はアリを狩ってその場で食べる。食物連鎖の頂点（マナ→アメーバ→アリ→クモ）。",
+  "description": "大型のクモ。空腹時はアリを狩ってその場で食べる。食物連鎖の頂点（極小虫→アリ→クモ）。",
   "color": [
     95,
     75,
@@ -26,7 +26,7 @@
         "weight": 3.5,
         "description": "空腹時: アリを追跡し殺害・その場でバイオマス消費（巣なし）",
         "params": {
-          "target_type": "Amoeba",
+          "target_type": "springtail",
           "target_types": [
             "red_ant",
             "red_ant_soldier",

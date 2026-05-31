@@ -1,3 +1,4 @@
+from src.sim.constants.micro_fauna import DEFAULT_MICRO_FAUNA_SPECIES
 from src.sim.ai.actions.base import Action
 from src.sim.ai.actions.tracking import (
     CreatureTargetMixin,
@@ -32,11 +33,14 @@ from src.sim.utils.creature_helpers import (
 )
 
 
+_MICRO_FAUNA_DEFAULT = DEFAULT_MICRO_FAUNA_SPECIES[0]
+
+
 class ChaseAction(Action):
     """視界内の指定種族を追跡し、接触時に bite → consume_carcass で捕食する。"""
 
     DEFAULT_PARAMS = {
-        "target_type": "Amoeba",
+        "target_type": _MICRO_FAUNA_DEFAULT,
         "target_types": None,
         "speed_multiplier": 1.25,
         "contact_padding": 8.0,
@@ -125,21 +129,21 @@ def chase_prey_species(params: dict) -> tuple[str, ...]:
     """ChaseAction の target_types（優先）または target_type。"""
     if params.get("target_types"):
         return tuple(params["target_types"])
-    return (params.get("target_type", "Amoeba"),)
+    return (params.get("target_type", _MICRO_FAUNA_DEFAULT),)
 
 
 def hunt_prey_species(params: dict) -> tuple[str, ...]:
     """HuntAction の target_types（優先）または target_type。"""
     if params.get("target_types"):
         return tuple(params["target_types"])
-    return (params.get("target_type", "Amoeba"),)
+    return (params.get("target_type", _MICRO_FAUNA_DEFAULT),)
 
 
 class HuntAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action):
     """獲物を追跡し攻撃・殺害。満腹時は死骸を拾って巣へ、飢餓時はその場で食べる。"""
 
     DEFAULT_PARAMS = {
-        "target_type": "Amoeba",
+        "target_type": _MICRO_FAUNA_DEFAULT,
         "target_types": None,
         "speed_multiplier": 1.3,
         "contact_padding": 8.0,

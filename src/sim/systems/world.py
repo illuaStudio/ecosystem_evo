@@ -13,6 +13,7 @@ from src.sim.systems.world_mana import WorldMana
 from src.sim.systems.field_emitter_system import FieldEmitterSystem
 from src.sim.systems.nest_system import NestSystem
 from src.sim.event_bus import EventBus
+from src.sim.systems.ambient_spawner import AmbientSpawner
 from src.sim.systems.world_spawner import WorldSpawner
 
 
@@ -109,6 +110,9 @@ class World:
         self.field_emitter_system = FieldEmitterSystem(self)
         self.field_emitter_system.init_from_config(world_data.get("field_emitters"))
         self.spawner = WorldSpawner(self)
+        self.ambient_spawner = AmbientSpawner(
+            self, world_data.get("ambient_spawns")
+        )
         self.spawner.spawn_initial_entities(world_data)
         self.sim_dt = 1.0
 
@@ -148,6 +152,7 @@ class World:
         self.sim_dt = float(dt)
         self._combat_pairs_this_tick = set()
         self.mana_layer.regenerate(dt)
+        self.ambient_spawner.update(dt)
         self.nest_system.update(dt)
         for creature in self.creatures[:]:
             creature.update(dt)

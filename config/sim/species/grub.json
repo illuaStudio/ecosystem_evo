@@ -1,0 +1,37 @@
+{
+  "name": "grub",
+  "description": "地中の幼虫。小さな餌虫。",
+  "color": [
+    200,
+    160,
+    80
+  ],
+  "traits": {
+    "base_size": 5.0,
+    "max_size": 5.0,
+    "growth_rate": 0.0,
+    "base_speed": 0.55,
+    "base_vision": 70,
+    "max_hp": 40.0,
+    "max_satiety": 30.0,
+    "metabolism_per_tick": 0.02,
+    "corpse_decompose_rate": 0.002,
+    "field_immunities": [
+      "poison"
+    ],
+    "starvation_hp_per_tick": 0.04
+  },
+  "mind": {
+    "type": "utility",
+    "actions": [
+      {
+        "name": "WanderAction",
+        "weight": 1.0,
+        "params": {
+          "angle_range": 32,
+          "speed_multiplier": 0.55
+        }
+      }
+    ]
+  }
+}
