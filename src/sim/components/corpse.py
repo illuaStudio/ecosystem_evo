@@ -32,18 +32,14 @@ class CorpseComponent:
             self.remaining_biomass = 0.0
 
     def become_corpse(self, cause: str = "unknown") -> None:
-        """死亡→死骸化。残存バイオマスをサイズ・栄養に比例して設定。"""
+        """死亡フラグとイベントのみ。バイオマス化は PostLife の convert_biomass step。"""
         owner = self.owner
-        if not owner.alive and self.initial_biomass > 0:
+        if not owner.alive:
             return
 
         was_alive = owner.alive
         owner.alive = False
         owner.hp = 0
-        size = float(owner.traits.get("base_size", 9.0))
-        biomass = size * 200
-        self.remaining_biomass = biomass
-        self.initial_biomass = biomass
 
         if was_alive and owner.world is not None:
             owner.world.on_creature_became_corpse(owner)

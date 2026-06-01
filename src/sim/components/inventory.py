@@ -21,6 +21,7 @@ class BiomassItem(InventoryItem):
     kind: str = "biomass"
     amount: float = 0.0
     source_carcass: Any = None
+    source_loot: Any = None
 
     def weight(self, *, biomass_weight_per_unit: float) -> float:
         return max(0.0, float(self.amount)) * max(0.0, float(biomass_weight_per_unit))

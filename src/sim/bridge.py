@@ -5,7 +5,9 @@ import random
 from typing import TYPE_CHECKING, Any
 
 from src.sim.commands import (
+    ClearCreatureDirective,
     EnterCreatureShelter,
+    IssueCreatureDirective,
     SetColonyCasteMind,
     SetCreatureMind,
     SetSpeciesMind,
@@ -69,6 +71,10 @@ class SimBridge:
             return self._set_colony_caste_mind(command)
         if isinstance(command, EnterCreatureShelter):
             return self._enter_creature_shelter(command)
+        if isinstance(command, IssueCreatureDirective):
+            return self._issue_creature_directive(command)
+        if isinstance(command, ClearCreatureDirective):
+            return self._clear_creature_directive(command)
         return SimCommandResult(False, type(command).__name__, "未知の命令")
 
     def execute_all(self, commands: list[SimCommand]) -> list[SimCommandResult]:
@@ -200,6 +206,60 @@ class SimBridge:
         return SimCommandResult(
             True,
             "EnterCreatureShelter",
+            creature=creature,
+            creatures=[creature],
+            count=1,
+        )
+
+    def _issue_creature_directive(self, cmd: IssueCreatureDirective) -> SimCommandResult:
+        creature = _creature_by_id(self.world, cmd.creature_id)
+        if creature is None:
+            return SimCommandResult(
+                False,
+                "IssueCreatureDirective",
+                f"creature id={cmd.creature_id} not found",
+            )
+        if not getattr(creature, "alive", True):
+            return SimCommandResult(
+                False,
+                "IssueCreatureDirective",
+                "creature is not alive",
+            )
+        from src.sim.behavior.directive import create_directive
+
+        try:
+            directive = create_directive(
+                cmd.kind,
+                x=cmd.x,
+                y=cmd.y,
+                speed_multiplier=cmd.speed_multiplier,
+                arrival_radius=cmd.arrival_radius,
+            )
+        except (KeyError, TypeError) as exc:
+            return SimCommandResult(False, "IssueCreatureDirective", str(exc))
+
+        creature.set_directive(directive)
+        creature.current_action = None
+        return SimCommandResult(
+            True,
+            "IssueCreatureDirective",
+            creature=creature,
+            creatures=[creature],
+            count=1,
+        )
+
+    def _clear_creature_directive(self, cmd: ClearCreatureDirective) -> SimCommandResult:
+        creature = _creature_by_id(self.world, cmd.creature_id)
+        if creature is None:
+            return SimCommandResult(
+                False,
+                "ClearCreatureDirective",
+                f"creature id={cmd.creature_id} not found",
+            )
+        creature.clear_directive()
+        return SimCommandResult(
+            True,
+            "ClearCreatureDirective",
             creature=creature,
             creatures=[creature],
             count=1,

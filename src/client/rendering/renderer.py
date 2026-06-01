@@ -117,6 +117,18 @@ class Renderer:
                 show_sheltered_debug=show_sheltered,
             )
 
+        gs = getattr(world, "ground_loot_system", None)
+        if gs is not None:
+            for loot in gs.loots.values():
+                if loot.is_depleted():
+                    continue
+                sx = int(loot.x - camera.x)
+                sy = int(loot.y - camera.y)
+                ratio = loot.biomass_ratio()
+                radius = max(4, int(6 + ratio * 10))
+                pygame.draw.circle(self.screen, loot.color, (sx, sy), radius)
+                pygame.draw.circle(self.screen, (40, 36, 32), (sx, sy), radius, 1)
+
         if (
             world is not None
             and selected_creature is not None
@@ -190,7 +202,7 @@ class Renderer:
                     texts.append(
                         f"コロニー: {world.nest_system.total_member_count(cid)} 匹"
                     )
-                    from src.sim.utils.creature_helpers import get_territory_radius_for_colony
+                    from src.sim.utils.territory_helpers import get_territory_radius_for_colony
                     from src.sim.utils.world_object_helpers import colony_access_count
 
                     access_n = colony_access_count(world, cid)

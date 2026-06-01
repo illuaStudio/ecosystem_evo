@@ -12,6 +12,7 @@ from src.sim.utils.creature_helpers import (
     try_attack_only,
     try_pickup_carcass,
 )
+from tests.sim.legacy_corpse_helpers import use_legacy_corpse_on_death
 from src.config import config
 from src.sim.utils.creature_helpers import distance_to_point
 from src.sim.utils.position_helpers import entity_xy
@@ -177,6 +178,7 @@ class TestAntNest(unittest.TestCase):
         factory = CreatureFactory()
         prey = factory.create("springtail", world=world, x=0, y=0)
         world.add_creature(prey)
+        use_legacy_corpse_on_death(prey)
 
         px, py = entity_xy(predator)
         prey.pos[0] = px + 12
@@ -351,6 +353,7 @@ class TestAntNest(unittest.TestCase):
         factory = CreatureFactory()
         prey = factory.create("Spider", world=world, x=0, y=0)
         world.add_creature(prey)
+        use_legacy_corpse_on_death(prey)
         px, py = entity_xy(predator)
         prey.pos[0] = px + 20
         prey.pos[1] = py
@@ -373,6 +376,7 @@ class TestAntNest(unittest.TestCase):
         factory = CreatureFactory()
         prey = factory.create("springtail", world=world, x=0, y=0)
         world.add_creature(prey)
+        use_legacy_corpse_on_death(prey)
         px, py = entity_xy(carrier)
         prey.pos[0] = px + 10
         prey.pos[1] = py
@@ -408,6 +412,7 @@ class TestAntNest(unittest.TestCase):
         factory = CreatureFactory()
         prey = factory.create("springtail", world=world, x=0, y=0)
         world.add_creature(prey)
+        use_legacy_corpse_on_death(prey)
         px, py = entity_xy(predator)
         prey.pos[0] = px + 10
         prey.pos[1] = py

@@ -1,7 +1,7 @@
 """獲物・敵対・死骸の探索と判定。"""
 
 from src.sim.shelter.state import is_creature_sheltered
-from src.sim.utils.geo_helpers import distance_between, is_in_vision
+from src.sim.utils.geo_helpers import distance_between, is_in_vision, is_in_vision
 from src.sim.utils.position_helpers import entity_xy
 from src.sim.utils.spatial_grid import iter_creatures_in_radius
 
@@ -102,7 +102,10 @@ def find_nearest_edible_in_territory_among(creature, species_names, exclude=None
     return ref.as_creature() if ref else None
 
 def find_nearest_edible_among(creature, species_names, exclude=None):
-    """複数種のうち視界内で最も近い獲物／死骸（combat/target_query に委譲）。"""
+    """複数種のうち視界内で最も近い獲物／地面ルート／死骸。"""
+    from src.sim.utils.loot_helpers import distance_to_loot, find_nearest_field_loot_among
+
+    loot = find_nearest_field_loot_among(creature, species_names)
     from src.sim.combat.target_query import find_nearest_prey_creature
 
     ref = find_nearest_prey_creature(
@@ -111,7 +114,14 @@ def find_nearest_edible_among(creature, species_names, exclude=None):
         territory_only=False,
         exclude=exclude,
     )
-    return ref.as_creature() if ref else None
+    best_creature = ref.as_creature() if ref else None
+    if loot is None:
+        return best_creature
+    if best_creature is None:
+        return loot
+    if distance_to_loot(creature, loot) <= distance_between(creature, best_creature):
+        return loot
+    return best_creature
 
 def find_nearest_field_carcass_among(creature, species_names, exclude=None):
     """視界内で最も近い、現場に残る死骸（生きた個体は除外）。"""

@@ -15,6 +15,11 @@ def entity_xy(entity: Any) -> Tuple[float, float]:
     if pos is not None:
         return float(pos[0]), float(pos[1])
 
+    x = getattr(entity, "x", None)
+    y = getattr(entity, "y", None)
+    if x is not None and y is not None:
+        return float(x), float(y)
+
     raise AttributeError(f"{type(entity).__name__} に座標がありません")
 
 

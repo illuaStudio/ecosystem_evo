@@ -13,7 +13,9 @@ from src.sim.utils.creature_helpers import (
     try_pickup_carcass,
     try_predate,
 )
+from src.sim.utils.loot_helpers import find_nearest_field_loot_among, try_pickup_loot
 from src.sim.utils.position_helpers import entity_xy
+from tests.sim.legacy_corpse_helpers import become_legacy_corpse
 
 ANT_PREY = (
     "red_ant",
@@ -125,7 +127,7 @@ class TestSpider(unittest.TestCase):
         top = factory.create("red_ant", world=world, x=500, y=433)
         bottom = factory.create("red_ant", world=world, x=500, y=567)
         for carcass in (top, bottom):
-            carcass.alive = False
+            become_legacy_corpse(carcass)
             carcass.remaining_biomass = 60.0
         world.add_creature(spider)
         world.add_creature(top)
@@ -163,13 +165,13 @@ class TestSpider(unittest.TestCase):
         self.assertGreater(spider.max_hp, ant.max_hp)
 
         for _ in range(500):
-            if not spider.alive:
+            if spider not in world.creatures:
                 break
             try_attack_only(ant, spider, attack_power=1.25)
 
-        self.assertFalse(spider.alive)
-        self.assertTrue(has_edible_carcass(spider))
-        self.assertTrue(try_pickup_carcass(ant, spider))
+        loot = find_nearest_field_loot_among(ant, ("Spider",))
+        self.assertIsNotNone(loot)
+        self.assertTrue(try_pickup_loot(ant, loot))
         deposited = world.nest_system.deposit_carried(ant)
         self.assertGreater(deposited, 0)
         self.assertGreater(nest.stored_food, 0)

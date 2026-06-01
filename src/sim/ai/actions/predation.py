@@ -1,4 +1,14 @@
 from src.sim.constants.micro_fauna import DEFAULT_MICRO_FAUNA_SPECIES
+from src.sim.entities.ground_loot import GroundLoot
+from src.sim.utils.loot_helpers import (
+    find_nearest_field_biomass_among,
+    is_biomass_field_target,
+    is_trackable_biomass_target,
+    loot_on_field,
+    move_toward_biomass_target,
+    consume_biomass_target,
+    try_pickup_biomass_target,
+)
 from src.sim.ai.actions.base import Action
 from src.sim.ai.actions.tracking import (
     CreatureTargetMixin,
@@ -61,20 +71,23 @@ class ChaseAction(Action):
             return False
 
         pad = float(self.params["contact_padding"])
-        reach = contact_range(creature, target, pad)
+        if isinstance(target, GroundLoot):
+            reach = float(target.pickup_radius) + pad
+        else:
+            reach = contact_range(creature, target, pad)
         prey_species = self._prey_species()
 
-        if not target.alive:
-            if not carcass_on_field(creature.world, target):
+        if isinstance(target, GroundLoot) or not target.alive:
+            if not is_biomass_field_target(creature.world, target):
                 self._target = None
                 return False
-            dist = move_toward(
+            dist = move_toward_biomass_target(
                 creature,
                 target,
                 float(self.params["speed_multiplier"]),
             )
             if dist <= reach * 1.05:
-                consume_carcass(
+                consume_biomass_target(
                     creature,
                     target,
                     bite_gain=float(self.params["bite_gain"]),
@@ -100,6 +113,8 @@ class ChaseAction(Action):
         return chase_prey_species(self.params)
 
     def _trackable_prey(self, creature, target, species: tuple[str, ...]) -> bool:
+        if isinstance(target, GroundLoot) or (target is not None and not getattr(target, "alive", True)):
+            return is_trackable_biomass_target(creature, target, species)
         return is_trackable_prey(creature, target, species)
 
     def calculate_utility(self, creature) -> float:
@@ -203,13 +218,19 @@ class HuntAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action
             return False
         return target.species.name in self._carcass_only_species()
 
-    def _is_field_carcass_prey(self, target) -> bool:
-        """Hunt 対象種の現場死骸（拾い／その場食事。生きた個体の狩りではない）。"""
+    def _is_field_carcass_prey(self, creature, target) -> bool:
+        """Hunt 対象種の現場バイオマス（地面ルート／旧死骸）。"""
+        if isinstance(target, GroundLoot):
+            world = getattr(creature, "world", None)
+            return (
+                target.source_species in self._prey_species()
+                and loot_on_field(world, target)
+            )
         if target is None or target.alive:
             return False
         if target.species.name not in self._prey_species():
             return False
-        return carcass_on_field(getattr(target, "world", None), target)
+        return carcass_on_field(getattr(creature, "world", None), target)
 
     def _find_living_prey(self, creature, species: tuple[str, ...]):
         """生きた獲物のみ（carcass_only_species は狩り対象外）。"""
@@ -236,7 +257,7 @@ class HuntAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action
         if self._defense_hunt():
             return self._find_living_prey(creature, species)
 
-        carcass = find_nearest_field_carcass_among(
+        carcass = find_nearest_field_biomass_among(
             creature, species, exclude=creature
         )
         living = self._find_living_prey(creature, species)
@@ -250,6 +271,8 @@ class HuntAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action
         return living
 
     def _trackable_prey(self, creature, target, species: tuple[str, ...]) -> bool:
+        if isinstance(target, GroundLoot) or (target is not None and not getattr(target, "alive", True)):
+            return is_trackable_biomass_target(creature, target, species)
         return is_trackable_prey_creature(
             creature,
             target,
@@ -275,7 +298,9 @@ class HuntAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action
         if target is None:
             return False
 
-        if self._living_only() and not target.alive:
+        if self._living_only() and (
+            isinstance(target, GroundLoot) or not getattr(target, "alive", True)
+        ):
             self._target = None
             return False
 
@@ -283,28 +308,35 @@ class HuntAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action
             not self._defense_hunt()
             and needs_self_feed(creature)
             and self._nest_blocks_hunt(creature)
-            and not self._is_field_carcass_prey(target)
+            and not self._is_field_carcass_prey(creature, target)
         ):
             self._target = None
             return False
 
         pad = float(self.params["contact_padding"])
-        reach = contact_range(creature, target, pad)
+        if isinstance(target, GroundLoot):
+            reach = float(target.pickup_radius) + pad
+        else:
+            reach = contact_range(creature, target, pad)
 
-        if not target.alive:
-            if not carcass_on_field(creature.world, target):
+        if isinstance(target, GroundLoot) or not getattr(target, "alive", True):
+            if not is_biomass_field_target(creature.world, target):
                 self._target = None
                 return False
-            dist = move_toward(creature, target, self.params["speed_multiplier"])
+            dist = move_toward_biomass_target(
+                creature,
+                target,
+                float(self.params["speed_multiplier"]),
+            )
             if dist <= reach * 1.05:
                 if needs_self_feed(creature):
-                    consume_carcass(
+                    consume_biomass_target(
                         creature,
                         target,
                         bite_gain=float(self.params["bite_gain"]),
                     )
                 elif not needs_self_feed(creature) and self.params.get("pickup_on_kill", True):
-                    if try_pickup_carcass(creature, target, pad):
+                    if try_pickup_biomass_target(creature, target, pad):
                         self.completed = True
                         self._target = None
                     else:
@@ -322,7 +354,7 @@ class HuntAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action
             not self._defense_hunt()
             and needs_self_feed(creature)
             and self._nest_blocks_hunt(creature)
-            and not self._is_field_carcass_prey(target)
+            and not self._is_field_carcass_prey(creature, target)
         ):
             self._target = None
             return False
@@ -374,7 +406,7 @@ class HuntAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action
             return 1.0
 
         if needs_self_feed(creature):
-            if self._nest_blocks_hunt(creature) and not self._is_field_carcass_prey(prey):
+            if self._nest_blocks_hunt(creature) and not self._is_field_carcass_prey(creature, prey):
                 return 0.0
             return 1.0
 
@@ -417,7 +449,7 @@ class HuntAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action
                     1.0,
                     score * float(self.params.get("territory_threat_score_mult", 1.25)),
                 )
-        if self._is_field_carcass_prey(prey):
+        if self._is_field_carcass_prey(creature, prey):
             return min(
                 1.0,
                 score * float(self.params.get("carcass_utility_mult", 1.35)),

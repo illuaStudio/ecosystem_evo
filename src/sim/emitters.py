@@ -28,9 +28,10 @@ def _sim_time(world: "World") -> float:
 
 
 def _colony_id(creature) -> Optional[str]:
-    from src.sim.utils.colony_helpers import get_creature_colony_id
+    # シミュ層では affiliation を優先し、未設定なら colony をフォールバックする。
+    from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
 
-    cid = get_creature_colony_id(creature)
+    cid = get_creature_affiliation_id(creature)
     if cid:
         return cid
     if creature is None:

@@ -33,6 +33,33 @@ if TYPE_CHECKING:
 HOLE_DESTROY_HP = 1.0
 
 
+def resolve_affiliation_id(species_name: str, cfg: dict | None = None) -> str:
+    """互換: affiliation_id は現状 colony_id と同一の解決ルールを使う。"""
+    return resolve_colony_id(species_name, cfg or {})
+
+
+def resolve_affiliation_runtime_cfg(world, affiliation_id: str, cfg: dict | None = None) -> dict:
+    """互換: affiliation の拠点 runtime cfg は colony と同じ profiles を用いる。"""
+    return resolve_colony_runtime_cfg(world, affiliation_id, cfg or {})
+
+
+def is_affiliation_defeated(world, affiliation_id: str) -> bool:
+    """互換: defeated 判定は colony の仕組みを流用（world.defeated_affiliations に統合済み）。"""
+    from src.sim.utils.colony_helpers import is_colony_defeated
+
+    return is_colony_defeated(world, affiliation_id)
+
+
+def _sync_legacy_colony(creature, affiliation_id: str, *, defeated: bool = False) -> None:
+    """段階移行用: affiliation の値を legacy colony にも写す（あれば）。"""
+    colony = getattr(creature, "colony", None)
+    if colony is None:
+        return
+    colony.colony_id = str(affiliation_id) if affiliation_id else None
+    if defeated:
+        colony.defeated = True
+
+
 def _resolve_colony_id(target) -> str:
     if target is None:
         return ""
@@ -426,50 +453,58 @@ class NestSystem:
         y = max(m, min(self.world.height - m, y))
         return x, y
 
-    def assign_creature(self, creature, colony_cfg: dict | None = None) -> None:
-        colony = getattr(creature, "colony", None)
-        if colony is None:
+    def assign_creature(self, creature, affiliation_cfg: dict | None = None) -> None:
+        """個体の所属（affiliation_id）を解決して付与する。
+
+        旧 colony 設計（巣root/備蓄/接続点）は現状 NestSystem が担うため、
+        affiliation_id はそのまま root id として扱う。
+        """
+        affiliation = getattr(creature, "affiliation", None)
+        if affiliation is None:
             return
 
-        cfg = colony_cfg or {}
+        cfg = affiliation_cfg or {}
         species_name = creature.species.name
-        single_colony = cfg.get("single_colony", True)
-        colony_id = resolve_colony_id(species_name, cfg)
+        single_affiliation = cfg.get("single_affiliation", cfg.get("single_colony", True))
+        affiliation_id = resolve_affiliation_id(species_name, cfg)
         join_species = cfg.get("join_species")
 
         from src.sim.utils.colony_helpers import is_colony_defeated
 
-        if colony_id and is_colony_defeated(self.world, colony_id):
-            colony.defeated = True
-            colony.colony_id = colony_id
+        if affiliation_id and is_affiliation_defeated(self.world, affiliation_id):
+            affiliation.affiliation_id = str(affiliation_id)
+            _sync_legacy_colony(creature, affiliation_id, defeated=True)
             return
 
         ws = self.world.world_object_system
-        if single_colony and ws.has_colony_root(colony_id):
-            colony.colony_id = colony_id
+        if single_affiliation and ws.has_colony_root(affiliation_id):
+            affiliation.affiliation_id = str(affiliation_id)
+            _sync_legacy_colony(creature, affiliation_id)
             return
 
-        if not single_colony:
+        if not single_affiliation:
             cx, cy = entity_xy(creature)
             join_radius = float(cfg.get("join_radius", self.DEFAULT_JOIN_RADIUS))
-            root = self.find_nearest_colony_root(cx, cy, colony_id, join_radius)
+            root = self.find_nearest_colony_root(cx, cy, affiliation_id, join_radius)
             if root is not None:
-                colony.colony_id = colony_id
+                affiliation.affiliation_id = str(affiliation_id)
+                _sync_legacy_colony(creature, affiliation_id)
                 return
 
         if join_species is not None:
             return
 
         cx, cy = entity_xy(creature)
-        runtime_cfg = resolve_colony_runtime_cfg(self.world, colony_id, cfg)
+        runtime_cfg = resolve_affiliation_runtime_cfg(self.world, affiliation_id, cfg)
         self._register_colony_site(
-            colony_id,
+            affiliation_id,
             cx,
             cy,
             max_food=float(runtime_cfg["max_food"]),
             stored_food=float(runtime_cfg["initial_stored_food"]),
         )
-        colony.colony_id = colony_id
+        affiliation.affiliation_id = str(affiliation_id)
+        _sync_legacy_colony(creature, affiliation_id)
 
     def update(self, dt: float = 1.0) -> None:
         dt = float(dt)

@@ -2,6 +2,8 @@
 import random
 
 from src.sim.ai.mind import UtilityMind
+from src.sim.behavior import PostLifeRunner, death_policy_for_creature
+from src.sim.components.affiliation import AffiliationComponent
 from src.sim.components.colony import ColonyComponent
 from src.sim.components.corpse import CorpseComponent
 from src.sim.components.energy import Energy
@@ -37,6 +39,9 @@ class Creature(BaseEntity):
 
         self.mind = UtilityMind(self.species.mind_data)
         self.current_action = None
+        self.directive = None
+        self.post_life = PostLifeRunner()
+        self.death_policy_override = None
         self.wander_angle = random.uniform(0, 360)
 
         self.max_hp = float(self.traits.get("max_hp", 100))
@@ -59,6 +64,14 @@ class Creature(BaseEntity):
         self.corpse = CorpseComponent(self)
         self.reproduction = ReproductionComponent(self)
         self.inventory = build_inventory_from_species(self.species)
+
+        # 汎用な社会的所属（唯一の所属軸）。
+        self.affiliation: AffiliationComponent | None = None
+        affiliation_cfg = getattr(self.species, "affiliation_data", None) or {}
+        if affiliation_cfg.get("enabled") or self.species.colony_data.get("enabled"):
+            self.affiliation = AffiliationComponent()
+
+        # legacy: colony（段階撤去用）。新規ロジックは affiliation を使う。
         self.colony: ColonyComponent | None = None
         if self.species.colony_data.get("enabled"):
             self.colony = ColonyComponent()
@@ -135,11 +148,28 @@ class Creature(BaseEntity):
 
     def become_corpse(self, cause: str = "hp") -> None:
         self.corpse.become_corpse(cause=cause)
+        self.directive = None
+        self.current_action = None
+        steps = death_policy_for_creature(self)
+        self.post_life.reset(steps)
+        self.post_life.start(self)
+
+    def set_directive(self, directive) -> None:
+        self.directive = directive
+
+    def clear_directive(self) -> None:
+        self.directive = None
 
     def update(self, dt: float = 1.0) -> None:
         dt = float(dt)
+
+        directive = self.directive
+        if directive is not None and not directive.is_done():
+            directive.tick(self, dt)
+            return
+
         if not self.alive:
-            self.corpse.update(dt)
+            self.post_life.tick(self, dt)
             return
 
         self.age += int(dt)

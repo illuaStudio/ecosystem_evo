@@ -80,6 +80,15 @@ def _remove_depleted_carcass(world, carcass) -> None:
         world.remove_creature(carcass)
 
 
+def _detach_loot_from_inventory(inv: InventoryComponent, loot) -> None:
+    if inv is None or loot is None:
+        return
+    for slot in inv.slots:
+        item = slot.item
+        if isinstance(item, BiomassItem) and item.source_loot is loot:
+            item.source_loot = None
+
+
 def _detach_carcass_from_inventory(inv: InventoryComponent, carcass) -> None:
     """フィールドから消えた死骸への参照を外す（復活防止）。"""
     if inv is None or carcass is None:
@@ -98,9 +107,15 @@ def _return_biomass_chunk(
     *,
     cx: float,
     cy: float,
+    loot=None,
 ) -> None:
-    """チャンクを死骸へ戻す。死骸がフィールドに無い場合は破棄する。"""
+    """チャンクを死骸または地面ルートへ戻す。"""
     if chunk <= 0:
+        return
+    if loot is not None:
+        from src.sim.utils.loot_helpers import return_biomass_to_loot
+
+        return_biomass_to_loot(world, chunk, loot)
         return
     if (
         carcass is not None
@@ -167,10 +182,19 @@ def release_inventory_biomass(carrier) -> None:
             continue
         chunk = float(item.amount)
         carcass = item.source_carcass
+        loot = item.source_loot
         inv.clear_slot(slot)
         if chunk <= 0:
             continue
-        _return_biomass_chunk(world, carrier, chunk, carcass, cx=cx, cy=cy)
+        _return_biomass_chunk(
+            world,
+            carrier,
+            chunk,
+            carcass,
+            cx=cx,
+            cy=cy,
+            loot=loot,
+        )
 
 
 def consume_inventory_biomass(creature, bite_gain: float = 1.35) -> float:

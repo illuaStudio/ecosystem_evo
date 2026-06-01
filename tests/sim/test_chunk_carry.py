@@ -3,6 +3,7 @@ import unittest
 
 from src.sim.entities.creature_factory import CreatureFactory
 from src.sim.systems.world import World
+from tests.sim.legacy_corpse_helpers import become_legacy_corpse
 from src.sim.utils.creature_helpers import try_attack_only, try_pickup_carcass
 from src.sim.utils.inventory_helpers import (
     clear_inventory_biomass,
@@ -32,7 +33,7 @@ class TestChunkCarry(unittest.TestCase):
             spider.position.y = spider.pos[1]
 
         spider.hp = 0
-        spider.become_corpse()
+        become_legacy_corpse(spider)
         spider.remaining_biomass = 165.0
         self.assertFalse(spider.alive)
 

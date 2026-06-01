@@ -55,10 +55,22 @@ def try_predate(
     attack_power: float = 1.0,
     bite_gain: float = 1.35,
 ) -> None:
-    """接触時の捕食フロー: bite → 死骸化 → consume_carcass"""
+    """接触時の捕食フロー: bite → 地面ルート／旧死骸を消費。"""
+    prey_x, prey_y = entity_xy(target)
+    species_name = target.species.name
     if target.alive:
         bite(predator, target, attack_power=attack_power)
     if not target.alive:
+        from src.sim.utils.loot_helpers import consume_biomass_near
+
+        if consume_biomass_near(
+            predator,
+            prey_x,
+            prey_y,
+            species_name=species_name,
+            bite_gain=bite_gain,
+        ) > 0:
+            return
         consume_carcass(predator, target, bite_gain=bite_gain)
 
 def try_attack_only(predator, target, attack_power: float = 1.0) -> bool:

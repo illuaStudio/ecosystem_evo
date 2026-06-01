@@ -7,6 +7,7 @@ from typing import Any, Literal, Optional, Union
 MindApplyMode = Literal["replace", "merge", "reset"]
 CommandSpawnSource = Literal["game", "debug"]
 ColonyCaste = Literal["worker", "soldier", "vanguard", "combat", "queen", "member"]
+DirectiveKind = Literal["move_to", "warp_to"]
 
 
 @dataclass(frozen=True)
@@ -56,12 +57,33 @@ class EnterCreatureShelter:
     creature_id: int
 
 
+@dataclass(frozen=True)
+class IssueCreatureDirective:
+    """UtilityMind より優先する強制行動。"""
+
+    creature_id: int
+    kind: DirectiveKind
+    x: float = 0.0
+    y: float = 0.0
+    speed_multiplier: float = 1.0
+    arrival_radius: float = 8.0
+
+
+@dataclass(frozen=True)
+class ClearCreatureDirective:
+    """進行中の強制行動を解除。"""
+
+    creature_id: int
+
+
 SimCommand = Union[
     SpawnCreature,
     SetCreatureMind,
     SetSpeciesMind,
     SetColonyCasteMind,
     EnterCreatureShelter,
+    IssueCreatureDirective,
+    ClearCreatureDirective,
 ]
 
 

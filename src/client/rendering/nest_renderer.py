@@ -1,8 +1,7 @@
 # nest_renderer.py
 import pygame
 
-from src.sim.utils.creature_helpers import get_territory_radius_for_colony
-from src.sim.utils.territory_helpers import iter_territory_centers
+from src.sim.utils.territory_helpers import get_territory_radius_for_colony, iter_territory_centers
 
 DEFAULT_FACTION_STYLE = {
     "label": "?",

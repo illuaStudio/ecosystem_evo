@@ -18,6 +18,7 @@ from src.sim.systems.spawn_system import SpawnSystem
 from src.sim.systems.world_spawner import WorldSpawner
 from src.sim.systems.world_object_system import WorldObjectSystem
 from src.sim.systems.compound_system import CompoundSystem
+from src.sim.systems.ground_loot_system import GroundLootSystem
 from src.sim.utils.world_instances import normalize_world_layout
 
 
@@ -97,15 +98,28 @@ class World:
             layout.get("population_limits", {})
         )
 
-        colony_block = dict(layout.get("colony", {}))
-        self.faction_styles = dict(colony_block.pop("factions", {}))
-        self.faction_species = dict(colony_block.pop("faction_species", {}))
-        self.colony_profiles = {
+        # 所属（affiliation）設定。旧 colony ブロックは後方互換として読み取りのみ行う。
+        affiliation_block = dict(layout.get("affiliation") or layout.get("colony") or {})
+
+        self.affiliation_styles = dict(affiliation_block.pop("factions", {}))
+        self.affiliation_species = dict(affiliation_block.pop("affiliation_species", {}))
+        if not self.affiliation_species:
+            # legacy key: faction_species
+            self.affiliation_species = dict(affiliation_block.pop("faction_species", {}))
+
+        self.affiliation_profiles = {
             str(k): dict(v)
-            for k, v in (colony_block.pop("profiles", {}) or {}).items()
+            for k, v in (affiliation_block.pop("profiles", {}) or {}).items()
         }
-        self.colony_settings = colony_block
-        self.defeated_colonies: set[str] = set()
+        self.affiliation_settings = affiliation_block
+        self.defeated_affiliations: set[str] = set()
+
+        # legacy aliases (不要になったら削除): 既存の描画/テストを壊さないために残す
+        self.faction_styles = self.affiliation_styles
+        self.faction_species = self.affiliation_species
+        self.colony_profiles = self.affiliation_profiles
+        self.colony_settings = self.affiliation_settings
+        self.defeated_colonies = self.defeated_affiliations
         self.last_defeat_message: str = ""
         self.events = EventBus()
         self._combat_pairs_this_tick: set[tuple] = set()
@@ -119,6 +133,7 @@ class World:
         self.zone_system.init_from_layout(layout)
         self.obstacle_system = ObstacleSystem(self)
         self.obstacle_system.init_from_layout(layout)
+        self.ground_loot_system = GroundLootSystem(self)
         self.spawner = WorldSpawner(self)
         self.spawn_system = SpawnSystem(self)
         self.spawn_system.init_from_config(
@@ -172,10 +187,12 @@ class World:
         self._spatial_grid_valid = False
         if getattr(creature, "alive", True):
             self._adjust_alive_species_count(creature.species.name, 1)
-        if getattr(creature, "colony", None) is not None:
-            self.nest_system.assign_creature(
-                creature, creature.species.colony_data
-            )
+        # 旧 colony.enabled ではなく affiliation.enabled を優先する。
+        if getattr(creature, "affiliation", None) is not None:
+            self.nest_system.assign_creature(creature, creature.species.affiliation_data)
+        elif getattr(creature, "colony", None) is not None:
+            # legacy
+            self.nest_system.assign_creature(creature, creature.species.colony_data)
         from src.sim.utils.spawn_helpers import apply_creature_spawn_state
 
         apply_creature_spawn_state(creature)
@@ -199,6 +216,7 @@ class World:
         self._combat_pairs_this_tick = set()
         self.spawn_system.update(dt)
         self.nest_system.update(dt)
+        self.ground_loot_system.update(dt)
         self.rebuild_spatial_grid()
         for creature in self.creatures[:]:
             creature.update(dt)

@@ -25,6 +25,7 @@ from src.sim.utils.creature_helpers import (
     try_pickup_carcass,
     update_nutrition_recovery,
 )
+from tests.sim.legacy_corpse_helpers import use_legacy_corpse_on_death
 from src.sim.utils.inventory_helpers import inventory_is_loaded, total_biomass_amount
 from src.sim.utils.position_helpers import entity_xy
 
@@ -37,6 +38,7 @@ class TestHungerBehavior(unittest.TestCase):
         ant.satiety = ant.max_satiety * ant_satiety_ratio
         world.add_creature(ant)
         world.add_creature(prey)
+        use_legacy_corpse_on_death(prey)
         return ant, prey
 
     def test_nutrition_thresholds_from_traits(self):

@@ -12,6 +12,7 @@ from src.sim.utils.inventory_helpers import (
     total_biomass_amount,
     try_pickup_carcass,
 )
+from tests.sim.legacy_corpse_helpers import become_legacy_corpse
 from src.sim.utils.position_helpers import entity_xy
 
 
@@ -65,7 +66,7 @@ class TestInventory(unittest.TestCase):
         prey = factory.create("springtail", world=world, x=102, y=100)
         world.add_creature(prey)
         prey.hp = 0
-        prey.become_corpse()
+        become_legacy_corpse(prey)
         prey.remaining_biomass = 25.0
 
         self.assertTrue(try_pickup_carcass(ant, prey))
@@ -82,7 +83,7 @@ class TestInventory(unittest.TestCase):
         prey = factory.create("springtail", world=world, x=102, y=100)
         world.add_creature(prey)
         prey.hp = 0
-        prey.become_corpse()
+        become_legacy_corpse(prey)
         prey.remaining_biomass = 30.0
 
         self.assertTrue(try_pickup_carcass(ant, prey))

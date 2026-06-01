@@ -11,6 +11,7 @@ from src.sim.utils.creature_helpers import (
     try_attack_only,
     try_pickup_carcass,
 )
+from tests.sim.legacy_corpse_helpers import become_legacy_corpse, use_legacy_corpse_on_death
 from src.sim.utils.position_helpers import entity_xy
 
 
@@ -28,7 +29,7 @@ class TestHuntCarcassStuck(unittest.TestCase):
         spider = factory.create("Spider", world=world, x=600, y=600)
         world.add_creature(spider)
         spider.hp = 0
-        spider.become_corpse()
+        become_legacy_corpse(spider)
 
         ants = []
         for i in range(4):
@@ -60,6 +61,7 @@ class TestHuntCarcassStuck(unittest.TestCase):
 
         prey = factory.create("springtail", world=world, x=512, y=500)
         world.add_creature(prey)
+        use_legacy_corpse_on_death(prey)
         for _ in range(12):
             if not prey.alive:
                 break
@@ -98,7 +100,7 @@ class TestHuntCarcassStuck(unittest.TestCase):
         world.add_creature(soldier)
 
         spider = factory.create("Spider", world=world, x=150, y=100)
-        spider.become_corpse()
+        become_legacy_corpse(spider)
         spider.remaining_biomass = 500.0
         world.add_creature(spider)
 
@@ -139,7 +141,7 @@ class TestHuntCarcassStuck(unittest.TestCase):
         world.add_creature(ant)
 
         dead_amoeba = factory.create("springtail", world=world, x=508, y=500)
-        dead_amoeba.become_corpse()
+        become_legacy_corpse(dead_amoeba)
         dead_amoeba.remaining_biomass = 80.0
         world.add_creature(dead_amoeba)
 
@@ -164,7 +166,7 @@ class TestHuntCarcassStuck(unittest.TestCase):
         world.add_creature(live_amoeba)
 
         spider = factory.create("Spider", world=world, x=540, y=500)
-        spider.become_corpse()
+        become_legacy_corpse(spider)
         spider.remaining_biomass = 800.0
         world.add_creature(spider)
 
@@ -184,7 +186,7 @@ class TestHuntCarcassStuck(unittest.TestCase):
         world.add_creature(ant)
 
         spider = factory.create("Spider", world=world, x=520, y=500)
-        spider.become_corpse()
+        become_legacy_corpse(spider)
         spider.remaining_biomass = 400.0
         world.add_creature(spider)
 
