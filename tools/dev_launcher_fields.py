@@ -458,12 +458,8 @@ _SPECIES_LABELS: dict[str, str] = {
     "red_ant_queen": "赤女王",
     "red_ant_soldier": "赤兵隊アリ",
     "red_ant_vanguard": "赤ヴァンガード",
-    "blue_ant": "青働きアリ",
-    "blue_ant_soldier": "青兵隊アリ",
-    "blue_ant_vanguard": "青ヴァンガード",
-    "yellow_ant": "黄働きアリ",
-    "yellow_ant_soldier": "黄兵隊アリ",
-    "yellow_ant_vanguard": "黄ヴァンガード",
+    "rival_ant": "敵対アリ（テスト用）",
+    "rival_ant_soldier": "敵対兵隊（テスト用）",
 }
 
 _PARAM_META: dict[str, tuple[str, str, ValueType, float | None, float | None]] = {

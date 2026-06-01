@@ -43,10 +43,6 @@
         "description": "他勢力の兵隊・クモから巣穴に逃げて隠れる",
         "params": {
           "threat_species": [
-            "blue_ant_soldier",
-            "blue_ant_vanguard",
-            "yellow_ant_soldier",
-            "yellow_ant_vanguard",
             "Spider"
           ],
           "speed_multiplier": 1.55

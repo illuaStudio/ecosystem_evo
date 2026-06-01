@@ -20,14 +20,14 @@ class TestInventory(unittest.TestCase):
     def test_ant_has_one_slot_from_json(self):
         world = World()
         factory = CreatureFactory()
-        ant = factory.create("blue_ant", world=world, x=100, y=100)
+        ant = factory.create("red_ant", world=world, x=100, y=100)
         self.assertEqual(ant.inventory.slot_count, 1)
-        self.assertAlmostEqual(get_haul_max_carry(ant), 100.0)
+        self.assertAlmostEqual(get_haul_max_carry(ant), 50.0)
 
     def test_carry_slows_speed(self):
         world = World()
         factory = CreatureFactory()
-        ant = factory.create("blue_ant", world=world, x=100, y=100)
+        ant = factory.create("rival_ant", world=world, x=100, y=100)
         base = ant.get_current_speed()
         ant.inventory.slots[0].item = BiomassItem(amount=80.0)
         loaded = ant.get_current_speed()
@@ -49,7 +49,7 @@ class TestInventory(unittest.TestCase):
     def test_multi_slot_pickup_uses_empty_slots(self):
         world = World()
         factory = CreatureFactory()
-        ant = factory.create("blue_ant", world=world, x=100, y=100)
+        ant = factory.create("rival_ant", world=world, x=100, y=100)
         from src.sim.components.inventory import InventoryComponent, InventorySlot
 
         ant.inventory = InventoryComponent(

@@ -388,13 +388,15 @@ class WorldMapDocument:
                 )
             )
             return obj
+        uid = self._new_uid(layer[:4])
         obj = MapObject(
-            uid=self._new_uid(layer[:4]),
+            uid=uid,
             layer=layer,
             type_ref=type_ref,
             x=float(x),
             y=float(y),
             props={},
+            source_id=uid,
         )
         self.objects.append(obj)
         return obj

@@ -55,10 +55,7 @@
         "description": "テリトリー内の侵入した他勢力を排除（最優先）",
         "params": {
           "hostile_species": [],
-          "hostile_affiliation_ids": [
-            "blue_ant",
-            "yellow_ant"
-          ],
+          "hostile_affiliation_ids": [],
           "speed_multiplier": 1.35,
           "contact_padding": 8.0,
           "attack_power": 1.45,

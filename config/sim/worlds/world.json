@@ -56,22 +56,6 @@
       "parent": "red_ant",
       "x": 120.0,
       "y": 120.0
-    },
-    {
-      "id": "blue_ant",
-      "layer": "affiliation_site",
-      "type": "affiliation_site",
-      "role": "root",
-      "x": 505.0,
-      "y": 938.5
-    },
-    {
-      "id": "yellow_ant",
-      "layer": "affiliation_site",
-      "type": "affiliation_site",
-      "role": "root",
-      "x": 916.0,
-      "y": 75.5
     }
   ],
   "spawn_emitters": {
@@ -266,14 +250,7 @@
     "red_ant_queen": 3,
     "red_ant": 20,
     "red_ant_soldier": 10,
-    "red_ant_vanguard": 10,
-    "blue_ant": 20,
-    "blue_ant_soldier": 10,
-    "blue_ant_vanguard": 10,
-    "yellow_ant": 20,
-    "yellow_ant_soldier": 10,
-    "yellow_ant_vanguard": 10,
-    "Spider": 30
+    "red_ant_vanguard": 10
   },
   "affiliation": {
     "access_food_cost": 250.0,
@@ -291,28 +268,6 @@
         "food_leak_per_tick": 0.0,
         "food_leak_reserve_ratio": 0.15,
         "spawn_spread": 28.0,
-        "spawn_exclusion_radius": 150.0
-      },
-      "blue_ant": {
-        "nest_x": 505.0,
-        "nest_y": 938.5,
-        "territory_radius": 180,
-        "max_food": 5000,
-        "initial_stored_food": 80,
-        "food_leak_per_tick": 0.5,
-        "food_leak_reserve_ratio": 0.15,
-        "spawn_spread": 28,
-        "spawn_exclusion_radius": 150.0
-      },
-      "yellow_ant": {
-        "nest_x": 916.0,
-        "nest_y": 75.5,
-        "territory_radius": 180,
-        "max_food": 5000,
-        "initial_stored_food": 80,
-        "food_leak_per_tick": 0.5,
-        "food_leak_reserve_ratio": 0.15,
-        "spawn_spread": 28,
         "spawn_exclusion_radius": 150.0
       }
     },

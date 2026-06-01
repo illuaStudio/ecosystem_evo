@@ -136,12 +136,12 @@ class TestSimEvents(unittest.TestCase):
         nest = world.nest_system.get_affiliation_root("red_ant")
         world.events.drain()
 
-        world.affiliation_species = {"red_ant": ["red_ant"], "blue_ant": ["blue_ant"]}
+        world.affiliation_species = {"red_ant": ["red_ant"], "rival_ant": ["rival_ant"]}
         ws = world.world_object_system
         for access in list(ws.iter_access_points("red_ant")):
             access.hp = 0.8
             world.nest_system.damage_access(
-                access, "red_ant", 5.0, attacker_affiliation_id="blue_ant"
+                access, "red_ant", 5.0, attacker_affiliation_id="rival_ant"
             )
 
         events = world.events.drain()

@@ -26,7 +26,7 @@ def _colony_world(**colony_overrides) -> World:
             "world_width": 1000,
             "world_height": 1000,
             "initial_entities": {},
-            "population_limits": {"red_ant": 20, "blue_ant": 20, "springtail": 50},
+            "population_limits": {"red_ant": 20, "rival_ant": 20, "springtail": 50},
             "affiliation": colony,
         }
     )
@@ -72,7 +72,7 @@ class TestFieldEffects(unittest.TestCase):
     def _world_with_fixed_nests(self) -> World:
         world = _colony_world()
         world.nest_system.create_nest(200, 200, "red_ant", affiliation_id="red_ant")
-        world.nest_system.create_nest(800, 800, "blue_ant", affiliation_id="blue_ant")
+        world.nest_system.create_nest(800, 800, "rival_ant", affiliation_id="rival_ant")
         return world
 
     def test_territory_regen_only_for_own_colony(self):
@@ -83,7 +83,7 @@ class TestFieldEffects(unittest.TestCase):
         red.hp = 80.0
 
         # ??????????????????????
-        blue = factory.create("blue_ant", world=world, x=210, y=210)
+        blue = factory.create("rival_ant", world=world, x=210, y=210)
         world.add_creature(blue)
         blue.hp = 80.0
 

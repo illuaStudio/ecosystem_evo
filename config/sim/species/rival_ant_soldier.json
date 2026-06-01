@@ -1,0 +1,44 @@
+{
+  "name": "rival_ant_soldier",
+  "description": "テスト用の敵対勢力兵隊（本番ワールドには出現しない）。",
+  "color": [40, 60, 200],
+  "affiliation": {
+    "enabled": true,
+    "join_species": "rival_ant",
+    "spawn_spread": 22.0
+  },
+  "traits": {
+    "base_size": 18.0,
+    "base_speed": 0.58,
+    "base_vision": 220.0,
+    "max_hp": 160.0,
+    "max_satiety": 100.0,
+    "metabolism_per_tick": 0.06,
+    "satiety_hungry_below": 0.15,
+    "satiety_full_above": 0.85,
+    "corpse_decompose_rate": 0.01,
+    "starvation_hp_per_tick": 0.0072
+  },
+  "mind": {
+    "type": "utility",
+    "actions": [
+      {
+        "name": "CombatAction",
+        "weight": 5.0,
+        "params": {
+          "hostile_affiliation_ids": ["red_ant"],
+          "speed_multiplier": 1.35,
+          "contact_padding": 8.0,
+          "attack_power": 1.45,
+          "territory_only": true,
+          "nest_leash_radius": 165.0
+        }
+      },
+      {
+        "name": "WanderAction",
+        "weight": 0.2,
+        "params": { "angle_range": 24.0, "speed_multiplier": 0.55 }
+      }
+    ]
+  }
+}

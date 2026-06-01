@@ -17,15 +17,15 @@ def _player_world(**overrides) -> World:
         "world_width": 800,
         "world_height": 800,
         "initial_entities": {},
-        "population_limits": {"red_ant": 20, "red_ant_queen": 3, "blue_ant": 10},
+        "population_limits": {"red_ant": 20, "red_ant_queen": 3, "rival_ant": 10},
         "affiliation": affiliation_settings(
             factions={
                 "red_ant": {"label": "R"},
-                "blue_ant": {"label": "B"},
+                "rival_ant": {"label": "B"},
             },
             affiliation_species={
                 "red_ant": ["red_ant", "red_ant_soldier", "red_ant_queen"],
-                "blue_ant": ["blue_ant"],
+                "rival_ant": ["rival_ant"],
             },
         ),
     }
@@ -42,7 +42,7 @@ class TestGameDirector(unittest.TestCase):
         world = _player_world()
         factory = CreatureFactory()
         worker = factory.create("red_ant", world=world, x=120, y=120)
-        soldier = factory.create("blue_ant_soldier", world=world, x=125, y=120)
+        soldier = factory.create("rival_ant_soldier", world=world, x=125, y=120)
         world.add_creature(worker, spawn_source="initial")
         world.add_creature(soldier, spawn_source="initial")
         emit_combat_started_creature(world, soldier, worker)

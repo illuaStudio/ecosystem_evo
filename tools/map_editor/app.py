@@ -86,7 +86,7 @@ class MapEditorApp:
         self.doc._flush_objects()
         self.world = self.doc.rebuild_preview_world()
         self.renderer.invalidate_biome_cache()
-        self.camera.set_world(self.world)
+        self.camera.set_world(self.world, center=False)
 
     def _screen_to_world(self, sx: int, sy: int) -> tuple[float, float]:
         return float(sx + self.camera.x), float(sy + self.camera.y)
@@ -310,7 +310,7 @@ class MapEditorApp:
             tr = min(36, int(self.doc.resolve_radius(obj) * 0.2))
             pygame.draw.circle(self.screen, outer, (sx, sy), tr + 4, 2)
             pygame.draw.circle(self.screen, inner, (sx, sy), tr)
-            label = style.get("label", colony_id[:1])
+            label = style.get("label", affiliation_id[:1])
             self.screen.blit(self.small_font.render(str(label), True, (255, 240, 220)), (sx - 6, sy - 8))
         for obj in self.doc.objects_in_layer("affiliation_access"):
             sx = int(obj.x - self.camera.x)

@@ -25,7 +25,7 @@ class TestSpeciesVisibility(unittest.TestCase):
         vis = SpeciesVisibilityManager()
         vis.reset_for_world(World())
         self.assertTrue(vis.toggle_group_by_hotkey(ord("3")))
-        self.assertFalse(vis.is_group_visible("blue_ant"))
+        self.assertFalse(vis.is_group_visible("spider"))
 
 
 if __name__ == "__main__":

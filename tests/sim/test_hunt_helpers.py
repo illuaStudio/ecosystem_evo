@@ -47,11 +47,11 @@ class TestHuntHelpers(unittest.TestCase):
         world = World()
         factory = CreatureFactory()
         ant = factory.create("red_ant", world=world, x=500, y=500)
-        enemy = factory.create("blue_ant", world=world, x=520, y=500)
+        enemy = factory.create("rival_ant", world=world, x=520, y=500)
         world.add_creature(ant)
         world.add_creature(enemy)
 
-        action = CombatAction(hostile_species=["blue_ant"])
+        action = CombatAction(hostile_species=["rival_ant"])
         action._target = enemy
         ant.current_action = action
 
@@ -61,7 +61,7 @@ class TestHuntHelpers(unittest.TestCase):
         world = World()
         factory = CreatureFactory()
         ant = factory.create("red_ant", world=world, x=500, y=500)
-        enemy = factory.create("blue_ant", world=world, x=520, y=500)
+        enemy = factory.create("rival_ant", world=world, x=520, y=500)
         world.add_creature(ant)
         world.add_creature(enemy)
 

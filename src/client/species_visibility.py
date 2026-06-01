@@ -10,18 +10,14 @@ from src.sim.constants.micro_fauna import DEFAULT_MICRO_FAUNA_SPECIES
 # (group_id, 表示名, 種名タプル)
 DEFAULT_VISIBILITY_GROUPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("micro_fauna", "極小虫", DEFAULT_MICRO_FAUNA_SPECIES),
-    ("red_ant", "赤アリ", ("red_ant", "red_ant_soldier", "red_ant_vanguard")),
-    ("blue_ant", "青アリ", ("blue_ant", "blue_ant_soldier", "blue_ant_vanguard")),
-    ("yellow_ant", "黄アリ", ("yellow_ant", "yellow_ant_soldier", "yellow_ant_vanguard")),
+    ("red_ant", "赤アリ", ("red_ant", "red_ant_soldier", "red_ant_vanguard", "red_ant_queen")),
     ("spider", "クモ", ("Spider",)),
 )
 
 GROUP_HOTKEYS: dict[int, str] = {
     ord("1"): "micro_fauna",
     ord("2"): "red_ant",
-    ord("3"): "blue_ant",
-    ord("4"): "yellow_ant",
-    ord("5"): "spider",
+    ord("3"): "spider",
 }
 
 
@@ -78,9 +74,8 @@ class SpeciesVisibilityManager:
             if not names:
                 return
             new_val = not self.is_group_visible(group_id)
-            for name in names:
-                if name in self._visible:
-                    self._visible[name] = new_val
+            for n in names:
+                self._visible[n] = new_val
             return
 
     def toggle_group_by_hotkey(self, key: int) -> bool:
@@ -90,34 +85,25 @@ class SpeciesVisibilityManager:
         self.toggle_group(group_id)
         return True
 
-    def groups_for_world(self, world) -> list[tuple[str, str, tuple[str, ...]]]:
-        limits = getattr(world, "population_limits", None) or {}
-        if not limits:
-            return list(self._groups)
-        out: list[tuple[str, str, tuple[str, ...]]] = []
-        for gid, label, names in self._groups:
-            filtered = tuple(n for n in names if n in limits)
-            if filtered:
-                out.append((gid, label, filtered))
-        return out
-
-    def set_toggle_rects(self, rects: list[VisibilityToggleRect]) -> None:
-        self._toggle_rects = list(rects)
-
-    def hit_test_toggle(self, mx: int, my: int) -> str | None:
-        for entry in self._toggle_rects:
-            x, y, w, h = entry.rect
-            if x <= mx < x + w and y <= my < y + h:
-                return entry.group_id
-        return None
-
     def representative_color(self, group_id: str) -> tuple[int, int, int]:
         for gid, _label, names in self._groups:
-            if gid != group_id:
+            if gid != group_id or not names:
                 continue
             for name in names:
-                data = config.get_species(name) or {}
-                color = data.get("color")
-                if color and len(color) >= 3:
-                    return (int(color[0]), int(color[1]), int(color[2]))
-        return (180, 180, 180)
+                data = config.species.get(name)
+                if data and "color" in data:
+                    c = data["color"]
+                    return int(c[0]), int(c[1]), int(c[2])
+        return 180, 180, 180
+
+    @property
+    def groups(self) -> list[tuple[str, str, tuple[str, ...]]]:
+        return list(self._groups)
+
+    @property
+    def toggle_rects(self) -> list[VisibilityToggleRect]:
+        return self._toggle_rects
+
+    @toggle_rects.setter
+    def toggle_rects(self, rects: list[VisibilityToggleRect]) -> None:
+        self._toggle_rects = rects

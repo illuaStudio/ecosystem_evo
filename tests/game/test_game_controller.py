@@ -10,7 +10,7 @@ from src.sim.bridge import SimBridge
 from src.sim.emitters import emit_affiliation_defeated, emit_combat_started_creature
 from src.sim.systems.world import World
 from tests.sim.world_fixtures import (
-    BLUE_ANT_PROFILE,
+    RIVAL_ANT_PROFILE,
     RED_ANT_PROFILE,
     affiliation_settings,
     load_test_world,
@@ -23,22 +23,22 @@ def _player_world(**overrides) -> World:
         name="GameLayerTest",
         world_width=800,
         world_height=800,
-        population_limits={"red_ant": 20, "red_ant_queen": 3, "blue_ant": 10},
+        population_limits={"red_ant": 20, "red_ant_queen": 3, "rival_ant": 10},
         affiliation=affiliation_settings(
             profiles={
                 "red_ant": {
                     **RED_ANT_PROFILE,
                     "initial_stored_food": 600,
                 },
-                "blue_ant": dict(BLUE_ANT_PROFILE),
+                "rival_ant": dict(RIVAL_ANT_PROFILE),
             },
             factions={
                 "red_ant": {"label": "R"},
-                "blue_ant": {"label": "B"},
+                "rival_ant": {"label": "B"},
             },
             affiliation_species={
                 "red_ant": ["red_ant", "red_ant_soldier", "red_ant_queen"],
-                "blue_ant": ["blue_ant"],
+                "rival_ant": ["rival_ant"],
             },
         ),
         **overrides,
@@ -133,7 +133,7 @@ class TestGameController(unittest.TestCase):
         world = _player_world()
         factory = CreatureFactory()
         worker = factory.create("red_ant", world=world, x=120, y=120)
-        soldier = factory.create("blue_ant_soldier", world=world, x=125, y=120)
+        soldier = factory.create("rival_ant_soldier", world=world, x=125, y=120)
         world.add_creature(worker, spawn_source="initial")
         world.add_creature(soldier, spawn_source="initial")
         world.events.drain()

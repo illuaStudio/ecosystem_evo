@@ -17,8 +17,8 @@ class TestWorldStart(unittest.TestCase):
     def test_affiliation_species_single_faction(self):
         world = World()
         self.assertIn("red_ant", world.affiliation_species)
-        self.assertNotIn("blue_ant", world.affiliation_species)
-        self.assertNotIn("yellow_ant", world.affiliation_species)
+        self.assertNotIn("rival_ant", world.affiliation_species)
+        self.assertNotIn("rival_ant", world.affiliation_species)
         self.assertIn("red_ant", world.affiliation_styles)
 
     def test_initial_population(self):
@@ -35,7 +35,7 @@ class TestWorldStart(unittest.TestCase):
 
     def test_species_still_in_config(self):
         self.assertIn("red_ant", config.species)
-        self.assertIn("blue_ant", config.species)
+        self.assertIn("rival_ant", config.species)
         for name in DEFAULT_MICRO_FAUNA_SPECIES:
             self.assertIn(name, config.species)
 

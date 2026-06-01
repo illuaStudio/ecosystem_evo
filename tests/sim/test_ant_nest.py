@@ -35,12 +35,12 @@ def _repro_member_species(params: dict) -> list[str]:
 
 class TestAntNest(unittest.TestCase):
     def _empty_world(self) -> World:
-        """????????????????blue_ant ???????????????????"""
+        """????????????????rival_ant ???????????????????"""
         return load_test_world(
             name="AntNestTest",
             world_width=3000,
             world_height=3000,
-            population_limits={"red_ant": 60, "blue_ant": 60},
+            population_limits={"red_ant": 60, "rival_ant": 60},
             affiliation=affiliation_settings(
                 profiles={"red_ant": dict(RED_ANT_PROFILE)},
                 affiliation_species={"red_ant": ["red_ant"]},

@@ -10,22 +10,22 @@ from src.sim.combat.target_ref import TargetKind, TargetRef
 from src.sim.combat.target_damage import apply_damage_to_target
 from src.sim.entities.creature_factory import CreatureFactory
 from src.sim.systems.world import World
-from tests.sim.world_fixtures import RED_ANT_PROFILE, BLUE_ANT_PROFILE, affiliation_settings, load_test_world
+from tests.sim.world_fixtures import RED_ANT_PROFILE, RIVAL_ANT_PROFILE, affiliation_settings, load_test_world
 
 
 def _combat_affiliation_settings():
     red = dict(RED_ANT_PROFILE)
     red["nest_x"] = 100
     red["nest_y"] = 100
-    blue = dict(BLUE_ANT_PROFILE)
+    blue = dict(RIVAL_ANT_PROFILE)
     blue["nest_x"] = 200
     blue["nest_y"] = 200
     return affiliation_settings(
         access_max_hp=100,
-        profiles={"red_ant": red, "blue_ant": blue},
+        profiles={"red_ant": red, "rival_ant": blue},
         affiliation_species={
             "red_ant": ["red_ant", "red_ant_soldier"],
-            "blue_ant": ["blue_ant"],
+            "rival_ant": ["rival_ant"],
         },
     )
 
@@ -36,7 +36,7 @@ def _world():
         population_limits={
             "red_ant": 10,
             "red_ant_soldier": 6,
-            "blue_ant": 10,
+            "rival_ant": 10,
         },
         affiliation=_combat_affiliation_settings(),
     )
@@ -47,15 +47,15 @@ class TestCombatTargets(unittest.TestCase):
         world = _world()
         ws = world.world_object_system
         self.assertTrue(ws.has_affiliation_root("red_ant"))
-        self.assertTrue(ws.has_affiliation_root("blue_ant"))
+        self.assertTrue(ws.has_affiliation_root("rival_ant"))
         self.assertIsNotNone(world.nest_system.get_affiliation_root("red_ant"))
-        self.assertIsNotNone(world.nest_system.get_affiliation_root("blue_ant"))
+        self.assertIsNotNone(world.nest_system.get_affiliation_root("rival_ant"))
 
     def test_iter_targets_creature_and_colony_access(self):
         world = _world()
         factory = CreatureFactory()
         red = factory.create("red_ant", world=world, x=100, y=100)
-        blue = factory.create("blue_ant", world=world, x=400, y=400)
+        blue = factory.create("rival_ant", world=world, x=400, y=400)
         world.add_creature(red)
         world.add_creature(blue)
 
@@ -71,14 +71,14 @@ class TestCombatTargets(unittest.TestCase):
         world = _world()
         factory = CreatureFactory()
         red = factory.create("red_ant", world=world, x=100, y=100)
-        blue = factory.create("blue_ant", world=world, x=200, y=200)
+        blue = factory.create("rival_ant", world=world, x=200, y=200)
         world.add_creature(red)
         world.add_creature(blue)
         vanguard = factory.create("red_ant_soldier", world=world, x=150, y=150)
         world.add_creature(vanguard)
 
         ref = find_nearest_affiliation_access(
-            vanguard, ("blue_ant",), unrestricted=True
+            vanguard, ("rival_ant",), unrestricted=True
         )
         self.assertIsNotNone(ref)
         self.assertEqual(ref.kind, TargetKind.WORLD_OBJECT)
@@ -88,14 +88,14 @@ class TestCombatTargets(unittest.TestCase):
         world = _world()
         factory = CreatureFactory()
         red = factory.create("red_ant", world=world, x=100, y=100)
-        blue = factory.create("blue_ant", world=world, x=200, y=200)
+        blue = factory.create("rival_ant", world=world, x=200, y=200)
         world.add_creature(red)
         world.add_creature(blue)
         soldier = factory.create("red_ant_soldier", world=world, x=190, y=190)
         world.add_creature(soldier)
 
         ref = find_nearest_affiliation_access(
-            soldier, ("blue_ant",), unrestricted=True
+            soldier, ("rival_ant",), unrestricted=True
         )
         access = ref.world_object
         self.assertIsNotNone(access)
@@ -131,7 +131,7 @@ class TestCombatTargets(unittest.TestCase):
                         "y": 100,
                     },
                     {
-                        "id": "blue_ant",
+                        "id": "rival_ant",
                         "layer": "affiliation_site",
                         "type": "affiliation_site",
                         "role": "root",
@@ -139,10 +139,10 @@ class TestCombatTargets(unittest.TestCase):
                         "y": 500,
                     },
                     {
-                        "id": "blue_ant_access_main",
+                        "id": "rival_ant_access_main",
                         "layer": "affiliation_access",
                         "type": "affiliation_access",
-                        "parent": "blue_ant",
+                        "parent": "rival_ant",
                         "x": 500,
                         "y": 500,
                     },
@@ -151,25 +151,25 @@ class TestCombatTargets(unittest.TestCase):
                     access_max_hp=100,
                     affiliation_species={
                         "red_ant": ["red_ant", "red_ant_soldier"],
-                        "blue_ant": ["blue_ant"],
+                        "rival_ant": ["rival_ant"],
                     },
                     profiles={
                         "red_ant": {"nest_x": 100, "nest_y": 100, "territory_radius": 180},
-                        "blue_ant": {"nest_x": 500, "nest_y": 500, "territory_radius": 180},
+                        "rival_ant": {"nest_x": 500, "nest_y": 500, "territory_radius": 180},
                     },
                 ),
             }
         )
         factory = CreatureFactory()
         red = factory.create("red_ant", world=world, x=100, y=100)
-        blue = factory.create("blue_ant", world=world, x=500, y=500)
+        blue = factory.create("rival_ant", world=world, x=500, y=500)
         world.add_creature(red)
         world.add_creature(blue)
         soldier = factory.create("red_ant_soldier", world=world, x=480, y=480)
         world.add_creature(soldier)
 
         ref = find_nearest_affiliation_access(
-            soldier, ("blue_ant",), unrestricted=True
+            soldier, ("rival_ant",), unrestricted=True
         )
         self.assertIsNotNone(ref)
         self.assertEqual(ref.kind, TargetKind.WORLD_OBJECT)
@@ -187,13 +187,13 @@ class TestCombatTargets(unittest.TestCase):
         factory = CreatureFactory()
         red_w = factory.create("red_ant", world=world, x=100, y=100)
         world.add_creature(red_w)
-        blue_w = factory.create("blue_ant", world=world, x=150, y=100)
+        blue_w = factory.create("rival_ant", world=world, x=150, y=100)
         world.add_creature(blue_w)
         soldier = factory.create("red_ant_soldier", world=world, x=105, y=100)
         world.add_creature(soldier)
 
         ref = find_nearest_hostile_creature(
-            soldier, ("blue_ant",), territory_only=True, exclude=soldier
+            soldier, ("rival_ant",), territory_only=True, exclude=soldier
         )
         self.assertIsNotNone(ref)
         self.assertIs(ref.creature, blue_w)

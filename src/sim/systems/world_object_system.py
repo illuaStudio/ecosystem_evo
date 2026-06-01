@@ -56,9 +56,11 @@ class WorldObjectSystem:
             if not isinstance(raw, dict):
                 continue
             layer = str(raw.get("layer", ""))
-            obj_id = str(raw.get("id", raw.get("type", "")))
-            if not obj_id:
-                continue
+            raw_id = raw.get("id")
+            if raw_id is not None and str(raw_id).strip():
+                obj_id = str(raw_id)
+            else:
+                obj_id = f"{layer}_{uuid.uuid4().hex[:8]}"
 
             if layer in SITE_LAYERS:
                 if obj_id in self.objects:
@@ -292,7 +294,11 @@ class WorldObjectSystem:
         return [obj for obj in self.objects.values() if obj.is_root]
 
     def iter_obstacles(self) -> List[WorldObject]:
-        return [obj for obj in self.objects.values() if obj.is_obstacle]
+        return [
+            obj
+            for obj in self.objects.values()
+            if obj.is_obstacle and not obj.is_zone
+        ]
 
     def iter_zones(self) -> List[WorldObject]:
         return [obj for obj in self.objects.values() if obj.is_zone]

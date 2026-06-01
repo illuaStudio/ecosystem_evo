@@ -20,8 +20,8 @@ def _colony_world(**overrides) -> World:
         "population_limits": {
             "red_ant": 20,
             "red_ant_soldier": 10,
-            "blue_ant": 20,
-            "yellow_ant": 20,
+            "rival_ant": 20,
+            "rival_ant": 20,
         },
         "affiliation": {
             "access_food_cost": 250,
@@ -57,16 +57,16 @@ class TestNestHolesAndColonyId(unittest.TestCase):
         factory = CreatureFactory()
         red = factory.create("red_ant", world=world, x=100, y=100)
         world.add_creature(red)
-        blue = factory.create("blue_ant", world=world, x=800, y=800)
+        blue = factory.create("rival_ant", world=world, x=800, y=800)
         world.add_creature(blue)
-        yellow = factory.create("yellow_ant", world=world, x=800, y=100)
+        yellow = factory.create("rival_ant", world=world, x=800, y=100)
         world.add_creature(yellow)
 
         red_nest = world.nest_system.get_creature_nest(red)
         blue_nest = world.nest_system.get_creature_nest(blue)
         yellow_nest = world.nest_system.get_creature_nest(yellow)
         ids = {red_nest.affiliation_id, blue_nest.affiliation_id, yellow_nest.affiliation_id}
-        self.assertEqual(ids, {"red_ant", "blue_ant", "yellow_ant"})
+        self.assertEqual(ids, {"red_ant", "rival_ant", "rival_ant"})
 
     def test_place_hole_extends_territory(self):
         world = _colony_world()

@@ -142,21 +142,21 @@ class TestAffiliationCasteMind(unittest.TestCase):
                 "world_width": 800,
                 "world_height": 800,
                 "initial_entities": {},
-                "population_limits": {"red_ant": 10, "blue_ant": 10},
+                "population_limits": {"red_ant": 10, "rival_ant": 10},
                 "affiliation": affiliation_settings(
                     affiliation_species={
                         "red_ant": ["red_ant"],
-                        "blue_ant": ["blue_ant"],
+                        "rival_ant": ["rival_ant"],
                     },
                 ),
             }
         )
         bridge = SimBridge(world)
         factory = CreatureFactory()
-        red = factory.create("red_ant", world=world, x=100, y=100)
-        blue = factory.create("blue_ant", world=world, x=500, y=500)
-        world.add_creature(red, spawn_source="initial")
-        world.add_creature(blue, spawn_source="initial")
+        worker = factory.create("red_ant", world=world, x=100, y=100)
+        soldier = factory.create("red_ant_soldier", world=world, x=110, y=100)
+        world.add_creature(worker, spawn_source="initial")
+        world.add_creature(soldier, spawn_source="initial")
         world.events.drain()
 
         wander = ({"name": "WanderAction", "weight": 1.0, "params": {}},)
@@ -168,8 +168,8 @@ class TestAffiliationCasteMind(unittest.TestCase):
                 mode="replace",
             )
         )
-        self.assertEqual(red.mind.action_defs[0]["name"], "WanderAction")
-        self.assertNotEqual(blue.mind.action_defs[0]["name"], "WanderAction")
+        self.assertEqual(worker.mind.action_defs[0]["name"], "WanderAction")
+        self.assertEqual(soldier.mind.action_defs[0]["name"], "FeedAtNestAction")
 
 
 class TestSimBridge(unittest.TestCase):

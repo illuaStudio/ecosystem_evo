@@ -26,15 +26,10 @@ from tests.sim.test_hole_combat_helpers import (
 )
 
 from tests.sim.world_fixtures import (
-
-    BLUE_ANT_PROFILE,
-
+    RIVAL_ANT_PROFILE,
     RED_ANT_PROFILE,
-
     affiliation_settings,
-
     load_test_world,
-
 )
 
 
@@ -49,26 +44,16 @@ def _hole_affiliation_settings():
 
     red["nest_y"] = 100
 
-    blue = dict(BLUE_ANT_PROFILE)
-
-    blue["nest_x"] = 500
-
-    blue["nest_y"] = 500
-
+    rival = dict(RIVAL_ANT_PROFILE)
+    rival["nest_x"] = 500
+    rival["nest_y"] = 500
     return affiliation_settings(
-
         access_max_hp=100,
-
-        profiles={"red_ant": red, "blue_ant": blue},
-
+        profiles={"red_ant": red, "rival_ant": rival},
         affiliation_species={
-
             "red_ant": ["red_ant", "red_ant_soldier", "red_ant_vanguard"],
-
-            "blue_ant": ["blue_ant", "blue_ant_soldier", "blue_ant_vanguard"],
-
+            "rival_ant": ["rival_ant", "rival_ant_soldier"],
         },
-
     )
 
 
@@ -89,11 +74,8 @@ def _hole_world(**overrides) -> World:
 
             "red_ant_vanguard": 4,
 
-            "blue_ant": 10,
-
-            "blue_ant_soldier": 6,
-
-            "blue_ant_vanguard": 4,
+            "rival_ant": 10,
+            "rival_ant_soldier": 6,
 
         },
 
@@ -139,7 +121,7 @@ class TestHoleCombat(unittest.TestCase):
 
         world.add_creature(red)
 
-        blue = factory.create("blue_ant", world=world, x=500, y=500)
+        blue = factory.create("rival_ant", world=world, x=500, y=500)
 
         world.add_creature(blue)
 
@@ -201,7 +183,7 @@ class TestHoleCombat(unittest.TestCase):
 
         damage_colony_access(
 
-            world, nest.affiliation_id, access, 0.1, attacker_affiliation_id="blue_ant"
+            world, nest.affiliation_id, access, 0.1, attacker_affiliation_id="rival_ant"
 
         )
 
@@ -239,7 +221,7 @@ class TestHoleCombat(unittest.TestCase):
 
         dealt = damage_colony_access(
 
-            world, nest.affiliation_id, access, 40, attacker_affiliation_id="blue_ant"
+            world, nest.affiliation_id, access, 40, attacker_affiliation_id="rival_ant"
 
         )
 
@@ -271,7 +253,7 @@ class TestHoleCombat(unittest.TestCase):
 
         damage_colony_access(
 
-            world, nest.affiliation_id, access, 200, attacker_affiliation_id="blue_ant"
+            world, nest.affiliation_id, access, 200, attacker_affiliation_id="rival_ant"
 
         )
 
@@ -308,7 +290,7 @@ class TestHoleCombat(unittest.TestCase):
 
         world.add_creature(red_s)
 
-        blue_w = factory.create("blue_ant", world=world, x=150, y=100)
+        blue_w = factory.create("rival_ant", world=world, x=150, y=100)
 
         world.add_creature(blue_w)
 
@@ -316,11 +298,11 @@ class TestHoleCombat(unittest.TestCase):
 
         combat = CombatAction(
 
-            hostile_affiliation_ids=["blue_ant"], territory_only=True
+            hostile_affiliation_ids=["rival_ant"], territory_only=True
 
         )
 
-        attack_hole = AttackHoleAction(hostile_affiliation_ids=["blue_ant"])
+        attack_hole = AttackHoleAction(hostile_affiliation_ids=["rival_ant"])
 
         self.assertGreater(combat.calculate_utility(red_s), 0.0)
 
@@ -338,7 +320,7 @@ class TestHoleCombat(unittest.TestCase):
 
         world.add_creature(red)
 
-        blue = factory.create("blue_ant", world=world, x=500, y=500)
+        blue = factory.create("rival_ant", world=world, x=500, y=500)
 
         world.add_creature(blue)
 
@@ -350,9 +332,9 @@ class TestHoleCombat(unittest.TestCase):
 
         access = primary_access(world, blue_nest.affiliation_id)
 
-        self.assertFalse(can_attack_affiliation_access(soldier, access, "blue_ant"))
+        self.assertFalse(can_attack_affiliation_access(soldier, access, "rival_ant"))
 
-        self.assertIsNone(find_nearest_attackable_access(soldier, ("blue_ant",)))
+        self.assertIsNone(find_nearest_attackable_access(soldier, ("rival_ant",)))
 
 
 
@@ -370,7 +352,7 @@ class TestHoleCombat(unittest.TestCase):
 
         world.add_creature(red)
 
-        blue = factory.create("blue_ant", world=world, x=500, y=500)
+        blue = factory.create("rival_ant", world=world, x=500, y=500)
 
         world.add_creature(blue)
 
@@ -388,7 +370,7 @@ class TestHoleCombat(unittest.TestCase):
 
             find_nearest_attackable_access(
 
-                vanguard_far, ("blue_ant",), unrestricted=True
+                vanguard_far, ("rival_ant",), unrestricted=True
 
             )
 
@@ -396,7 +378,7 @@ class TestHoleCombat(unittest.TestCase):
 
         action = AttackHoleAction(
 
-            hostile_affiliation_ids=["blue_ant"],
+            hostile_affiliation_ids=["rival_ant"],
 
             ignore_territory=True,
 
@@ -416,7 +398,7 @@ class TestHoleCombat(unittest.TestCase):
 
         pair = find_nearest_attackable_access(
 
-            vanguard_near, ("blue_ant",), unrestricted=True
+            vanguard_near, ("rival_ant",), unrestricted=True
 
         )
 
@@ -444,7 +426,7 @@ class TestHoleCombat(unittest.TestCase):
 
         world.add_creature(red)
 
-        blue = factory.create("blue_ant", world=world, x=400, y=400)
+        blue = factory.create("rival_ant", world=world, x=400, y=400)
 
         world.add_creature(blue)
 
@@ -458,7 +440,7 @@ class TestHoleCombat(unittest.TestCase):
 
         action = AttackHoleAction(
 
-            hostile_affiliation_ids=["blue_ant"],
+            hostile_affiliation_ids=["rival_ant"],
 
             ignore_territory=True,
 

@@ -24,10 +24,13 @@ class Camera:
         self._pan_inset_right = 0.0
         self._pan_inset_bottom = 0.0
 
-    def set_world(self, world):
-        """Worldを設定（engineから呼ばれる）"""
+    def set_world(self, world, *, center: bool = True) -> None:
+        """Worldを設定。center=False なら現在のパン位置を維持する。"""
         self.world = world
-        self.center()
+        if center:
+            self.center()
+        else:
+            self._clamp_position()
 
     def set_pan_insets(
         self,

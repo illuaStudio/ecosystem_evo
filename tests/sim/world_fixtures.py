@@ -25,20 +25,9 @@ RED_ANT_PROFILE = {
     "spawn_spread": 28,
 }
 
-BLUE_ANT_PROFILE = {
+RIVAL_ANT_PROFILE = {
     "nest_x": 500,
-    "nest_y": 820,
-    "territory_radius": 180,
-    "max_food": 5000,
-    "initial_stored_food": 80,
-    "food_leak_per_tick": 0.5,
-    "food_leak_reserve_ratio": 0.15,
-    "spawn_spread": 28,
-}
-
-YELLOW_ANT_PROFILE = {
-    "nest_x": 880,
-    "nest_y": 120,
+    "nest_y": 500,
     "territory_radius": 180,
     "max_food": 5000,
     "initial_stored_food": 80,
@@ -62,26 +51,42 @@ MINIMAL_TEST_BIOME = {
 
 
 def affiliation_settings(**extra) -> dict:
-    """巣穴・産卵共通 + 全コロニー profiles。"""
+    """巣穴・産卵共通。デフォルトは red_ant のみ（多勢力テストは profiles / affiliation_species を上書き）。"""
     base = {
         "min_food_reserve": 72,
         "profiles": {
             "red_ant": dict(RED_ANT_PROFILE),
-            "blue_ant": dict(BLUE_ANT_PROFILE),
-            "yellow_ant": dict(YELLOW_ANT_PROFILE),
         },
     }
     base.update(extra)
     return base
 
 
-def affiliation_instances_from_colony(affiliation_block: dict) -> List[Dict[str, Any]]:
-    """legacy: colony.profiles から colony_site + colony_access instances を生成。"""
+def two_faction_affiliation_settings(**extra) -> dict:
+    """red_ant + rival_ant の 2 勢力テスト用。"""
+    profiles = {
+        "red_ant": dict(RED_ANT_PROFILE),
+        "rival_ant": dict(RIVAL_ANT_PROFILE),
+    }
+    base = {
+        "min_food_reserve": 72,
+        "profiles": profiles,
+        "affiliation_species": {
+            "red_ant": ["red_ant", "red_ant_soldier"],
+            "rival_ant": ["rival_ant", "rival_ant_soldier"],
+        },
+    }
+    base.update(extra)
+    return base
+
+
+def affiliation_instances_from_block(affiliation_block: dict) -> List[Dict[str, Any]]:
+    """affiliation.profiles から affiliation_site + affiliation_access instances を生成。"""
     from src.sim.utils.world_instances import nest_profile_to_instance
 
     instances: List[Dict[str, Any]] = []
     profiles = affiliation_block.get("profiles") or {}
-    factions = affiliation_block.get("affiliation_species") or affiliation_block.get("affiliation_species") or {}
+    factions = affiliation_block.get("affiliation_species") or {}
     allowed = set(factions.keys()) if factions else None
     for affiliation_id, profile in profiles.items():
         if allowed is not None and str(affiliation_id) not in allowed:
@@ -108,7 +113,7 @@ def affiliation_instances_from_colony(affiliation_block: dict) -> List[Dict[str,
 
 
 def ensure_affiliation_instances(world_data: dict) -> None:
-    """instances[] に colony_site/access が無ければ profiles から追加（in-place）。"""
+    """instances[] に affiliation_site/access が無ければ profiles から追加（in-place）。"""
     existing = list(world_data.get("instances") or []) if "instances" in world_data else []
     has_affiliation_layer = any(
         isinstance(entry, dict)
@@ -119,12 +124,12 @@ def ensure_affiliation_instances(world_data: dict) -> None:
         world_data["instances"] = existing
         return
 
-    affiliation_inst = affiliation_instances_from_colony(world_data.get("affiliation") or {})
+    affiliation_inst = affiliation_instances_from_block(world_data.get("affiliation") or {})
     world_data["instances"] = existing + affiliation_inst
 
 
 def build_test_world(**overrides) -> dict:
-    """テスト用 world.json 相当 dict（colony instances 付き）。"""
+    """テスト用 world.json 相当 dict。"""
     name = overrides.pop("name", "TestWorld")
     world_width = overrides.pop("world_width", 1000)
     world_height = overrides.pop("world_height", 1000)
@@ -153,12 +158,10 @@ def load_test_world(**overrides):
 
 
 def set_affiliation_stored_food(world, affiliation_id: str, amount: float) -> None:
-    """Nest ミラーと colony_site ObjectStorage の両方に備蓄を設定。"""
     world.nest_system.set_affiliation_stored_food(affiliation_id, amount)
 
 
 def primary_affiliation_access(world, affiliation_id: str):
-    """勢力の先頭 colony_access（テスト用）。"""
     ws = getattr(world, "world_object_system", None)
     if ws is None:
         return None

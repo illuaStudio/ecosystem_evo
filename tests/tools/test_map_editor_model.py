@@ -131,6 +131,26 @@ class TestWorldMapDocument(unittest.TestCase):
         self.assertIn("instances", doc.data)
         self.assertEqual(len(doc.data["instances"]), 5)
 
+    def test_multiple_obstacles_get_unique_instance_ids(self):
+        from src.sim.systems.world import World
+
+        doc = WorldMapDocument(_instances_world())
+        for i in range(3):
+            doc.add_object("obstacle", "rock", 100.0 + i * 40, 200.0)
+        doc._flush_objects()
+        rock_ids = [
+            i["id"]
+            for i in doc.data["instances"]
+            if i.get("layer") == "obstacle"
+        ]
+        self.assertEqual(len(rock_ids), 4)
+        self.assertEqual(len(set(rock_ids)), len(rock_ids))
+
+        world = World.from_json(doc.build_preview_data())
+        rocks = [o for o in world.world_object_system.iter_obstacles() if o.type_ref == "rock"]
+        self.assertEqual(len(rocks), 4)
+        self.assertEqual(len(world.obstacle_system.obstacles), 4)
+
 
 if __name__ == "__main__":
     unittest.main()

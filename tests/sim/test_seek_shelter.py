@@ -18,7 +18,7 @@ class TestSeekShelter(unittest.TestCase):
     def test_sheltered_ant_not_trackable_prey(self):
         world = _hole_world()
         factory = CreatureFactory()
-        ant = factory.create("blue_ant", world=world, x=500, y=820)
+        ant = factory.create("rival_ant", world=world, x=500, y=820)
         world.add_creature(ant)
         spider = factory.create("Spider", world=world, x=600, y=820)
         world.add_creature(spider)
@@ -28,12 +28,12 @@ class TestSeekShelter(unittest.TestCase):
         enter_creature_shelter(ant, ref)
 
         self.assertTrue(is_creature_sheltered(ant))
-        self.assertFalse(is_trackable_prey(spider, ant, ("blue_ant",)))
+        self.assertFalse(is_trackable_prey(spider, ant, ("rival_ant",)))
 
     def test_bite_ignores_sheltered_target(self):
         world = _hole_world()
         factory = CreatureFactory()
-        ant = factory.create("blue_ant", world=world, x=500, y=820)
+        ant = factory.create("rival_ant", world=world, x=500, y=820)
         world.add_creature(ant)
         spider = factory.create("Spider", world=world, x=501, y=820)
         world.add_creature(spider)
@@ -47,7 +47,7 @@ class TestSeekShelter(unittest.TestCase):
     def test_sheltered_ant_does_not_move_when_spider_on_nest(self):
         world = _hole_world()
         factory = CreatureFactory()
-        ant = factory.create("blue_ant", world=world, x=500, y=820)
+        ant = factory.create("rival_ant", world=world, x=500, y=820)
         world.add_creature(ant)
         spider = factory.create("Spider", world=world, x=500, y=820)
         world.add_creature(spider)
@@ -69,7 +69,7 @@ class TestSeekShelter(unittest.TestCase):
     def test_threat_on_nest_blocks_approach_direction(self):
         world = _hole_world()
         factory = CreatureFactory()
-        ant = factory.create("blue_ant", world=world, x=400, y=820)
+        ant = factory.create("rival_ant", world=world, x=400, y=820)
         world.add_creature(ant)
         spider = factory.create("Spider", world=world, x=500, y=820)
         world.add_creature(spider)
@@ -107,7 +107,7 @@ class TestSeekShelter(unittest.TestCase):
         nest = world.nest_system.get_creature_nest(worker)
         access = primary_access(world, nest.affiliation_id)
         damage_colony_access(
-            world, nest.affiliation_id, access, 500, attacker_affiliation_id="blue_ant"
+            world, nest.affiliation_id, access, 500, attacker_affiliation_id="rival_ant"
         )
 
         self.assertLessEqual(worker.hp, 0.0)

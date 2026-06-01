@@ -129,13 +129,13 @@ class TestWorldObjectSystem(unittest.TestCase):
 
     def test_hole_damage_syncs_access_hp(self):
         world = _object_world()
-        world.affiliation_species = {"red_ant": ("red_ant",), "blue_ant": ("blue_ant",)}
+        world.affiliation_species = {"red_ant": ("red_ant",), "rival_ant": ("rival_ant",)}
         access = primary_access(world, "red_ant")
         self.assertIsNotNone(access)
         self.assertAlmostEqual(access.hp, 120.0)
 
         damage_colony_access(
-            world, "red_ant", access, 30.0, attacker_affiliation_id="blue_ant"
+            world, "red_ant", access, 30.0, attacker_affiliation_id="rival_ant"
         )
         access = primary_access(world, "red_ant")
         self.assertIsNotNone(access)
@@ -143,17 +143,17 @@ class TestWorldObjectSystem(unittest.TestCase):
 
     def test_hole_destroy_removes_access_object(self):
         world = _object_world()
-        world.affiliation_species = {"red_ant": ("red_ant",), "blue_ant": ("blue_ant",)}
+        world.affiliation_species = {"red_ant": ("red_ant",), "rival_ant": ("rival_ant",)}
         access = primary_access(world, "red_ant")
         access.hp = 0.8
         damage_colony_access(
-            world, "red_ant", access, 1.0, attacker_affiliation_id="blue_ant"
+            world, "red_ant", access, 1.0, attacker_affiliation_id="rival_ant"
         )
         self.assertEqual(world.world_object_system.count_active_access("red_ant"), 0)
 
     def test_defeat_affiliation_clears_all_access(self):
         world = _object_world()
-        world.affiliation_species = {"red_ant": ("red_ant",), "blue_ant": ("blue_ant",)}
+        world.affiliation_species = {"red_ant": ("red_ant",), "rival_ant": ("rival_ant",)}
         ws = world.world_object_system
         ws.add_access_point("red_ant", 210, 210)
         self.assertEqual(ws.count_active_access("red_ant"), 2)

@@ -174,14 +174,12 @@ def normalize_world_layout(world_data: Dict[str, Any]) -> Dict[str, Any]:
 def map_object_to_instance(obj: Any) -> Dict[str, Any]:
     """MapObject → instances エントリ。"""
     instance: Dict[str, Any] = {
+        "id": str(getattr(obj, "source_id", None) or obj.uid),
         "layer": obj.layer,
         "type": obj.type_ref,
         "x": float(obj.x),
         "y": float(obj.y),
     }
-    stable_id = getattr(obj, "source_id", None)
-    if stable_id:
-        instance["id"] = stable_id
     for key, value in (getattr(obj, "props", None) or {}).items():
         instance[key] = copy.deepcopy(value)
     for key in ("parent", "role"):

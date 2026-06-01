@@ -436,9 +436,7 @@ class Renderer:
         hotkey_map = {
             "micro_fauna": "1",
             "red_ant": "2",
-            "blue_ant": "3",
-            "yellow_ant": "4",
-            "spider": "5",
+            "spider": "3",
         }
         toggle_rects: list[VisibilityToggleRect] = []
         y = y0 + header_h
