@@ -4,7 +4,7 @@
   "color": [40, 60, 200],
   "affiliation": {
     "enabled": true,
-    "join_species": "rival_ant",
+    "affiliation_id": "rival_ant",
     "spawn_spread": 22.0
   },
   "traits": {

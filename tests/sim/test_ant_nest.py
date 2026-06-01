@@ -128,6 +128,7 @@ class TestAntNest(unittest.TestCase):
         world.nest_system.assign_creature(
             ant,
             {
+                "affiliation_id": "red_ant",
                 "single_affiliation": True,
                 "max_food": 500.0,
                 "initial_stored_food": 123.0,
@@ -145,6 +146,7 @@ class TestAntNest(unittest.TestCase):
         world.nest_system.assign_creature(
             ant,
             {
+                "affiliation_id": "red_ant",
                 "single_affiliation": True,
                 "max_food": 80.0,
                 "initial_stored_food": 999.0,
@@ -159,7 +161,12 @@ class TestAntNest(unittest.TestCase):
         first = factory.create("red_ant", world=world, x=300, y=300)
         world.nest_system.assign_creature(
             first,
-            {"single_affiliation": True, "max_food": 400.0, "initial_stored_food": 90.0},
+            {
+                "affiliation_id": "red_ant",
+                "single_affiliation": True,
+                "max_food": 400.0,
+                "initial_stored_food": 90.0,
+            },
         )
         nest = world.nest_system.get_creature_nest(first)
         nest.stored_food = 50.0
@@ -167,7 +174,12 @@ class TestAntNest(unittest.TestCase):
         second = factory.create("red_ant", world=world, x=900, y=900)
         world.nest_system.assign_creature(
             second,
-            {"single_affiliation": True, "max_food": 400.0, "initial_stored_food": 200.0},
+            {
+                "affiliation_id": "red_ant",
+                "single_affiliation": True,
+                "max_food": 400.0,
+                "initial_stored_food": 200.0,
+            },
         )
         from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
 

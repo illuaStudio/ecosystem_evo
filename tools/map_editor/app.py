@@ -12,8 +12,9 @@ if str(ROOT) not in sys.path:
 if str(ROOT / "tools") not in sys.path:
     sys.path.insert(0, str(ROOT / "tools"))
 
-from map_editor.composites import composite_label, list_composite_ids
+from map_editor.composites import COLONY_PREFIX, composite_label, list_composite_ids
 from map_editor.model import WORLD_REL_PATH, WorldMapDocument
+from src.sim.utils.compound_layers import ACCESS_LAYERS, ROOT_LAYERS
 from src.client.camera import Camera
 from src.client.rendering.obstacle_renderer import ObstacleRenderer
 from src.client.rendering.renderer import Renderer
@@ -33,6 +34,12 @@ LAYER_KEYS = {
     pygame.K_2: "zone",
     pygame.K_3: "spawn",
     pygame.K_4: "composite",
+}
+COLONY_LAYERS = ROOT_LAYERS | ACCESS_LAYERS | frozenset({"nest"})
+EXTRA_LAYER_LABELS = {
+    "affiliation_site": "拠点（コロニー）",
+    "affiliation_access": "拠点（接続点）",
+    "nest": "拠点（コロニー）",
 }
 HUD_LEFT = 280
 HUD_TOP = 88
@@ -113,6 +120,30 @@ class MapEditorApp:
     def _mark_dirty(self) -> None:
         self._dirty = True
 
+    def _layer_label(self, layer: str) -> str:
+        if layer in LAYER_LABELS:
+            return LAYER_LABELS[layer]
+        return EXTRA_LAYER_LABELS.get(layer, layer)
+
+    def _focus_hit(self, hit) -> None:
+        """選択したオブジェクトに合わせてレイヤーとタイプを同期（コロニー部品→複合レイヤ）。"""
+        if hit.layer in COLONY_LAYERS:
+            self.active_layer = "composite"
+            if hit.layer in ROOT_LAYERS:
+                affiliation_id = self.doc.affiliation_id_for_site(hit)
+            else:
+                affiliation_id = str(hit.props.get("parent", ""))
+            composite_id = f"{COLONY_PREFIX}{affiliation_id}"
+            options = self._composite_options()
+            if composite_id in options:
+                self.type_index = options.index(composite_id)
+            return
+        if hit.layer in LAYER_ORDER:
+            self.active_layer = hit.layer
+            options = self.doc.type_options(hit.layer)
+            if hit.type_ref in options:
+                self.type_index = options.index(hit.type_ref)
+
     def _save(self) -> None:
         try:
             self.doc.save(WORLD_REL_PATH)
@@ -148,6 +179,8 @@ class MapEditorApp:
             self.status = "削除しました"
 
     def _place_at(self, wx: float, wy: float) -> None:
+        if self.active_layer not in LAYER_ORDER:
+            self.active_layer = "composite"
         if self.active_layer == "composite":
             composite_id = self._current_type()
             if not composite_id:
@@ -164,7 +197,7 @@ class MapEditorApp:
         self.selected_uid = obj.uid
         self._mark_dirty()
         self._reload_world()
-        self.status = f"配置: {LAYER_LABELS[self.active_layer]} / {type_ref}"
+        self.status = f"配置: {self._layer_label(self.active_layer)} / {type_ref}"
 
     def _handle_mouse_down(self, button: int, pos: tuple[int, int]) -> None:
         wx, wy = self._screen_to_world(*pos)
@@ -190,11 +223,7 @@ class MapEditorApp:
         hit = self.doc.find_at(self.active_layer, wx, wy, all_layers=True)
         if hit is not None:
             self.selected_uid = hit.uid
-            if hit.layer != "composite":
-                self.active_layer = hit.layer
-                options = self.doc.type_options(hit.layer)
-                if hit.type_ref in options:
-                    self.type_index = options.index(hit.type_ref)
+            self._focus_hit(hit)
             self._dragging_uid = hit.uid
             return
 

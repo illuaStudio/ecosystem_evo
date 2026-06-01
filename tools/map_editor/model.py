@@ -21,7 +21,7 @@ from src.sim.utils.world_instances import (
     uses_instances_format,
 )
 
-WORLD_REL_PATH = "sim/worlds/world.json"
+WORLD_REL_PATH = "game/worlds/world.json"
 
 
 @dataclass

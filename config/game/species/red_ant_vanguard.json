@@ -8,7 +8,7 @@
   ],
   "affiliation": {
     "enabled": true,
-    "join_species": "red_ant",
+    "affiliation_id": "red_ant",
     "spawn_spread": 28
   },
   "traits": {

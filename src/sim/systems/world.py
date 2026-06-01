@@ -49,7 +49,7 @@ class World:
 
     @staticmethod
     def _load_world_file(world_name: str) -> Optional[Dict]:
-        worlds_dir = config.base_path / "sim" / "worlds"
+        worlds_dir = config.base_path / "game" / "worlds"
         for candidate in (
             worlds_dir / f"{world_name}.json",
             worlds_dir / f"{world_name.lower()}.json",

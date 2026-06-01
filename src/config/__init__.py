@@ -15,9 +15,9 @@ class Config:
         self.game_app = self._load("game/app.json")
         self.game_player = self._load("game/player.json")
         self.client = self._load("client/display.json")
-        self.worlds = self._load_all("sim/worlds")
-        self.species = self._load_all("sim/species")
-        self.object_types = self._load_object_types("sim/object_types")
+        self.worlds = self._load_all("game/worlds")
+        self.species = self._load_all("game/species")
+        self.object_types = self._load_all_object_types()
 
     def _load(self, rel_path: str) -> Dict:
         path = self.base_path / rel_path
@@ -67,15 +67,19 @@ class Config:
             data[str(type_id)] = item
         return data
 
+    def _load_all_object_types(self) -> Dict:
+        """object_types: ゲーム固有の型定義（sim にはスキーマのみ）。"""
+        return self._load_object_types("game/object_types")
+
     def reload_all(self) -> None:
         """全 JSON をディスクから再読み込み（R リセット時など）。"""
         self.sim = self._load("sim/engine.json")
         self.game_app = self._load("game/app.json")
         self.game_player = self._load("game/player.json")
         self.client = self._load("client/display.json")
-        self.worlds = self._load_all("sim/worlds")
-        self.species = self._load_all("sim/species")
-        self.object_types = self._load_object_types("sim/object_types")
+        self.worlds = self._load_all("game/worlds")
+        self.species = self._load_all("game/species")
+        self.object_types = self._load_all_object_types()
 
     def get_world(self, name: str = "Grassland") -> Optional[Dict]:
         if name in self.worlds:

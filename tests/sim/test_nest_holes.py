@@ -144,11 +144,17 @@ class TestNestHolesAndColonyId(unittest.TestCase):
         world.nest_system.try_place_hole(nest, 270.0, 100.0)
         self.assertTrue(is_in_creature_territory(soldier, prey))
 
-    def test_resolve_affiliation_id_join_species(self):
+    def test_resolve_affiliation_id_explicit(self):
         from src.config import config
 
+        worker_cfg = config.get_species("red_ant").get("affiliation", {})
         soldier_cfg = config.get_species("red_ant_soldier").get("affiliation", {})
+        self.assertEqual(resolve_affiliation_id("red_ant", worker_cfg), "red_ant")
         self.assertEqual(resolve_affiliation_id("red_ant_soldier", soldier_cfg), "red_ant")
+
+    def test_resolve_affiliation_id_requires_explicit_field(self):
+        with self.assertRaises(ValueError):
+            resolve_affiliation_id("springtail", {"enabled": True})
 
 
 if __name__ == "__main__":

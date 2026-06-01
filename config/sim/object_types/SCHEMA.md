@@ -1,6 +1,7 @@
 # object_types スキーマ（Phase 0）
 
-`config/sim/object_types/*.json` はマップ上に置けるオブジェクト**型**のカタログ。
+`config/game/object_types/*.json` はマップ上に置けるオブジェクト**型**のカタログ（ゲームコンテンツ）。  
+`config/sim/object_types/` には本スキーマのみ（エンジンが解釈する capabilities の定義）。
 各型は **capabilities**（能力の組み合わせ）で定義する。
 
 ## トップレベル

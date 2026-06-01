@@ -39,7 +39,7 @@ class TestDevLauncherFields(unittest.TestCase):
             "女王",
             "HP",
             "help",
-            "sim/species/red_ant_queen.json",
+            "game/species/red_ant_queen.json",
             "float",
             ("traits", "max_hp"),
         )
@@ -139,9 +139,9 @@ class TestDevLauncherFields(unittest.TestCase):
         missing: list[tuple] = []
 
         for rel in (
-            "sim/species/red_ant_queen.json",
-            "sim/species/red_ant.json",
-            "sim/species/red_ant_soldier.json",
+            "game/species/red_ant_queen.json",
+            "game/species/red_ant.json",
+            "game/species/red_ant_soldier.json",
         ):
             data = load_json(rel)
             for act in data.get("mind", {}).get("actions", []):

@@ -21,25 +21,28 @@ DEFAULT_TERRITORY_RADIUS = 180.0
 
 
 def resolve_affiliation_id(species_name: str, affiliation_cfg: dict | None = None) -> str:
-    """種設定から affiliation_id を解決（join_species / join_affiliation_id 対応）。"""
+    """種設定から affiliation_id を解決（明示フィールドのみ。種族名への暗黙フォールバックなし）。"""
     cfg = affiliation_cfg or {}
     aid = cfg.get("affiliation_id")
-    if aid:
+    if aid is not None and str(aid).strip():
         return str(aid)
     join_aid = cfg.get("join_affiliation_id")
-    if join_aid:
+    if join_aid is not None and str(join_aid).strip():
         return str(join_aid)
 
     join_species = cfg.get("join_species")
     if join_species:
         from src.config import config
 
-        join_data = config.get_species(join_species) or {}
+        join_data = config.get_species(str(join_species)) or {}
         return resolve_affiliation_id(
-            join_species,
+            str(join_species),
             join_data.get("affiliation") or {},
         )
-    return str(species_name)
+    raise ValueError(
+        f"species {species_name!r}: affiliation.affiliation_id (or join_affiliation_id / "
+        "join_species with explicit target) is required when affiliation.enabled"
+    )
 
 
 def get_territory_radius_for_affiliation(world, affiliation_id: str) -> float:
