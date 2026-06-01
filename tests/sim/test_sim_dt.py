@@ -1,5 +1,9 @@
-"""???????? dt?Phase A?????????"""
+"""シミュレーション dt（Phase A）のテスト。"""
 import unittest
+
+import pytest
+
+pytestmark = pytest.mark.no_colony
 
 from src.sim.systems.movement_system import MovementSystem
 from src.sim.systems.world import World

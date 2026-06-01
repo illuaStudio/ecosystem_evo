@@ -1,6 +1,10 @@
 """インベントリ Phase 1 のテスト。"""
 import unittest
 
+import pytest
+
+pytestmark = pytest.mark.no_colony
+
 from src.sim.components.inventory import BiomassItem
 from src.sim.entities.creature_factory import CreatureFactory
 from src.sim.systems.world import World

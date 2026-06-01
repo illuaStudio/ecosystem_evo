@@ -10,7 +10,9 @@ from src.game.game_director import GameDirector
 from src.game.game_monitor import GameMonitor
 from src.game.game_state import GameState
 from src.sim.bridge import SimBridge
-from src.sim.emitters import emit_affiliation_defeated, emit_combat_started_creature
+from src.game.colony_session import drain_game_events
+from src.game.emitters import emit_affiliation_defeated
+from src.sim.emitters import emit_combat_started_creature
 from src.sim.systems.world import World
 from src.sim.entities.creature_factory import CreatureFactory
 from tests.sim.world_fixtures import affiliation_settings
@@ -62,10 +64,10 @@ class TestGameDirector(unittest.TestCase):
     def test_colony_defeated_user_message(self):
         world = _player_world()
         emit_affiliation_defeated(world, "red_ant", "勢力 red_ant が敗北しました")
-        events = world.events.drain()
+        game_events = drain_game_events(world)
 
         director = self._director(world)
-        msgs = director.on_sim_events(events, world)
+        msgs = director.on_game_events(game_events, world)
         self.assertEqual(director.user_message, "勢力 red_ant が敗北しました")
         self.assertEqual(len(msgs), 1)
         self.assertEqual(director.state.stability_level, 0.0)

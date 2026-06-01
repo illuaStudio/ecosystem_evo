@@ -30,8 +30,9 @@ def get_affiliation_root(world, affiliation_id: str):
     """colony_site 親 WorldObject（存在しなければ None）。"""
     if world is None or not affiliation_id:
         return None
-    defeated = getattr(world, "defeated_affiliations", None) or getattr(world, "defeated_affiliations", None) or set()
-    if str(affiliation_id) in defeated:
+    from src.sim.utils.affiliation_group_helpers import is_affiliation_defeated
+
+    if is_affiliation_defeated(world, str(affiliation_id)):
         return None
     return get_compound_root(world, affiliation_id)
 
@@ -81,9 +82,10 @@ def _affiliation_has_living_members(world, affiliation_id: str) -> bool:
 
 def _affiliation_is_active(world, affiliation_id: str) -> bool:
     """faction 所属・接続点・生存メンバーのいずれかがあれば稼働中。"""
-    defeated = getattr(world, "defeated_affiliations", None) or getattr(world, "defeated_affiliations", None) or set()
+    from src.sim.utils.affiliation_group_helpers import is_affiliation_defeated
+
     cid = str(affiliation_id)
-    if cid in defeated:
+    if is_affiliation_defeated(world, cid):
         return False
     groups = getattr(world, "affiliation_species", {}) or getattr(world, "affiliation_species", {}) or {}
     if groups:

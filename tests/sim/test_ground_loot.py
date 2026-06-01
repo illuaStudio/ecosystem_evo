@@ -1,6 +1,10 @@
 """地面ドロップ（field WorldObject）のテスト。"""
 import unittest
 
+import pytest
+
+pytestmark = pytest.mark.no_colony
+
 from src.sim.entities.creature_factory import CreatureFactory
 from src.sim.systems.world import World
 from src.sim.components.inventory import InventorySlot

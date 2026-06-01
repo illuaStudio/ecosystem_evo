@@ -82,3 +82,9 @@
 - 現在の World クラスから、明らかにゲーム寄りの属性（affiliation_profiles, faction_* など）を洗い出す。
 - WorldObject の「薄い版」と「意味を持たせた解釈レイヤー」の境界を明確にする設計案を作成。
 - イベントの種類を整理し、「Sim が事実だけを通知する」形に近づける。
+
+**実施済み (2026-06)**
+
+- 敗北状態・`AffiliationDefeatedEvent` を Game 層（`colony_runtime` / `game/events`）へ移動。
+- `World.defeated_affiliation_checker` による Sim→Game 非 import の敗北判定。
+- テスト: ルート `conftest` の全 World 自動 bind を廃止。`tests/sim/conftest.py`（`@pytest.mark.no_colony` で opt-out）、`tests/game/conftest.py`、明示的 `bind_colony` / `load_test_world`。

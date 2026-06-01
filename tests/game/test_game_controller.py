@@ -12,7 +12,8 @@ from src.game.game_controller import GameController
 from src.game.game_monitor import GameMonitor
 from src.game.mind_policy import MindPolicy
 from src.sim.bridge import SimBridge
-from src.sim.emitters import emit_affiliation_defeated, emit_combat_started_creature
+from src.game.emitters import emit_affiliation_defeated
+from src.sim.emitters import emit_combat_started_creature
 from src.sim.systems.world import World
 from tests.sim.world_fixtures import (
     RIVAL_ANT_PROFILE,

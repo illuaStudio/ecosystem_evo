@@ -2,6 +2,10 @@
 import math
 import unittest
 
+import pytest
+
+pytestmark = pytest.mark.no_colony
+
 from src.sim.entities.creature_factory import CreatureFactory
 from src.sim.systems.world import World
 from src.sim.utils.creature_helpers import contact_range, move_toward, move_toward_contact

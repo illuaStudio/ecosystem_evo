@@ -1,4 +1,4 @@
-"""シミュレーションのスモークテスト（依存最小・unittest）。"""
+"""シミュレーションのスモークテスト（Grassland 既定・コロニー進行込み）。"""
 import unittest
 
 from src.sim.systems.world import World

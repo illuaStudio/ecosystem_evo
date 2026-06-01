@@ -23,7 +23,11 @@ def _player_world(**overrides) -> World:
         ),
     }
     data.update(overrides)
-    return World.from_json(data)
+    from tests.sim.colony_binding import bind_colony
+
+    world = World.from_json(data)
+    bind_colony(world)
+    return world
 
 
 class TestQueenStatus(unittest.TestCase):

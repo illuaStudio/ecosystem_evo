@@ -44,5 +44,7 @@
 - **ゲーム層** `game/affiliation_feed.py` — 拠点給餌判定（種 JSON の `affiliation_feed`）
 - `utils/affiliation_site_helpers.py` — 拠点への距離・座標（ゲーム意味なし）
 - **ゲーム層** `game/colony_orchestrator.py` — コロニー進行（敗北・接続点・備蓄漏れ・所属付与）
+- **ゲーム層** `game/colony_runtime.py` + `colony_session.py` — 敗北集合・ゲームイベント（`AffiliationDefeatedEvent`）
+- **Sim** `World.defeated_affiliation_checker` — Game が attach 時に注入する敗北判定（Sim は Game を import しない）
 - **ゲーム層** `game/ai/` — 意味のある行動すべて（狩り・戦闘・逃走・捕食・コロニー・避難等）。`register_game_actions()` でレジストリ登録
 - **シミュ層** `sim/ai/actions/` — `Action` 基底・`IdleLocomotionAction`（フォールバック専用）・レジストリ・`UtilityMind`

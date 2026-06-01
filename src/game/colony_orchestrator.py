@@ -43,10 +43,12 @@ def resolve_affiliation_runtime_cfg(world, affiliation_id: str, cfg: dict | None
 
 
 def is_affiliation_defeated(world, affiliation_id: str) -> bool:
-    """互換: defeated 判定は colony の仕組みを流用（world.defeated_affiliations に統合済み）。"""
-    from src.sim.utils.affiliation_group_helpers import is_affiliation_defeated
+    from src.game.colony_session import get_colony_runtime
 
-    return is_affiliation_defeated(world, affiliation_id)
+    runtime = get_colony_runtime(world)
+    if runtime is None:
+        return False
+    return runtime.is_defeated(str(affiliation_id))
 
 
 def _resolve_affiliation_id(target) -> str:
@@ -236,13 +238,14 @@ class ColonyOrchestrator:
     def defeat_affiliation(self, affiliation_id: str) -> None:
         if not affiliation_id:
             return
-        cfg = self.world._affiliation_layout
-        if cfg.is_defeated(affiliation_id):
+        from src.game.colony_session import get_colony_runtime
+        from src.game.emitters import emit_affiliation_defeated
+
+        runtime = get_colony_runtime(self.world)
+        if runtime is None or runtime.is_defeated(affiliation_id):
             return
 
         self.world.compound_system.clear_access_points(affiliation_id)
-
-        cfg.defeated.add(str(affiliation_id))
 
         from src.sim.shelter.state import clear_creature_shelter, is_creature_sheltered
 
@@ -259,9 +262,7 @@ class ColonyOrchestrator:
                 clear_creature_shelter(creature)
 
         message = f"勢力 {affiliation_id} が敗北しました"
-        self.world.last_defeat_message = message
-        from src.sim.emitters import emit_affiliation_defeated
-
+        runtime.mark_defeated(affiliation_id, message)
         emit_affiliation_defeated(self.world, affiliation_id, message)
 
     def can_place_hole(self, affiliation_id, x: float, y: float) -> tuple[bool, str]:

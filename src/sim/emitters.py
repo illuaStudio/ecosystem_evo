@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING, Any, Optional
 
 from src.sim.events import (
     CombatStartedEvent,
-    AffiliationDefeatedEvent,
     CombatTargetKind,
     DeathCause,
     DeathEvent,
@@ -141,18 +140,6 @@ def emit_combat_started_affiliation_access(
             target_kind="world_object",
             target_affiliation_id=target_affiliation_id,
             target_object_id=str(access_id),
-        )
-    )
-
-
-def emit_affiliation_defeated(world: "World", affiliation_id: str, message: str) -> None:
-    if world is None or not affiliation_id:
-        return
-    world.events.emit(
-        AffiliationDefeatedEvent(
-            sim_time=_sim_time(world),
-            affiliation_id=str(affiliation_id),
-            message=message,
         )
     )
 

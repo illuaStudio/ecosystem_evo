@@ -1,7 +1,7 @@
 """sim テスト用: game 層 ColonyOrchestrator を World に紐付ける。
 
-`World()` 利用テストでは `tests/sim/conftest.py` が未接続時に自動で呼ぶ。
-明示的には `load_test_world()` も末尾で bind する。
+`tests/sim/` 内テストは `conftest.py` が `@pytest.mark.no_colony` 以外で自動 bind。
+他パッケージは `load_test_world()` または明示的 `bind_colony(world)` を使う。
 """
 from __future__ import annotations
 

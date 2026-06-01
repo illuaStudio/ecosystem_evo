@@ -14,8 +14,8 @@ from src.game.game_message import GameMessage
 from src.game.game_monitor import MonitorAlert
 from src.game.game_state import GameState
 from src.game.progression import ProgressionEvaluator
+from src.game.events import AffiliationDefeatedEvent, GameEvent
 from src.sim.events import (
-    AffiliationDefeatedEvent,
     CombatStartedEvent,
     DeathEvent,
     ItemFoundEvent,
@@ -74,6 +74,16 @@ class GameDirector:
             messages.extend(self._handle_sim_event(world, event))
         return messages
 
+    def on_game_events(
+        self, events: list[GameEvent], world: "World"
+    ) -> list[GameMessage]:
+        _ = world
+        messages: list[GameMessage] = []
+        for event in events:
+            if isinstance(event, AffiliationDefeatedEvent):
+                messages.extend(self._on_affiliation_defeated(event))
+        return messages
+
     def on_monitor_alerts(
         self, alerts: list[MonitorAlert], world: "World"
     ) -> list[GameMessage]:
@@ -119,8 +129,6 @@ class GameDirector:
             return self._on_item_found(world, event)
         if isinstance(event, CombatStartedEvent):
             return self._on_combat_started(world, event)
-        if isinstance(event, AffiliationDefeatedEvent):
-            return self._on_affiliation_defeated(event)
         return []
 
     @staticmethod

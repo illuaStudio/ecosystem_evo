@@ -10,7 +10,6 @@ from src.sim.commands import (
     SpawnCreature,
 )
 from src.sim.events import (
-    AffiliationDefeatedEvent,
     CombatStartedEvent,
     DeathEvent,
     ItemFoundEvent,
@@ -20,7 +19,6 @@ from src.sim.events import (
 from src.sim.systems.world import World
 
 __all__ = [
-    "AffiliationDefeatedEvent",
     "CombatStartedEvent",
     "DeathEvent",
     "EnterCreatureShelter",

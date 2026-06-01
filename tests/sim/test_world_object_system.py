@@ -165,7 +165,9 @@ class TestWorldObjectSystem(unittest.TestCase):
 
         colony(world).defeat_affiliation("red_ant")
         self.assertEqual(ws.count_active_access("red_ant"), 0)
-        self.assertIn("red_ant", world.defeated_affiliations)
+        from src.game.colony_session import get_defeated_affiliations
+
+        self.assertIn("red_ant", get_defeated_affiliations(world))
         self.assertIsNone(colony(world).get_affiliation_root("red_ant"))
         self.assertIsNotNone(ws.get("red_ant"))
 

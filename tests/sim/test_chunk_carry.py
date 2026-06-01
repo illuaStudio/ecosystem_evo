@@ -1,6 +1,10 @@
 """地面バイオマスのチャンク運搬（インベントリ上限）のテスト。"""
 import unittest
 
+import pytest
+
+pytestmark = pytest.mark.no_colony
+
 from src.sim.entities.creature_factory import CreatureFactory
 from src.sim.systems.world import World
 from tests.sim.field_drop_helpers import kill_creature, pickup_field_biomass

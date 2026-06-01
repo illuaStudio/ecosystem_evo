@@ -1,6 +1,10 @@
 """Spatial grid proximity queries."""
 import unittest
 
+import pytest
+
+pytestmark = pytest.mark.no_colony
+
 from src.sim.components.position import Position
 from src.sim.utils.spatial_grid import SpatialGrid, iter_creatures_in_radius
 

@@ -1,6 +1,10 @@
-"""??? trait_variance ????????????????"""
+"""種 trait_variance の個体差・表示テスト。"""
 import random
 import unittest
+
+import pytest
+
+pytestmark = pytest.mark.no_colony
 
 from src.sim.entities.creature_factory import CreatureFactory
 from src.config import config

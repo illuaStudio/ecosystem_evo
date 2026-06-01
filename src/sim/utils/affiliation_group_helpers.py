@@ -86,13 +86,13 @@ def is_affiliation_defeated(world, affiliation_id: str) -> bool:
 
         return False
 
-    cfg = getattr(world, "_affiliation_layout", None)
+    checker = getattr(world, "defeated_affiliation_checker", None)
 
-    if cfg is None:
+    if checker is not None:
 
-        return False
+        return bool(checker(str(affiliation_id)))
 
-    return str(affiliation_id) in cfg.defeated
+    return False
 
 
 

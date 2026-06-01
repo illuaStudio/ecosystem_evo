@@ -9,8 +9,9 @@ from src.game.game_monitor import GameMonitor
 from src.game.game_state import GameState
 from src.game.sim_bridge_factory import make_sim_bridge
 from src.sim.bridge import SimBridge
+from src.game.colony_session import drain_game_events
+from src.game.events import AffiliationDefeatedEvent
 from src.sim.events import (
-    AffiliationDefeatedEvent,
     CombatStartedEvent,
     DeathEvent,
     ItemFoundEvent,
@@ -130,12 +131,16 @@ class GameController:
 
     def on_tick(self, world: "World") -> list[GameMessage]:
         events = world.events.drain()
+        game_events = drain_game_events(world)
         if self.debug_sim_events:
             for event in events:
                 self._log_sim_event(event)
+            for event in game_events:
+                self._log_game_event(event)
 
         tick_messages: list[GameMessage] = []
         tick_messages.extend(self.director.on_sim_events(events, world))
+        tick_messages.extend(self.director.on_game_events(game_events, world))
 
         alerts = self.monitor.check(world, self.state)
         tick_messages.extend(self.director.on_monitor_alerts(alerts, world))
@@ -173,7 +178,13 @@ class GameController:
                 f"[sim] {name} {event.attacker_species} -> {target_name}",
                 flush=True,
             )
-        elif isinstance(event, AffiliationDefeatedEvent):
-            print(f"[sim] {name} {event.affiliation_id}", flush=True)
         else:
             print(f"[sim] {name}", flush=True)
+
+    @staticmethod
+    def _log_game_event(event) -> None:
+        name = type(event).__name__
+        if isinstance(event, AffiliationDefeatedEvent):
+            print(f"[game] {name} {event.affiliation_id}", flush=True)
+        else:
+            print(f"[game] {name}", flush=True)

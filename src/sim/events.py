@@ -52,9 +52,3 @@ class CombatStartedEvent(SimEvent):
     target_creature: Any = field(default=None, repr=False)
     target_affiliation_id: Optional[str] = None
     target_object_id: Optional[str] = None
-
-
-@dataclass(frozen=True, kw_only=True)
-class AffiliationDefeatedEvent(SimEvent):
-    affiliation_id: str = ""
-    message: str = ""

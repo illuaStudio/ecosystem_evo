@@ -110,6 +110,7 @@ class World:
         self.on_creature_added = None
         self.on_sim_tick = None
         self.access_damage_handler = None
+        self.defeated_affiliation_checker = None
 
         self.world_object_system = WorldObjectSystem(self)
         self.world_object_system.init_from_layout(layout)
@@ -164,22 +165,6 @@ class World:
             for k, v in dict(value).items()
         }
         self._affiliation_layout.species_by_affiliation = mapped
-
-    @property
-    def defeated_affiliations(self) -> set[str]:
-        return self._affiliation_layout.defeated
-
-    @defeated_affiliations.setter
-    def defeated_affiliations(self, value) -> None:
-        self._affiliation_layout.defeated = set(value)
-
-    @property
-    def last_defeat_message(self) -> str:
-        return self._affiliation_layout.last_defeat_message
-
-    @last_defeat_message.setter
-    def last_defeat_message(self, value: str) -> None:
-        self._affiliation_layout.last_defeat_message = str(value)
 
     @property
     def ambient_spawner(self):

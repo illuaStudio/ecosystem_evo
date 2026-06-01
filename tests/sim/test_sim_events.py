@@ -7,10 +7,11 @@ def colony(world):
 import unittest
 
 from src.game.ai.reproduction_actions import AffiliationReproduceAction
+from src.game.colony_session import drain_game_events
+from src.game.events import AffiliationDefeatedEvent
 from src.sim.entities.creature_factory import CreatureFactory
 from src.game.mind_policy import MindPolicy
 from src.sim.events import (
-    AffiliationDefeatedEvent,
     CombatStartedEvent,
     DeathEvent,
     ItemFoundEvent,
@@ -149,8 +150,9 @@ class TestSimEvents(unittest.TestCase):
                 access, "red_ant", 5.0, attacker_affiliation_id="rival_ant"
             )
 
-        events = world.events.drain()
-        defeated = [e for e in events if isinstance(e, AffiliationDefeatedEvent)]
+        world.events.drain()
+        game_events = drain_game_events(world)
+        defeated = [e for e in game_events if isinstance(e, AffiliationDefeatedEvent)]
         self.assertEqual(len(defeated), 1)
         self.assertEqual(defeated[0].affiliation_id, "red_ant")
 

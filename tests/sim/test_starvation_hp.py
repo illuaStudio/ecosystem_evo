@@ -1,6 +1,10 @@
 """飢餓時 HP ダメージの種別パラメータテスト。"""
 import unittest
 
+import pytest
+
+pytestmark = pytest.mark.no_colony
+
 from src.sim.entities.creature_factory import CreatureFactory
 from src.sim.systems.world import World
 

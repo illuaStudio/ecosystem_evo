@@ -7,8 +7,6 @@ class AffiliationLayoutState:
     settings: dict
     styles: dict
     species_by_affiliation: dict[str, list]
-    defeated: set[str]
-    last_defeat_message: str
 
     def __init__(
         self,
@@ -22,8 +20,6 @@ class AffiliationLayoutState:
         self.settings = settings
         self.styles = styles
         self.species_by_affiliation = species_by_affiliation
-        self.defeated: set[str] = set()
-        self.last_defeat_message: str = ""
 
     @classmethod
     def from_block(cls, block: dict | None) -> "AffiliationLayoutState":
@@ -48,11 +44,3 @@ class AffiliationLayoutState:
         if not affiliation_id:
             return {}
         return dict(self.profiles.get(affiliation_id) or {})
-
-    def is_defeated(self, affiliation_id: str) -> bool:
-        return str(affiliation_id) in self.defeated
-
-    def mark_defeated(self, affiliation_id: str, message: str = "") -> None:
-        self.defeated.add(str(affiliation_id))
-        if message:
-            self.last_defeat_message = message

@@ -310,7 +310,9 @@ class NestRenderer:
         from src.sim.utils.world_object_helpers import iter_active_affiliation_roots
 
         active = {root.id for root in iter_active_affiliation_roots(world)}
-        defeated = getattr(world, "defeated_affiliations", None) or set()
+        from src.game.colony_session import get_defeated_affiliations
+
+        defeated = get_defeated_affiliations(world)
 
         for root in ws.iter_roots():
             if root.id in active or root.id in defeated:
