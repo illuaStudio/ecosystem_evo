@@ -12,6 +12,7 @@ if str(ROOT) not in sys.path:
 if str(ROOT / "tools") not in sys.path:
     sys.path.insert(0, str(ROOT / "tools"))
 
+from map_editor.composites import composite_label, list_composite_ids
 from map_editor.model import WORLD_REL_PATH, WorldMapDocument
 from src.client.camera import Camera
 from src.client.rendering.obstacle_renderer import ObstacleRenderer
@@ -20,21 +21,19 @@ from src.client.rendering.spawn_emitter_renderer import SpawnEmitterRenderer
 from src.client.rendering.zone_renderer import ZoneRenderer
 from src.client.rendering.nest_renderer import get_faction_style
 
-LAYER_ORDER = ["obstacle", "zone", "spawn", "affiliation_site"]
+LAYER_ORDER = ["obstacle", "zone", "spawn", "composite"]
 LAYER_LABELS = {
     "obstacle": "障害物",
     "zone": "Zone（毒霧等）",
     "spawn": "湧きエミッタ",
-    "affiliation_site": "拠点（コロニー）",
-    "nest": "拠点（コロニー）",
+    "composite": "複合オブジェクト",
 }
 LAYER_KEYS = {
     pygame.K_1: "obstacle",
     pygame.K_2: "zone",
     pygame.K_3: "spawn",
-    pygame.K_4: "affiliation_site",
+    pygame.K_4: "composite",
 }
-SITE_LAYERS = frozenset({"nest", "affiliation_site"})
 HUD_LEFT = 280
 HUD_TOP = 88
 
@@ -75,12 +74,32 @@ class MapEditorApp:
         self._dirty = False
         self._space_held = False
 
+    def _affiliation_profiles(self):
+        return self.doc.affiliation_profiles()
+
+    def _composite_options(self) -> list[str]:
+        return list_composite_ids(self._affiliation_profiles())
+
     def _current_type(self) -> str:
+        if self.active_layer == "composite":
+            options = self._composite_options()
+            if not options:
+                return ""
+            self.type_index %= len(options)
+            return options[self.type_index]
         options = self.doc.type_options(self.active_layer)
         if not options:
             return "default"
         self.type_index %= len(options)
         return options[self.type_index]
+
+    def _current_type_label(self) -> str:
+        if self.active_layer == "composite":
+            type_ref = self._current_type()
+            if not type_ref:
+                return ""
+            return composite_label(type_ref, self._affiliation_profiles())
+        return self._current_type()
 
     def _reload_world(self) -> None:
         self.doc._flush_objects()
@@ -104,7 +123,10 @@ class MapEditorApp:
             self.status = f"保存失敗: {exc}"
 
     def _cycle_type(self, delta: int) -> None:
-        options = self.doc.type_options(self.active_layer)
+        if self.active_layer == "composite":
+            options = self._composite_options()
+        else:
+            options = self.doc.type_options(self.active_layer)
         if not options:
             return
         self.type_index = (self.type_index + delta) % len(options)
@@ -115,16 +137,28 @@ class MapEditorApp:
         obj = next((o for o in self.doc.objects if o.uid == self.selected_uid), None)
         if obj is None:
             return
-        if obj.layer in SITE_LAYERS:
-            self.status = "拠点は削除できません（移動のみ）"
-            return
+        group_id = self.doc.editor_group_id(obj)
         self.doc.remove_object(self.selected_uid)
         self.selected_uid = None
         self._mark_dirty()
         self._reload_world()
-        self.status = "削除しました"
+        if group_id:
+            self.status = "複合グループを削除しました"
+        else:
+            self.status = "削除しました"
 
     def _place_at(self, wx: float, wy: float) -> None:
+        if self.active_layer == "composite":
+            composite_id = self._current_type()
+            if not composite_id:
+                return
+            obj = self.doc.place_composite(composite_id, wx, wy)
+            self.selected_uid = obj.uid
+            self._mark_dirty()
+            self._reload_world()
+            label = composite_label(composite_id, self._affiliation_profiles())
+            self.status = f"配置: 複合 / {label}"
+            return
         type_ref = self._current_type()
         obj = self.doc.add_object(self.active_layer, type_ref, wx, wy)
         self.selected_uid = obj.uid
@@ -140,7 +174,7 @@ class MapEditorApp:
             return
         if button == 3:
             hit = self.doc.find_at(self.active_layer, wx, wy, all_layers=True)
-            if hit and hit.layer not in SITE_LAYERS:
+            if hit:
                 self.doc.remove_object(hit.uid)
                 if self.selected_uid == hit.uid:
                     self.selected_uid = None
@@ -156,13 +190,17 @@ class MapEditorApp:
         hit = self.doc.find_at(self.active_layer, wx, wy, all_layers=True)
         if hit is not None:
             self.selected_uid = hit.uid
-            self.active_layer = hit.layer
-            options = self.doc.type_options(hit.layer)
-            if hit.type_ref in options:
-                self.type_index = options.index(hit.type_ref)
+            if hit.layer != "composite":
+                self.active_layer = hit.layer
+                options = self.doc.type_options(hit.layer)
+                if hit.type_ref in options:
+                    self.type_index = options.index(hit.type_ref)
             self._dragging_uid = hit.uid
             return
 
+        if self.active_layer == "composite":
+            self._place_at(wx, wy)
+            return
         self._place_at(wx, wy)
 
     def _handle_mouse_up(self, button: int) -> None:
@@ -186,11 +224,7 @@ class MapEditorApp:
             wx, wy = self._screen_to_world(*pos)
             obj = next((o for o in self.doc.objects if o.uid == self._dragging_uid), None)
             if obj is not None:
-                if obj.layer in SITE_LAYERS:
-                    self.doc.move_site_with_access(obj, wx, wy)
-                else:
-                    obj.x = wx
-                    obj.y = wy
+                self.doc.move_map_object(obj, wx, wy)
                 self._mark_dirty()
 
     def _handle_key(self, event: pygame.event.Event) -> None:
@@ -240,7 +274,10 @@ class MapEditorApp:
         y += 26
         for i, layer in enumerate(LAYER_ORDER, start=1):
             mark = ">" if layer == self.active_layer else " "
-            count = len(self.doc.objects_in_layer(layer))
+            if layer == "composite":
+                count = len(self._composite_options())
+            else:
+                count = len(self.doc.objects_in_layer(layer))
             line = f"{mark} {i}. {LAYER_LABELS[layer]} ({count})"
             color = (255, 230, 120) if layer == self.active_layer else (160, 170, 150)
             self.screen.blit(self.font.render(line, True, color), (20, y))
@@ -249,8 +286,8 @@ class MapEditorApp:
         y += 8
         self.screen.blit(self.font.render("配置タイプ [ ]:", True, (200, 210, 180)), (12, y))
         y += 24
-        type_ref = self._current_type()
-        self.screen.blit(self.font.render(f"  {type_ref}", True, (255, 240, 160)), (12, y))
+        type_label = self._current_type_label()
+        self.screen.blit(self.font.render(f"  {type_label}", True, (255, 240, 160)), (12, y))
         y += 32
 
         if self.selected_uid:
@@ -258,19 +295,25 @@ class MapEditorApp:
             if obj:
                 self.screen.blit(self.font.render("選択中:", True, (200, 210, 180)), (12, y))
                 y += 24
-                for line in (
+                group_id = self.doc.editor_group_id(obj)
+                lines = [
                     f"  {obj.layer} / {obj.type_ref}",
                     f"  x={obj.x:.1f} y={obj.y:.1f}",
                     f"  r≈{self.doc.resolve_radius(obj):.0f}",
-                ):
+                ]
+                if group_id:
+                    n = len(self.doc.objects_in_editor_group(group_id))
+                    lines.append(f"  複合グループ ({n} パーツ)")
+                for line in lines:
                     self.screen.blit(self.small_font.render(line, True, (190, 200, 170)), (12, y))
                     y += 20
 
         y = self.screen_h - 120
         help_lines = [
             "左クリック: 配置/選択",
-            "ドラッグ: 移動",
+            "ドラッグ: 移動（複合は一括）",
             "右クリック: 削除",
+            "4: 複合 [ ] で種類",
             "中クリック/Space+左: パン",
             "Ctrl+S: 保存",
         ]
@@ -278,12 +321,7 @@ class MapEditorApp:
             self.screen.blit(self.small_font.render(line, True, (140, 150, 130)), (12, y))
             y += 18
 
-    def _draw_selection(self) -> None:
-        if not self.selected_uid:
-            return
-        obj = next((o for o in self.doc.objects if o.uid == self.selected_uid), None)
-        if obj is None:
-            return
+    def _draw_selection_ring(self, obj) -> None:
         sx = int(obj.x - self.camera.x)
         sy = int(obj.y - self.camera.y)
         rect = self.doc.rect_half_extents(obj)
@@ -299,8 +337,25 @@ class MapEditorApp:
         radius = int(self.doc.resolve_radius(obj)) + 4
         pygame.draw.circle(self.screen, (255, 255, 80), (sx, sy), radius, 2)
 
+    def _draw_selection(self) -> None:
+        if not self.selected_uid:
+            return
+        obj = next((o for o in self.doc.objects if o.uid == self.selected_uid), None)
+        if obj is None:
+            return
+        group_id = self.doc.editor_group_id(obj)
+        if group_id:
+            for member in self.doc.objects_in_editor_group(group_id):
+                self._draw_selection_ring(member)
+            return
+        self._draw_selection_ring(obj)
+
     def _draw_nest_markers(self) -> None:
-        for obj in self.doc.objects_in_layer("affiliation_site"):
+        from src.sim.utils.compound_layers import ROOT_LAYERS
+
+        for obj in self.doc.objects:
+            if obj.layer not in ROOT_LAYERS:
+                continue
             sx = int(obj.x - self.camera.x)
             sy = int(obj.y - self.camera.y)
             affiliation_id = self.doc.affiliation_id_for_site(obj)
@@ -312,10 +367,6 @@ class MapEditorApp:
             pygame.draw.circle(self.screen, inner, (sx, sy), tr)
             label = style.get("label", affiliation_id[:1])
             self.screen.blit(self.small_font.render(str(label), True, (255, 240, 220)), (sx - 6, sy - 8))
-        for obj in self.doc.objects_in_layer("affiliation_access"):
-            sx = int(obj.x - self.camera.x)
-            sy = int(obj.y - self.camera.y)
-            pygame.draw.circle(self.screen, (200, 160, 80), (sx, sy), 6, 2)
 
     def _draw_frame(self) -> None:
         self.renderer.screen = self.screen
@@ -330,7 +381,6 @@ class MapEditorApp:
         self._draw_nest_markers()
         self._draw_selection()
 
-        # ワールド境界
         cam_x, cam_y = int(self.camera.x), int(self.camera.y)
         border = pygame.Rect(-cam_x, -cam_y, self.world.width, self.world.height)
         pygame.draw.rect(self.screen, (90, 110, 80), border, 2)

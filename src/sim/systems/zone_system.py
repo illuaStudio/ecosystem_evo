@@ -212,6 +212,9 @@ class ZoneSystem:
         for obj in zone_objects:
             if obj.zone_effects is None:
                 continue
+            affiliation_id = ""
+            if obj.type_ref == "nest_clearing" and str(obj.id).endswith("_clearing"):
+                affiliation_id = str(obj.id)[: -len("_clearing")]
             self._add_zone(
                 x=float(obj.x),
                 y=float(obj.y),
@@ -222,6 +225,7 @@ class ZoneSystem:
                 half_w=float(obj.half_w),
                 half_h=float(obj.half_h),
                 label=str(obj.label or obj.type_ref),
+                affiliation_id=affiliation_id,
             )
         return True
 

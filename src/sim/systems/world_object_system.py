@@ -29,7 +29,9 @@ if TYPE_CHECKING:
 SITE_LAYERS = ROOT_LAYERS
 OBSTACLE_LAYERS = frozenset({"obstacle"})
 ZONE_LAYERS = frozenset({"zone"})
-RESERVED_INSTANCE_KEYS = frozenset({"id", "layer", "type", "x", "y", "parent", "role"})
+RESERVED_INSTANCE_KEYS = frozenset(
+    {"id", "layer", "type", "x", "y", "parent", "role", "editor_group", "affiliation_id"}
+)
 
 
 class WorldObjectSystem:

@@ -10,7 +10,9 @@ INSTANCE_LAYERS = frozenset(
     {"obstacle", "zone", "spawn", "nest", "affiliation_site", "affiliation_access", "compound_root", "compound_access"}
 )
 COLONY_PROFILE_LAYERS = frozenset({"affiliation_site", "nest"})
-RESERVED_INSTANCE_KEYS = frozenset({"id", "layer", "type", "x", "y", "parent", "role"})
+RESERVED_INSTANCE_KEYS = frozenset(
+    {"id", "layer", "type", "x", "y", "parent", "role", "editor_group", "affiliation_id"}
+)
 
 
 def uses_instances_format(world_data: Dict[str, Any]) -> bool:

@@ -7,6 +7,13 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from src.sim.utils.object_type_loader import list_type_ids, resolve_type_def
+from map_editor.composites import (
+    EDITOR_GROUP_KEY,
+    clearing_instance_id,
+    colony_affiliation_id,
+    get_composite,
+    is_colony_composite,
+)
 from src.sim.utils.world_instances import (
     collapse_legacy_to_instances,
     instance_to_map_object_props,
@@ -48,6 +55,7 @@ class WorldMapDocument:
         self.data = data
         self.objects: List[MapObject] = []
         self._load_objects()
+        self.ensure_colony_editor_groups()
 
     @classmethod
     def load(cls, relpath: str = WORLD_REL_PATH) -> "WorldMapDocument":
@@ -255,13 +263,112 @@ class WorldMapDocument:
             if o.layer in ACCESS_LAYERS and str(o.props.get("parent", "")) == affiliation_id
         ]
 
-    def move_site_with_access(self, site: MapObject, x: float, y: float) -> None:
-        dx, dy = float(x) - site.x, float(y) - site.y
-        for child in self.affiliation_access_for(site):
-            child.x += dx
-            child.y += dy
-        site.x = float(x)
-        site.y = float(y)
+    def affiliation_profiles(self) -> Dict[str, Any]:
+        return dict((self.data.get("affiliation") or {}).get("profiles") or {})
+
+    def _colony_group_members(self, site: MapObject) -> List[MapObject]:
+        affiliation_id = self.affiliation_id_for_site(site)
+        members: List[MapObject] = [site]
+        members.extend(self.affiliation_access_for(site))
+        clearing_id = clearing_instance_id(affiliation_id)
+        for obj in self.objects:
+            if obj.layer != "zone" or obj.type_ref != "nest_clearing":
+                continue
+            if str(obj.source_id or "") == clearing_id:
+                members.append(obj)
+        return members
+
+    def ensure_colony_editor_groups(self) -> None:
+        """既存コロニーを editor_group にまとめる（スポーン除外ゾーンが無ければ追加）。"""
+        for site in list(self.objects_in_layer("affiliation_site")):
+            affiliation_id = self.affiliation_id_for_site(site)
+            profile = dict(self.affiliation_profiles().get(affiliation_id) or {})
+            members = self._colony_group_members(site)
+            clearing_id = clearing_instance_id(affiliation_id)
+            if not any(str(o.source_id or "") == clearing_id for o in members):
+                group_seed = self.editor_group_id(site) or self._new_uid("grp")
+                radius = float(profile.get("spawn_exclusion_radius", 150.0))
+                uid = self._new_uid("zone")
+                clearing = MapObject(
+                    uid=uid,
+                    layer="zone",
+                    type_ref="nest_clearing",
+                    x=float(site.x),
+                    y=float(site.y),
+                    props={EDITOR_GROUP_KEY: group_seed, "radius": radius},
+                    source_id=clearing_id,
+                )
+                self.objects.append(clearing)
+                members.append(clearing)
+            group_id = self.editor_group_id(site)
+            if group_id is None:
+                group_id = self.editor_group_id(members[-1]) or self._new_uid("grp")
+            for member in members:
+                member.props[EDITOR_GROUP_KEY] = group_id
+
+    def editor_group_id(self, obj: MapObject) -> Optional[str]:
+        raw = obj.get(EDITOR_GROUP_KEY)
+        if raw is None or str(raw).strip() == "":
+            return None
+        return str(raw)
+
+    def objects_in_editor_group(self, group_id: str) -> List[MapObject]:
+        return [o for o in self.objects if self.editor_group_id(o) == group_id]
+
+    def move_map_object(self, obj: MapObject, x: float, y: float) -> None:
+        """単体または editor_group に属する全パーツを平行移動する。"""
+        group_id = self.editor_group_id(obj)
+        if group_id is None:
+            obj.x = float(x)
+            obj.y = float(y)
+            return
+        dx = float(x) - obj.x
+        dy = float(y) - obj.y
+        for member in self.objects_in_editor_group(group_id):
+            member.x += dx
+            member.y += dy
+
+    def place_composite(self, composite_id: str, x: float, y: float) -> MapObject:
+        """複合プリセットを配置し、先頭パーツを返す。"""
+        if is_colony_composite(composite_id):
+            affiliation_id = colony_affiliation_id(composite_id)
+            existing = next(
+                (
+                    o
+                    for o in self.objects
+                    if o.layer in SITE_LAYERS
+                    and self.affiliation_id_for_site(o) == affiliation_id
+                ),
+                None,
+            )
+            if existing is not None:
+                self.move_map_object(existing, x, y)
+                return existing
+
+        definition = get_composite(composite_id, self.affiliation_profiles())
+        group_id = self._new_uid("grp")
+        placed: List[MapObject] = []
+        for part in definition.parts:
+            props = dict(part.props)
+            props[EDITOR_GROUP_KEY] = group_id
+            if part.parent is not None:
+                props["parent"] = part.parent
+            uid = self._new_uid(part.layer[:4])
+            source_id = part.instance_id if part.instance_id else uid
+            obj = MapObject(
+                uid=uid,
+                layer=part.layer,
+                type_ref=part.type_ref,
+                x=float(x) + part.dx,
+                y=float(y) + part.dy,
+                props=props,
+                source_id=source_id,
+            )
+            self.objects.append(obj)
+            placed.append(obj)
+        if not placed:
+            raise ValueError(f"composite has no parts: {composite_id}")
+        return placed[0]
 
     def objects_in_layer(self, layer: str) -> List[MapObject]:
         if layer in SITE_LAYERS:
@@ -321,9 +428,6 @@ class WorldMapDocument:
         if layer == "spawn":
             types = (self.data.get("spawn_emitters") or {}).get("types") or {}
             return list(types.keys()) or ["micro_fauna_mixed"]
-        if layer in SITE_LAYERS:
-            profiles = (self.data.get("affiliation") or {}).get("profiles") or {}
-            return list(profiles.keys()) or ["red_ant"]
         return []
 
     def resolve_radius(self, obj: MapObject) -> float:
@@ -356,38 +460,6 @@ class WorldMapDocument:
         return 24.0
 
     def add_object(self, layer: str, type_ref: str, x: float, y: float) -> MapObject:
-        if layer in SITE_LAYERS:
-            affiliation_id = type_ref
-            existing = [
-                o
-                for o in self.objects
-                if o.layer in SITE_LAYERS and self.affiliation_id_for_site(o) == affiliation_id
-            ]
-            if existing:
-                self.move_site_with_access(existing[0], x, y)
-                return existing[0]
-            obj = MapObject(
-                uid=self._new_uid("site"),
-                layer="affiliation_site",
-                type_ref="affiliation_site",
-                x=float(x),
-                y=float(y),
-                props={"role": "root"},
-                source_id=affiliation_id,
-            )
-            self.objects.append(obj)
-            self.objects.append(
-                MapObject(
-                    uid=self._new_uid("acc"),
-                    layer=ACCESS_LAYER,
-                    type_ref="affiliation_access",
-                    x=float(x),
-                    y=float(y),
-                    props={"parent": affiliation_id, "role": "access"},
-                    source_id=f"{affiliation_id}_access_main",
-                )
-            )
-            return obj
         uid = self._new_uid(layer[:4])
         obj = MapObject(
             uid=uid,
@@ -402,6 +474,13 @@ class WorldMapDocument:
         return obj
 
     def remove_object(self, uid: str) -> None:
+        target = next((o for o in self.objects if o.uid == uid), None)
+        if target is None:
+            return
+        group_id = self.editor_group_id(target)
+        if group_id is not None:
+            self.objects = [o for o in self.objects if self.editor_group_id(o) != group_id]
+            return
         self.objects = [o for o in self.objects if o.uid != uid]
 
     def find_at(self, layer: str, wx: float, wy: float, *, all_layers: bool = False) -> Optional[MapObject]:
@@ -446,3 +525,4 @@ class WorldMapDocument:
         self.data["instances"] = collapse_legacy_to_instances(self.data)
         self.objects.clear()
         self._load_from_instances()
+        self.ensure_colony_editor_groups()

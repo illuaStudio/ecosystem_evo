@@ -93,8 +93,9 @@ class TestWorldMapDocument(unittest.TestCase):
 
     def test_nest_move_updates_profile_and_instances(self):
         doc = WorldMapDocument(_instances_world())
+        doc.ensure_colony_editor_groups()
         nest = next(o for o in doc.objects if o.layer == "affiliation_site")
-        doc.move_site_with_access(nest, 999, 888)
+        doc.move_map_object(nest, 999, 888)
         doc._flush_objects()
         profile = doc.data["affiliation"]["profiles"]["red_ant"]
         self.assertAlmostEqual(profile["nest_x"], 999)
@@ -104,14 +105,28 @@ class TestWorldMapDocument(unittest.TestCase):
         access_inst = next(i for i in doc.data["instances"] if i["layer"] == "affiliation_access")
         self.assertAlmostEqual(access_inst["x"], 999)
         self.assertAlmostEqual(access_inst["y"], 888)
+        clearing_inst = next(
+            i for i in doc.data["instances"] if i.get("id") == "red_ant_clearing"
+        )
+        self.assertAlmostEqual(clearing_inst["x"], 999)
+        self.assertAlmostEqual(clearing_inst["y"], 888)
 
-    def test_move_site_drags_access_children(self):
+    def test_colony_editor_group_moves_all_parts(self):
         doc = WorldMapDocument(_instances_world())
+        doc.ensure_colony_editor_groups()
         site = next(o for o in doc.objects if o.layer == "affiliation_site")
+        group_id = doc.editor_group_id(site)
+        self.assertIsNotNone(group_id)
         access = next(o for o in doc.objects if o.layer == "affiliation_access")
-        doc.move_site_with_access(site, site.x + 50, site.y + 30)
+        clearing = next(
+            o for o in doc.objects if str(o.source_id or "") == "red_ant_clearing"
+        )
+        doc.move_map_object(site, site.x + 50, site.y + 30)
         self.assertAlmostEqual(access.x, site.x)
         self.assertAlmostEqual(access.y, site.y)
+        self.assertAlmostEqual(clearing.x, site.x)
+        self.assertAlmostEqual(clearing.y, site.y)
+        self.assertEqual(doc.editor_group_id(clearing), group_id)
 
     def test_global_object_types_without_inline(self):
         data = _instances_world()
@@ -150,6 +165,44 @@ class TestWorldMapDocument(unittest.TestCase):
         rocks = [o for o in world.world_object_system.iter_obstacles() if o.type_ref == "rock"]
         self.assertEqual(len(rocks), 4)
         self.assertEqual(len(world.obstacle_system.obstacles), 4)
+
+    def test_place_colony_composite(self):
+        doc = WorldMapDocument(_instances_world())
+        anchor = doc.place_composite("colony:red_ant", 200.0, 220.0)
+        group_id = doc.editor_group_id(anchor)
+        self.assertIsNotNone(group_id)
+        self.assertEqual(len(doc.objects_in_editor_group(group_id)), 3)
+
+    def test_composite_place_and_move_together(self):
+        doc = WorldMapDocument(_instances_world())
+        anchor = doc.place_composite("healing_goddess", 300.0, 400.0)
+        group_id = doc.editor_group_id(anchor)
+        self.assertIsNotNone(group_id)
+        members = doc.objects_in_editor_group(group_id)
+        self.assertEqual(len(members), 2)
+        layers = {m.layer for m in members}
+        self.assertEqual(layers, {"obstacle", "zone"})
+
+        doc.move_map_object(anchor, 500.0, 600.0)
+        for member in members:
+            if member.layer == "obstacle":
+                self.assertAlmostEqual(member.x, 500.0)
+                self.assertAlmostEqual(member.y, 600.0)
+            else:
+                self.assertAlmostEqual(member.x, 500.0)
+                self.assertAlmostEqual(member.y, 600.0)
+
+        doc._flush_objects()
+        grouped = [i for i in doc.data["instances"] if i.get("editor_group") == group_id]
+        self.assertEqual(len(grouped), 2)
+        doc.validate()
+
+    def test_remove_object_deletes_whole_editor_group(self):
+        doc = WorldMapDocument(_instances_world())
+        anchor = doc.place_composite("healing_goddess", 100.0, 100.0)
+        group_id = doc.editor_group_id(anchor)
+        doc.remove_object(anchor.uid)
+        self.assertEqual(len(doc.objects_in_editor_group(group_id)), 0)
 
 
 if __name__ == "__main__":
