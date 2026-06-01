@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from src.sim.systems.world import World
 
 HOLE_DESTROY_HP = 1.0
-DEFAULT_ACCESS_TYPE = "colony_access"
+DEFAULT_ACCESS_TYPE = "affiliation_access"
 DEFAULT_ACCESS_TYPE = "affiliation_access"
 
 
@@ -149,8 +149,8 @@ class CompoundSystem:
 
         if max_hp is not None:
             hp_cap = float(max_hp)
-        elif parent.is_colony_compound:
-            settings = getattr(self.world, "affiliation_settings", None) or getattr(self.world, "colony_settings", {}) or {}
+        elif parent.is_affiliation_compound:
+            settings = getattr(self.world, "affiliation_settings", None) or getattr(self.world, "affiliation_settings", {}) or {}
             hp_cap = float(get_access_max_hp(settings))
         else:
             hp_cap = float(combat.get("max_hp", 0.0))
@@ -185,7 +185,7 @@ class CompoundSystem:
         self._ws.remove_access_point(access_id)
 
     def clear_access_points(self, parent_id: str) -> None:
-        self._ws.clear_colony_access(parent_id)
+        self._ws.clear_affiliation_access(parent_id)
 
     def count_active_access(self, parent_id: str) -> int:
         return self._ws.count_active_access(parent_id)

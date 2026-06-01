@@ -1,7 +1,7 @@
 # nest_renderer.py
 import pygame
 
-from src.sim.utils.territory_helpers import get_territory_radius_for_colony, iter_territory_centers
+from src.sim.utils.territory_helpers import get_territory_radius_for_affiliation, iter_territory_centers
 
 DEFAULT_FACTION_STYLE = {
     "label": "?",
@@ -10,14 +10,14 @@ DEFAULT_FACTION_STYLE = {
     "nest_outer": (80, 80, 80),
     "nest_inner_base": (140, 140, 140),
     "nest_glow_base": (60, 100, 60),
-    "colony_access": (220, 220, 200),
+    "affiliation_access": (220, 220, 200),
 }
 
 
-def get_faction_style(world, colony_id: str) -> dict:
+def get_faction_style(world, affiliation_id: str) -> dict:
     """ワールド JSON の colony.factions から勢力の見た目を取得。"""
-    styles = getattr(world, "faction_styles", None) or {}
-    raw = styles.get(colony_id)
+    styles = getattr(world, "affiliation_styles", None) or {}
+    raw = styles.get(affiliation_id)
     if not raw:
         return dict(DEFAULT_FACTION_STYLE)
     out = dict(DEFAULT_FACTION_STYLE)
@@ -69,10 +69,10 @@ class NestRenderer:
 
     @staticmethod
     def _faction_colony_access_color(faction: dict) -> tuple:
-        raw = faction.get("colony_access")
+        raw = faction.get("affiliation_access")
         if raw is None:
             raw = faction.get("nest_hole")
-        return _rgb_tuple(raw, DEFAULT_FACTION_STYLE["colony_access"])
+        return _rgb_tuple(raw, DEFAULT_FACTION_STYLE["affiliation_access"])
 
     @staticmethod
     def _draw_access_hp(screen, hx: int, hy: int, hp: float, max_hp: float) -> None:
@@ -152,30 +152,30 @@ class NestRenderer:
         camera,
         *,
         show_territory: bool = False,
-        selected_colony_id: str | None = None,
+        selected_affiliation_id: str | None = None,
     ) -> None:
         """全コロニーのテリトリーを colony_access ごとの円で描画（T キー切替）。"""
         if not show_territory:
             return
 
-        from src.sim.utils.world_object_helpers import iter_active_colony_roots
+        from src.sim.utils.world_object_helpers import iter_active_affiliation_roots
 
-        for root in iter_active_colony_roots(world):
-            colony_id = root.id
-            territory_r = int(get_territory_radius_for_colony(world, colony_id))
+        for root in iter_active_affiliation_roots(world):
+            affiliation_id = root.id
+            territory_r = int(get_territory_radius_for_affiliation(world, affiliation_id))
             if territory_r <= 0:
                 continue
 
-            faction = get_faction_style(world, colony_id)
+            faction = get_faction_style(world, affiliation_id)
             fill_rgba = _rgba_tuple(
                 faction.get("territory_fill"), DEFAULT_FACTION_STYLE["territory_fill"]
             )
             line_rgba = _rgba_tuple(
                 faction.get("territory_line"), DEFAULT_FACTION_STYLE["territory_line"]
             )
-            selected = selected_colony_id is not None and colony_id == selected_colony_id
+            selected = selected_affiliation_id is not None and affiliation_id == selected_affiliation_id
 
-            for cx, cy in iter_territory_centers(colony_id, world):
+            for cx, cy in iter_territory_centers(affiliation_id, world):
                 NestRenderer._draw_territory_circle(
                     screen,
                     camera,
@@ -188,22 +188,22 @@ class NestRenderer:
                 )
 
     @staticmethod
-    def draw_colony_access_placement_preview(
+    def draw_affiliation_access_placement_preview(
         world,
         screen,
         camera,
-        colony_id: str,
+        affiliation_id: str,
         wx: float,
         wy: float,
     ) -> None:
         """選択中のコロニーへの colony_access 設置可否をカーソル位置に表示。"""
-        if not colony_id:
+        if not affiliation_id:
             return
         ns = getattr(world, "nest_system", None)
         if ns is None:
             return
 
-        ok, _ = ns.can_place_hole(colony_id, wx, wy)
+        ok, _ = ns.can_place_hole(affiliation_id, wx, wy)
         sx = int(wx - camera.x)
         sy = int(wy - camera.y)
         color = (100, 220, 140) if ok else (240, 90, 90)
@@ -211,22 +211,22 @@ class NestRenderer:
         pygame.draw.circle(screen, (*color[:3], 60), (sx, sy), 6)
 
     @staticmethod
-    def draw(world, screen, camera, selected_colony_id: str | None = None) -> None:
+    def draw(world, screen, camera, selected_affiliation_id: str | None = None) -> None:
         from src.sim.utils.world_object_helpers import (
-            colony_food_ratio,
-            colony_site_xy,
-            iter_active_colony_roots,
-            iter_colony_access_for_display,
-            owner_species_for_colony,
+            affiliation_food_ratio,
+            affiliation_site_xy,
+            iter_active_affiliation_roots,
+            iter_affiliation_access_for_display,
+            owner_species_for_affiliation,
         )
 
         nest_system = getattr(world, "nest_system", None)
         if nest_system is None:
             return
 
-        for root in iter_active_colony_roots(world):
-            colony_id = root.id
-            site_x, site_y = colony_site_xy(world, colony_id)
+        for root in iter_active_affiliation_roots(world):
+            affiliation_id = root.id
+            site_x, site_y = affiliation_site_xy(world, affiliation_id)
             sx = int(site_x - camera.x)
             sy = int(site_y - camera.y)
             if not (
@@ -235,8 +235,8 @@ class NestRenderer:
             ):
                 continue
 
-            fill = colony_food_ratio(world, colony_id)
-            faction = get_faction_style(world, colony_id)
+            fill = affiliation_food_ratio(world, affiliation_id)
+            faction = get_faction_style(world, affiliation_id)
             outer = _rgb_tuple(faction.get("nest_outer"), DEFAULT_FACTION_STYLE["nest_outer"])
             ib = _rgb_tuple(
                 faction.get("nest_inner_base"),
@@ -248,7 +248,7 @@ class NestRenderer:
                 _clamp_channel(ib[2] + fill * 30),
             )
             radius = 14 + int(fill * 10)
-            selected = selected_colony_id is not None and colony_id == selected_colony_id
+            selected = selected_affiliation_id is not None and affiliation_id == selected_affiliation_id
             if selected:
                 pygame.draw.circle(screen, (255, 240, 120), (sx, sy), radius + 10, 2)
             pygame.draw.circle(screen, outer, (sx, sy), radius + 4, 2)
@@ -261,7 +261,7 @@ class NestRenderer:
             pygame.draw.circle(screen, center_dot, (sx, sy), 5)
 
             access_fill = NestRenderer._faction_colony_access_color(faction)
-            for access in iter_colony_access_for_display(world, colony_id):
+            for access in iter_affiliation_access_for_display(world, affiliation_id):
                 hx = int(float(access.x) - camera.x)
                 hy = int(float(access.y) - camera.y)
                 max_hp = float(getattr(access, "max_hp", 0) or 1)
@@ -284,7 +284,7 @@ class NestRenderer:
                     screen, leak_glow, (sx, sy), radius + 8, 1
                 )
 
-            members = nest_system.total_member_count(colony_id)
+            members = nest_system.total_member_count(affiliation_id)
             font = pygame.font.SysFont("msgothic", 11)
             owner_tag = faction.get("label")
             if owner_tag:
@@ -306,10 +306,10 @@ class NestRenderer:
         ws = getattr(world, "world_object_system", None)
         if ws is None:
             return
-        from src.sim.utils.world_object_helpers import iter_active_colony_roots
+        from src.sim.utils.world_object_helpers import iter_active_affiliation_roots
 
-        active = {root.id for root in iter_active_colony_roots(world)}
-        defeated = getattr(world, "defeated_colonies", None) or set()
+        active = {root.id for root in iter_active_affiliation_roots(world)}
+        defeated = getattr(world, "defeated_affiliations", None) or set()
 
         for root in ws.iter_roots():
             if root.id in active or root.id in defeated:

@@ -71,7 +71,7 @@ class TestSpawnPlacementResolver(unittest.TestCase):
     def test_profile_nest_anchor_near_colony_profile(self):
         world = _placement_world()
         resolver = SpawnPlacementResolver(world)
-        anchor = SpawnAnchor(type="profile_nest", colony_id="red_ant", spread=24)
+        anchor = SpawnAnchor(type="profile_nest", affiliation_id="red_ant", spread=24)
         pos = resolver.pick(
             anchor,
             SpawnPlacementOptions(respect_zones=False, use_biome_weight=False),
@@ -88,13 +88,13 @@ class TestSpawnPlacementResolver(unittest.TestCase):
         world.add_creature(queen)
 
         resolver = SpawnPlacementResolver(world)
-        anchor = SpawnAnchor(type="nest", colony_id="red_ant", spread=24)
+        anchor = SpawnAnchor(type="nest", affiliation_id="red_ant", spread=24)
         pos = resolver.pick(
             anchor,
             SpawnPlacementOptions(respect_zones=False, use_biome_weight=False),
         )
         self.assertIsNotNone(pos)
-        nest = world.nest_system.get_colony_nest("red_ant")
+        nest = world.nest_system.get_affiliation_root("red_ant")
         x, y = pos
         dist = ((x - nest.x) ** 2 + (y - nest.y) ** 2) ** 0.5
         self.assertLessEqual(dist, 24.5)
@@ -151,12 +151,12 @@ class TestInitialSpawnsConfig(unittest.TestCase):
                             {
                                 "species": "red_ant_queen",
                                 "count": 1,
-                                "anchor": {"type": "profile_nest", "colony_id": "red_ant"},
+                                "anchor": {"type": "profile_nest", "affiliation_id": "red_ant"},
                             },
                             {
                                 "species": "red_ant",
                                 "count": 1,
-                                "anchor": {"type": "nest", "colony_id": "red_ant"},
+                                "anchor": {"type": "nest", "affiliation_id": "red_ant"},
                             },
                         ],
                     }
@@ -173,7 +173,7 @@ class TestInitialSpawnsConfig(unittest.TestCase):
                                 {
                                     "species": "red_ant_queen",
                                     "count": 1,
-                                    "anchor": {"type": "profile_nest", "colony_id": "red_ant"},
+                                    "anchor": {"type": "profile_nest", "affiliation_id": "red_ant"},
                                 }
                             ],
                         }

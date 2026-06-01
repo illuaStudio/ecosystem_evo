@@ -98,7 +98,7 @@ def is_flee_latch_active(creature) -> bool:
 
 def distance_to_creature_nest(creature) -> float:
     world = getattr(creature, "world", None)
-    if world is None or getattr(creature, "colony", None) is None:
+    if world is None or getattr(creature, "affiliation", None) is None:
         return float("inf")
     return world.nest_system.distance_to_nest(creature)
 

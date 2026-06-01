@@ -8,14 +8,14 @@ from src.sim.commands import (
     ClearCreatureDirective,
     EnterCreatureShelter,
     IssueCreatureDirective,
-    SetColonyCasteMind,
+    SetAffiliationCasteMind,
     SetCreatureMind,
     SetSpeciesMind,
     SimCommand,
     SimCommandResult,
     SpawnCreature,
 )
-from src.sim.utils.caste_helpers import creature_matches_colony_caste, normalize_caste
+from src.sim.utils.caste_helpers import creature_matches_affiliation_caste, normalize_caste
 from src.sim.entities.creature_factory import CreatureFactory
 
 if TYPE_CHECKING:
@@ -43,14 +43,14 @@ def _apply_mind(creature, actions: tuple[dict, ...], mode: str) -> bool:
     return True
 
 
-def _matches_species(creature, species_name: str, colony_id: str | None) -> bool:
+def _matches_species(creature, species_name: str, affiliation_id: str | None) -> bool:
     if creature.species.name != species_name:
         return False
-    if colony_id is None:
+    if affiliation_id is None:
         return True
     from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
 
-    return get_creature_affiliation_id(creature) == colony_id
+    return get_creature_affiliation_id(creature) == affiliation_id
 
 
 class SimBridge:
@@ -67,8 +67,8 @@ class SimBridge:
             return self._set_creature_mind(command)
         if isinstance(command, SetSpeciesMind):
             return self._set_species_mind(command)
-        if isinstance(command, SetColonyCasteMind):
-            return self._set_colony_caste_mind(command)
+        if isinstance(command, SetAffiliationCasteMind):
+            return self._set_affiliation_caste_mind(command)
         if isinstance(command, EnterCreatureShelter):
             return self._enter_creature_shelter(command)
         if isinstance(command, IssueCreatureDirective):
@@ -140,7 +140,7 @@ class SimBridge:
     def _set_species_mind(self, cmd: SetSpeciesMind) -> SimCommandResult:
         matched: list[Any] = []
         for creature in self.world.creatures:
-            if not _matches_species(creature, cmd.species_name, cmd.colony_id):
+            if not _matches_species(creature, cmd.species_name, cmd.affiliation_id):
                 continue
             if _apply_mind(creature, cmd.actions, cmd.mode):
                 matched.append(creature)
@@ -157,30 +157,30 @@ class SimBridge:
             count=len(matched),
         )
 
-    def _set_colony_caste_mind(self, cmd: SetColonyCasteMind) -> SimCommandResult:
+    def _set_affiliation_caste_mind(self, cmd: SetAffiliationCasteMind) -> SimCommandResult:
         caste = normalize_caste(cmd.caste) if isinstance(cmd.caste, str) else cmd.caste
         if caste is None:
             return SimCommandResult(
                 False,
-                "SetColonyCasteMind",
+                "SetAffiliationCasteMind",
                 f"unknown caste={cmd.caste!r}",
             )
 
         matched: list[Any] = []
         for creature in self.world.creatures:
-            if not creature_matches_colony_caste(creature, cmd.colony_id, caste):
+            if not creature_matches_affiliation_caste(creature, cmd.affiliation_id, caste):
                 continue
             if _apply_mind(creature, cmd.actions, cmd.mode):
                 matched.append(creature)
         if not matched:
             return SimCommandResult(
                 False,
-                "SetColonyCasteMind",
-                f"no creatures for colony={cmd.colony_id} caste={caste}",
+                "SetAffiliationCasteMind",
+                f"no creatures for colony={cmd.affiliation_id} caste={caste}",
             )
         return SimCommandResult(
             True,
-            "SetColonyCasteMind",
+            "SetAffiliationCasteMind",
             creatures=matched,
             count=len(matched),
         )

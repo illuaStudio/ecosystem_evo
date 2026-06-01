@@ -3,14 +3,14 @@ import unittest
 
 from src.game.command_builder import (
     apply_mind_profile,
-    apply_mind_profile_to_colony_caste,
+    apply_mind_profile_to_affiliation_caste,
     apply_mind_profile_to_species,
     apply_spawn_profile,
     spawn_creature,
 )
 from src.sim.bridge import SimBridge
-from src.sim.commands import SetColonyCasteMind, SetCreatureMind, SetSpeciesMind, SpawnCreature
-from src.sim.utils.caste_helpers import creature_matches_colony_caste, list_colony_caste_species
+from src.sim.commands import SetAffiliationCasteMind, SetCreatureMind, SetSpeciesMind, SpawnCreature
+from src.sim.utils.caste_helpers import creature_matches_affiliation_caste, list_affiliation_caste_species
 from src.sim.entities.creature_factory import CreatureFactory
 from src.sim.shelter.state import is_creature_sheltered
 from src.sim.systems.world import World
@@ -47,19 +47,19 @@ def _colony_world(**overrides) -> World:
     )
 
 
-class TestColonyCasteMind(unittest.TestCase):
+class TestAffiliationCasteMind(unittest.TestCase):
     def test_caste_species_resolution(self):
         world = _colony_world()
         self.assertEqual(
-            list_colony_caste_species(world, "red_ant", "worker"),
+            list_affiliation_caste_species(world, "red_ant", "worker"),
             ("red_ant",),
         )
         self.assertEqual(
-            list_colony_caste_species(world, "red_ant", "soldier"),
+            list_affiliation_caste_species(world, "red_ant", "soldier"),
             ("red_ant_soldier",),
         )
-        self.assertIn("red_ant_soldier", list_colony_caste_species(world, "red_ant", "combat"))
-        self.assertIn("red_ant_vanguard", list_colony_caste_species(world, "red_ant", "combat"))
+        self.assertIn("red_ant_soldier", list_affiliation_caste_species(world, "red_ant", "combat"))
+        self.assertIn("red_ant_vanguard", list_affiliation_caste_species(world, "red_ant", "combat"))
 
     def test_set_colony_caste_mind_workers_only(self):
         world = _colony_world()
@@ -73,8 +73,8 @@ class TestColonyCasteMind(unittest.TestCase):
 
         wander = ({"name": "WanderAction", "weight": 9.0, "params": {}},)
         result = bridge.execute(
-            SetColonyCasteMind(
-                colony_id="red_ant",
+            SetAffiliationCasteMind(
+                affiliation_id="red_ant",
                 caste="worker",
                 actions=wander,
                 mode="replace",
@@ -99,8 +99,8 @@ class TestColonyCasteMind(unittest.TestCase):
 
         patrol = ({"name": "NestPatrolAction", "weight": 5.0, "params": {}},)
         result = bridge.execute(
-            SetColonyCasteMind(
-                colony_id="red_ant",
+            SetAffiliationCasteMind(
+                affiliation_id="red_ant",
                 caste="combat",
                 actions=patrol,
                 mode="merge",
@@ -115,7 +115,7 @@ class TestColonyCasteMind(unittest.TestCase):
             names = [a["name"] for a in unit.mind.action_defs]
             self.assertIn("NestPatrolAction", names)
 
-    def test_apply_mind_profile_to_colony_caste_helper(self):
+    def test_apply_mind_profile_to_affiliation_caste_helper(self):
         world = _colony_world()
         bridge = SimBridge(world)
         factory = CreatureFactory()
@@ -124,7 +124,7 @@ class TestColonyCasteMind(unittest.TestCase):
             world.add_creature(ant, spawn_source="initial")
         world.events.drain()
 
-        count = apply_mind_profile_to_colony_caste(
+        count = apply_mind_profile_to_affiliation_caste(
             bridge, "red_ant", "worker", "workers_only"
         )
         self.assertEqual(count, 2)
@@ -132,7 +132,7 @@ class TestColonyCasteMind(unittest.TestCase):
             if ant.species.name == "red_ant":
                 self.assertEqual(
                     [a["name"] for a in ant.mind.action_defs],
-                    ["ColonyReproduceAction"],
+                    ["AffiliationReproduceAction"],
                 )
 
     def test_other_colony_not_affected(self):
@@ -161,8 +161,8 @@ class TestColonyCasteMind(unittest.TestCase):
 
         wander = ({"name": "WanderAction", "weight": 1.0, "params": {}},)
         bridge.execute(
-            SetColonyCasteMind(
-                colony_id="red_ant",
+            SetAffiliationCasteMind(
+                affiliation_id="red_ant",
                 caste="worker",
                 actions=wander,
                 mode="replace",
@@ -201,7 +201,7 @@ class TestSimBridge(unittest.TestCase):
 
         apply_mind_profile(bridge, queen, "workers_only")
         names = [a["name"] for a in queen.mind.action_defs]
-        self.assertEqual(names, ["ColonyReproduceAction"])
+        self.assertEqual(names, ["AffiliationReproduceAction"])
 
     def test_set_species_mind(self):
         world = _world()
@@ -218,7 +218,7 @@ class TestSimBridge(unittest.TestCase):
         self.assertEqual(count, 2)
         for ant in world.creatures:
             names = [a["name"] for a in ant.mind.action_defs]
-            self.assertIn("ColonyReproduceAction", names)
+            self.assertIn("AffiliationReproduceAction", names)
 
         profile_actions = (
             {"name": "WanderAction", "weight": 1.0, "params": {}},
@@ -280,7 +280,7 @@ class TestSimBridge(unittest.TestCase):
             SetCreatureMind(creature_id=id(queen), actions=extra, mode="merge")
         )
         names = [a["name"] for a in queen.mind.action_defs]
-        self.assertIn("ColonyReproduceAction", names)
+        self.assertIn("AffiliationReproduceAction", names)
         self.assertIn("WanderAction", names)
 
 

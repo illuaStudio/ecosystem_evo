@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
-from src.sim.utils.creature_helpers import is_point_in_colony_territory, is_point_in_nest_territory
+from src.sim.utils.creature_helpers import is_point_in_affiliation_territory, is_point_in_nest_territory
 from src.sim.utils.position_helpers import entity_xy
 
 
@@ -46,13 +46,13 @@ def is_creature_affiliation_defeated(creature) -> bool:
 def is_point_in_rival_territory(world, affiliation_id: str, x: float, y: float) -> bool:
     if world is None or not affiliation_id:
         return False
-    from src.sim.utils.world_object_helpers import iter_active_colony_roots
+    from src.sim.utils.world_object_helpers import iter_active_affiliation_roots
 
     px, py = float(x), float(y)
-    for root in iter_active_colony_roots(world):
+    for root in iter_active_affiliation_roots(world):
         if not is_rival_affiliation(world, affiliation_id, root.id):
             continue
-        if is_point_in_colony_territory(world, root.id, px, py):
+        if is_point_in_affiliation_territory(world, root.id, px, py):
             return True
     return False
 
@@ -64,11 +64,11 @@ def is_creature_in_affiliation_territory(creature, affiliation_id: str) -> bool:
     world = creature.world
     if world is None:
         return False
-    from src.sim.utils.world_object_helpers import get_colony_root
+    from src.sim.utils.world_object_helpers import get_affiliation_root
 
-    if get_colony_root(world, affiliation_id) is None:
+    if get_affiliation_root(world, affiliation_id) is None:
         return False
-    return is_point_in_colony_territory(world, affiliation_id, cx, cy)
+    return is_point_in_affiliation_territory(world, affiliation_id, cx, cy)
 
 
 def can_attack_affiliation_access(
@@ -89,7 +89,7 @@ def can_attack_affiliation_access(
     if unrestricted:
         return True
     hx, hy = float(access.x), float(access.y)
-    if is_point_in_colony_territory(world, my_id, hx, hy):
+    if is_point_in_affiliation_territory(world, my_id, hx, hy):
         return True
     return is_creature_in_affiliation_territory(creature, owner_affiliation_id)
 
@@ -101,9 +101,9 @@ def find_nearest_attackable_access(
     unrestricted: bool = False,
     max_distance: float | None = None,
 ):
-    from src.sim.combat.target_query import find_nearest_colony_access
+    from src.sim.combat.target_query import find_nearest_affiliation_access
 
-    ref = find_nearest_colony_access(
+    ref = find_nearest_affiliation_access(
         creature,
         hostile_affiliation_ids,
         unrestricted=unrestricted,
@@ -114,5 +114,5 @@ def find_nearest_attackable_access(
     world = getattr(creature, "world", None)
     if world is None:
         return None
-    return (ref.world_object, ref.colony_id or "")
+    return (ref.world_object, ref.affiliation_id or "")
 

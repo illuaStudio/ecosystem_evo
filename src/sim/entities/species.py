@@ -249,15 +249,7 @@ class Species:
         self.trait_variance = resolve_trait_variance(self.traits, json_variance)
         self.life_cycle = normalize_life_cycle(data.get("life_cycle", {}))
         self.mind_data = data.get("mind", {"type": "priority", "actions": []})
-        self.colony_data = data.get("colony", {})
-        # affiliation が未指定の種は legacy colony を自動変換して扱う。
-        raw_aff = data.get("affiliation")
-        if raw_aff is None:
-            raw_aff = {}
-            if (self.colony_data or {}).get("enabled"):
-                raw_aff = dict(self.colony_data)
-                raw_aff["enabled"] = True
-        self.affiliation_data = raw_aff or {}
+        self.affiliation_data = data.get("affiliation") or {}
         self.nest_feed = normalize_nest_feed(data.get("nest_feed"))
         self.inventory_data = data.get("inventory", {})
         self.description = data.get("description", "")

@@ -12,17 +12,17 @@ Line = tuple[str, Color]
 
 ACTION_LABELS = {
     "FeedAtNestAction": "巣で食事",
-    "ColonyReproduceAction": "産卵",
+    "AffiliationReproduceAction": "産卵",
     "SeekShelterAction": "巣穴待機",
 }
 
 
-def find_colony_queen(world: "World", colony_id: str):
+def find_colony_queen(world: "World", affiliation_id: str):
     alive = None
     for creature in world.creatures:
         from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
 
-        if get_creature_affiliation_id(creature) != colony_id:
+        if get_creature_affiliation_id(creature) != affiliation_id:
             continue
         if not creature.species.name.endswith("_queen"):
             continue
@@ -35,14 +35,14 @@ def find_colony_queen(world: "World", colony_id: str):
 
 def _find_colony_reproduce_action(queen):
     from src.sim.ai.mind import ACTION_BY_NAME
-    from src.sim.ai.actions.reproduction import ColonyReproduceAction
+    from src.sim.ai.actions.reproduction import AffiliationReproduceAction
 
     mind = getattr(queen, "mind", None)
     if mind is None:
         return None
     for action_def in mind.action_defs:
-        if action_def.get("name") == "ColonyReproduceAction":
-            cls = ACTION_BY_NAME.get("ColonyReproduceAction", ColonyReproduceAction)
+        if action_def.get("name") == "AffiliationReproduceAction":
+            cls = ACTION_BY_NAME.get("AffiliationReproduceAction", AffiliationReproduceAction)
             return cls.from_config(
                 action_def.get("params", {}),
                 source=f"queen/{action_def.get('name')}",
@@ -60,7 +60,7 @@ def _progression_label(state: "GameState") -> str:
     return "進行: 備蓄50%で繁殖解禁"
 
 
-def _next_goal(state: "GameState", world: "World", colony_id: str) -> str | None:
+def _next_goal(state: "GameState", world: "World", affiliation_id: str) -> str | None:
     from src.config import config
 
     monitor = (config.game_player or {}).get("monitor") or {}
@@ -77,23 +77,23 @@ def _next_goal(state: "GameState", world: "World", colony_id: str) -> str | None
     return None
 
 
-def _worker_count(world: "World", colony_id: str) -> int | None:
-    nest = world.nest_system.get_colony_nest(colony_id)
+def _worker_count(world: "World", affiliation_id: str) -> int | None:
+    nest = world.nest_system.get_affiliation_root(affiliation_id)
     if nest is None:
         return None
     groups = getattr(world, "affiliation_species", {}) or {}
-    names = [s for s in groups.get(colony_id, []) if not str(s).endswith("_queen")]
+    names = [s for s in groups.get(affiliation_id, []) if not str(s).endswith("_queen")]
     if not names:
         return None
-    return world.nest_system.count_colony_members(nest.id, names)
+    return world.nest_system.count_affiliation_members(nest.id, names)
 
 
 def build_queen_panel_lines(
     world: "World",
-    colony_id: str,
+    affiliation_id: str,
     game_state: "GameState | None" = None,
 ) -> list[Line]:
-    queen = find_colony_queen(world, colony_id)
+    queen = find_colony_queen(world, affiliation_id)
     if queen is None:
         return [("女王: 見つかりません", (255, 140, 140))]
 
@@ -123,7 +123,7 @@ def build_queen_panel_lines(
 
     if game_state is not None:
         lines.append((_progression_label(game_state), (255, 220, 140)))
-        goal = _next_goal(game_state, world, colony_id)
+        goal = _next_goal(game_state, world, affiliation_id)
         if goal is not None:
             lines.append((goal, (180, 210, 255)))
 
@@ -137,7 +137,7 @@ def build_queen_panel_lines(
             )
         )
 
-    workers = _worker_count(world, colony_id)
+    workers = _worker_count(world, affiliation_id)
     if workers is not None:
         lines.append((f"コロニー: {workers} 匹（女王除く）", (200, 230, 200)))
 

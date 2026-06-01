@@ -58,15 +58,15 @@ def _real_sec(sim_time: float, ctx) -> float:
     return sim_time / rate
 
 
-def _worker_count(world: World, colony_id: str) -> int:
-    nest = world.nest_system.get_colony_nest(colony_id)
+def _worker_count(world: World, affiliation_id: str) -> int:
+    nest = world.nest_system.get_affiliation_root(affiliation_id)
     if nest is None:
         return 0
-    factions = getattr(world, "faction_species", {}) or {}
-    species = [s for s in factions.get(colony_id, ["red_ant"]) if not s.endswith("_queen")]
+    factions = getattr(world, "affiliation_species", {}) or {}
+    species = [s for s in factions.get(affiliation_id, ["red_ant"]) if not s.endswith("_queen")]
     if not species:
         species = ["red_ant"]
-    return world.nest_system.count_colony_members(nest.id, species)
+    return world.nest_system.count_affiliation_members(nest.id, species)
 
 
 def _maybe_log_milestone(
@@ -111,11 +111,11 @@ def run_balance(
     controller = GameController(bridge=bridge)
     controller.reset_for_world(world, bridge=bridge)
 
-    colony_id = controller.state.player_colony_id
+    affiliation_id = controller.state.player_affiliation_id
     report = BalanceRunReport()
     seen_milestones: set[str] = set()
 
-    nest = world.nest_system.get_colony_nest(colony_id)
+    nest = world.nest_system.get_affiliation_root(affiliation_id)
     if nest is not None:
         _maybe_log_milestone(
             report,
@@ -125,18 +125,18 @@ def run_balance(
             key="start",
             label="開始",
             detail=f"food={nest.stored_food:.0f}/{nest.max_food:.0f} "
-            f"workers={_worker_count(world, colony_id)}",
+            f"workers={_worker_count(world, affiliation_id)}",
             seen=seen_milestones,
         )
 
     t0 = time.perf_counter()
-    prev_workers = _worker_count(world, colony_id)
+    prev_workers = _worker_count(world, affiliation_id)
 
     for step in range(1, max_steps + 1):
         world.update(dt)
         messages = controller.on_tick(world)
 
-        nest = world.nest_system.get_colony_nest(colony_id)
+        nest = world.nest_system.get_affiliation_root(affiliation_id)
         if nest is not None:
             ratio = nest.food_ratio
             if controller.state.has_flag("high_food_reached"):
@@ -168,7 +168,7 @@ def run_balance(
                     ctx=ctx,
                     key="first_repro",
                     label="最初の繁殖スポーン",
-                    detail=f"workers={_worker_count(world, colony_id)}",
+                    detail=f"workers={_worker_count(world, affiliation_id)}",
                     seen=seen_milestones,
                 )
             if controller.state.has_flag("first_item_found"):
@@ -191,7 +191,7 @@ def run_balance(
                     flush=True,
                 )
 
-        workers = _worker_count(world, colony_id)
+        workers = _worker_count(world, affiliation_id)
         if workers > prev_workers:
             _maybe_log_milestone(
                 report,
@@ -231,7 +231,7 @@ def run_balance(
     report.sim_time_end = _sim_time(world)
     report.real_sec_est_end = _real_sec(report.sim_time_end, ctx)
     report.wall_sec = time.perf_counter() - t0
-    report.worker_count_end = _worker_count(world, colony_id)
+    report.worker_count_end = _worker_count(world, affiliation_id)
     report.flags_end = dict(controller.state.flags)
     if nest is not None:
         report.nest_food_end = nest.stored_food

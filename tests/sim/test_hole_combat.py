@@ -9,10 +9,10 @@ from src.sim.entities.creature_factory import CreatureFactory
 from src.sim.systems.world import World
 
 from src.sim.utils.affiliation_group_helpers import (
-    can_attack_affiliation_access as can_attack_colony_access,
+    can_attack_affiliation_access as can_attack_affiliation_access,
     find_nearest_attackable_access,
     is_point_in_rival_territory,
-    is_affiliation_defeated as is_colony_defeated,
+    is_affiliation_defeated as is_affiliation_defeated,
 )
 
 from tests.sim.test_hole_combat_helpers import (
@@ -41,7 +41,7 @@ from tests.sim.world_fixtures import (
 
 
 
-def _hole_colony_settings():
+def _hole_affiliation_settings():
 
     red = dict(RED_ANT_PROFILE)
 
@@ -97,7 +97,7 @@ def _hole_world(**overrides) -> World:
 
         },
 
-        affiliation=overrides.pop("affiliation", _hole_colony_settings()),
+        affiliation=overrides.pop("affiliation", _hole_affiliation_settings()),
 
         **overrides,
 
@@ -121,7 +121,7 @@ class TestHoleCombat(unittest.TestCase):
 
         nest = world.nest_system.get_creature_nest(ant)
 
-        access_list = list_colony_access(world, nest.colony_id)
+        access_list = list_colony_access(world, nest.affiliation_id)
 
         self.assertEqual(len(access_list), 1)
 
@@ -173,7 +173,7 @@ class TestHoleCombat(unittest.TestCase):
 
         nest = world.nest_system.get_creature_nest(red)
 
-        access = primary_access(world, nest.colony_id)
+        access = primary_access(world, nest.affiliation_id)
 
         access.hp = 40.0
 
@@ -195,17 +195,17 @@ class TestHoleCombat(unittest.TestCase):
 
         nest = world.nest_system.get_creature_nest(red)
 
-        access = primary_access(world, nest.colony_id)
+        access = primary_access(world, nest.affiliation_id)
 
         access.hp = 0.8
 
         damage_colony_access(
 
-            world, nest.colony_id, access, 0.1, attacker_colony_id="blue_ant"
+            world, nest.affiliation_id, access, 0.1, attacker_affiliation_id="blue_ant"
 
         )
 
-        self.assertEqual(world.world_object_system.count_active_access(nest.colony_id), 0)
+        self.assertEqual(world.world_object_system.count_active_access(nest.affiliation_id), 0)
 
 
 
@@ -221,13 +221,13 @@ class TestHoleCombat(unittest.TestCase):
 
         nest = world.nest_system.get_creature_nest(red)
 
-        access = primary_access(world, nest.colony_id)
+        access = primary_access(world, nest.affiliation_id)
 
 
 
         dealt = damage_colony_access(
 
-            world, nest.colony_id, access, 50, attacker_colony_id="red_ant"
+            world, nest.affiliation_id, access, 50, attacker_affiliation_id="red_ant"
 
         )
 
@@ -239,7 +239,7 @@ class TestHoleCombat(unittest.TestCase):
 
         dealt = damage_colony_access(
 
-            world, nest.colony_id, access, 40, attacker_colony_id="blue_ant"
+            world, nest.affiliation_id, access, 40, attacker_affiliation_id="blue_ant"
 
         )
 
@@ -265,25 +265,26 @@ class TestHoleCombat(unittest.TestCase):
 
         nest = world.nest_system.get_creature_nest(worker)
 
-        access = primary_access(world, nest.colony_id)
+        access = primary_access(world, nest.affiliation_id)
 
 
 
         damage_colony_access(
 
-            world, nest.colony_id, access, 200, attacker_colony_id="blue_ant"
+            world, nest.affiliation_id, access, 200, attacker_affiliation_id="blue_ant"
 
         )
 
 
 
-        self.assertTrue(is_colony_defeated(world, "red_ant"))
+        self.assertTrue(is_affiliation_defeated(world, "red_ant"))
 
-        self.assertIsNone(world.nest_system.get_colony_nest("red_ant"))
+        self.assertIsNone(world.nest_system.get_affiliation_root("red_ant"))
 
-        self.assertTrue(worker.colony.defeated)
+        from src.sim.utils.affiliation_group_helpers import is_creature_affiliation_defeated
 
-        self.assertTrue(soldier.colony.defeated)
+        self.assertTrue(is_creature_affiliation_defeated(worker))
+        self.assertTrue(is_creature_affiliation_defeated(soldier))
 
         self.assertEqual(len(world.creatures), 2)
 
@@ -315,11 +316,11 @@ class TestHoleCombat(unittest.TestCase):
 
         combat = CombatAction(
 
-            hostile_colony_ids=["blue_ant"], territory_only=True
+            hostile_affiliation_ids=["blue_ant"], territory_only=True
 
         )
 
-        attack_hole = AttackHoleAction(hostile_colony_ids=["blue_ant"])
+        attack_hole = AttackHoleAction(hostile_affiliation_ids=["blue_ant"])
 
         self.assertGreater(combat.calculate_utility(red_s), 0.0)
 
@@ -347,9 +348,9 @@ class TestHoleCombat(unittest.TestCase):
 
         blue_nest = world.nest_system.get_creature_nest(blue)
 
-        access = primary_access(world, blue_nest.colony_id)
+        access = primary_access(world, blue_nest.affiliation_id)
 
-        self.assertFalse(can_attack_colony_access(soldier, access, "blue_ant"))
+        self.assertFalse(can_attack_affiliation_access(soldier, access, "blue_ant"))
 
         self.assertIsNone(find_nearest_attackable_access(soldier, ("blue_ant",)))
 
@@ -379,7 +380,7 @@ class TestHoleCombat(unittest.TestCase):
 
         blue_nest = world.nest_system.get_creature_nest(blue)
 
-        access = primary_access(world, blue_nest.colony_id)
+        access = primary_access(world, blue_nest.affiliation_id)
 
 
 
@@ -395,7 +396,7 @@ class TestHoleCombat(unittest.TestCase):
 
         action = AttackHoleAction(
 
-            hostile_colony_ids=["blue_ant"],
+            hostile_affiliation_ids=["blue_ant"],
 
             ignore_territory=True,
 
@@ -457,7 +458,7 @@ class TestHoleCombat(unittest.TestCase):
 
         action = AttackHoleAction(
 
-            hostile_colony_ids=["blue_ant"],
+            hostile_affiliation_ids=["blue_ant"],
 
             ignore_territory=True,
 

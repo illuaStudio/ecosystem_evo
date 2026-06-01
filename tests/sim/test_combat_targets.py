@@ -3,7 +3,7 @@ import unittest
 
 from src.sim.combat.target_query import (
     find_nearest_hostile_creature,
-    find_nearest_colony_access,
+    find_nearest_affiliation_access,
     iter_targets,
 )
 from src.sim.combat.target_ref import TargetKind, TargetRef
@@ -13,7 +13,7 @@ from src.sim.systems.world import World
 from tests.sim.world_fixtures import RED_ANT_PROFILE, BLUE_ANT_PROFILE, affiliation_settings, load_test_world
 
 
-def _combat_colony_settings():
+def _combat_affiliation_settings():
     red = dict(RED_ANT_PROFILE)
     red["nest_x"] = 100
     red["nest_y"] = 100
@@ -38,7 +38,7 @@ def _world():
             "red_ant_soldier": 6,
             "blue_ant": 10,
         },
-        affiliation=_combat_colony_settings(),
+        affiliation=_combat_affiliation_settings(),
     )
 
 
@@ -46,10 +46,10 @@ class TestCombatTargets(unittest.TestCase):
     def test_standard_world_has_colony_objects(self):
         world = _world()
         ws = world.world_object_system
-        self.assertTrue(ws.has_colony_root("red_ant"))
-        self.assertTrue(ws.has_colony_root("blue_ant"))
-        self.assertIsNotNone(world.nest_system.get_colony_nest("red_ant"))
-        self.assertIsNotNone(world.nest_system.get_colony_nest("blue_ant"))
+        self.assertTrue(ws.has_affiliation_root("red_ant"))
+        self.assertTrue(ws.has_affiliation_root("blue_ant"))
+        self.assertIsNotNone(world.nest_system.get_affiliation_root("red_ant"))
+        self.assertIsNotNone(world.nest_system.get_affiliation_root("blue_ant"))
 
     def test_iter_targets_creature_and_colony_access(self):
         world = _world()
@@ -77,7 +77,7 @@ class TestCombatTargets(unittest.TestCase):
         vanguard = factory.create("red_ant_soldier", world=world, x=150, y=150)
         world.add_creature(vanguard)
 
-        ref = find_nearest_colony_access(
+        ref = find_nearest_affiliation_access(
             vanguard, ("blue_ant",), unrestricted=True
         )
         self.assertIsNotNone(ref)
@@ -94,14 +94,14 @@ class TestCombatTargets(unittest.TestCase):
         soldier = factory.create("red_ant_soldier", world=world, x=190, y=190)
         world.add_creature(soldier)
 
-        ref = find_nearest_colony_access(
+        ref = find_nearest_affiliation_access(
             soldier, ("blue_ant",), unrestricted=True
         )
         access = ref.world_object
         self.assertIsNotNone(access)
         hp_before = access.hp
         dealt = apply_damage_to_target(
-            soldier, ref, 10.0, attacker_colony_id="red_ant"
+            soldier, ref, 10.0, attacker_affiliation_id="red_ant"
         )
         self.assertEqual(dealt, 10.0)
         self.assertAlmostEqual(access.hp, hp_before - 10.0)
@@ -168,7 +168,7 @@ class TestCombatTargets(unittest.TestCase):
         soldier = factory.create("red_ant_soldier", world=world, x=480, y=480)
         world.add_creature(soldier)
 
-        ref = find_nearest_colony_access(
+        ref = find_nearest_affiliation_access(
             soldier, ("blue_ant",), unrestricted=True
         )
         self.assertIsNotNone(ref)
@@ -177,7 +177,7 @@ class TestCombatTargets(unittest.TestCase):
         access = ref.world_object
         hp_before = access.hp
         dealt = apply_damage_to_target(
-            soldier, ref, 15.0, attacker_colony_id="red_ant"
+            soldier, ref, 15.0, attacker_affiliation_id="red_ant"
         )
         self.assertEqual(dealt, 15.0)
         self.assertAlmostEqual(access.hp, hp_before - 15.0)

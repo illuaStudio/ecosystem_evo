@@ -93,7 +93,7 @@
           "attack_power": 1.25,
           "pickup_on_kill": true,
           "bite_gain": 1.2,
-          "colony_hoard_strength": 0.8,
+          "affiliation_hoard_strength": 0.8,
           "territory_only": false,
           "territory_threat": false,
           "territory_approach_margin": 80.0,

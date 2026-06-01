@@ -43,32 +43,32 @@
     },
     {
       "id": "red_ant",
-      "layer": "colony_site",
-      "type": "colony_site",
+      "layer": "affiliation_site",
+      "type": "affiliation_site",
       "role": "root",
       "x": 120.0,
       "y": 120.0
     },
     {
       "id": "red_ant_access_main",
-      "layer": "colony_access",
-      "type": "colony_access",
+      "layer": "affiliation_access",
+      "type": "affiliation_access",
       "parent": "red_ant",
       "x": 120.0,
       "y": 120.0
     },
     {
       "id": "blue_ant",
-      "layer": "colony_site",
-      "type": "colony_site",
+      "layer": "affiliation_site",
+      "type": "affiliation_site",
       "role": "root",
       "x": 505.0,
       "y": 938.5
     },
     {
       "id": "yellow_ant",
-      "layer": "colony_site",
-      "type": "colony_site",
+      "layer": "affiliation_site",
+      "type": "affiliation_site",
       "role": "root",
       "x": 916.0,
       "y": 75.5
@@ -242,7 +242,7 @@
             "count": 1,
             "anchor": {
               "type": "profile_nest",
-              "colony_id": "red_ant"
+              "affiliation_id": "red_ant"
             }
           },
           {
@@ -250,7 +250,7 @@
             "count": 2,
             "anchor": {
               "type": "nest",
-              "colony_id": "red_ant"
+              "affiliation_id": "red_ant"
             }
           }
         ]
@@ -357,7 +357,7 @@
           120,
           180
         ],
-        "colony_access": [
+        "affiliation_access": [
           255,
           230,
           180

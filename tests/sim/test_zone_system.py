@@ -63,7 +63,7 @@ class TestZoneSpawnExclusion(unittest.TestCase):
         clearing = [
             z
             for z in world.zone_system.zones
-            if z.colony_id == "red_ant" and z.effects.spawn_rate_multiplier == 0.0
+            if z.affiliation_id == "red_ant" and z.effects.spawn_rate_multiplier == 0.0
         ]
         self.assertEqual(len(clearing), 1)
         self.assertAlmostEqual(clearing[0].x, 200.0)
@@ -173,7 +173,7 @@ class TestZonePoisonFog(unittest.TestCase):
         world = World()
         for creature in list(world.creatures):
             world.remove_creature(creature)
-        world.nest_system.clear_all_colony_sites()
+        world.nest_system.clear_all_affiliation_sites()
         world.zone_system.zones.clear()
         world.world_object_system.objects.clear()
         world.world_object_system._children.clear()
@@ -185,10 +185,10 @@ class TestZonePoisonFog(unittest.TestCase):
         clearing = [
             z
             for z in world.zone_system.zones
-            if z.colony_id == "red_ant" and z.effects.spawn_rate_multiplier == 0.0
+            if z.affiliation_id == "red_ant" and z.effects.spawn_rate_multiplier == 0.0
         ]
         self.assertEqual(len(clearing), 1)
-        nest = world.nest_system.get_colony_nest("red_ant")
+        nest = world.nest_system.get_affiliation_root("red_ant")
         self.assertIsNotNone(nest)
         self.assertAlmostEqual(clearing[0].x, nest.x)
         self.assertAlmostEqual(clearing[0].y, nest.y)

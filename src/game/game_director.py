@@ -9,14 +9,14 @@ from src.game.game_monitor import MonitorAlert
 from src.game.game_state import GameState
 from src.game.progression import ProgressionEvaluator
 from src.sim.events import (
-    ColonyDefeatedEvent,
+    AffiliationDefeatedEvent,
     CombatStartedEvent,
     DeathEvent,
     ItemFoundEvent,
     SimEvent,
     SpawnEvent,
 )
-from src.sim.utils.affiliation_group_helpers import is_rival_affiliation as is_rival_colony
+from src.sim.utils.affiliation_group_helpers import is_rival_affiliation as is_rival_affiliation
 
 if TYPE_CHECKING:
     from src.sim.bridge import SimBridge
@@ -51,12 +51,12 @@ class GameDirector:
 
         parent_ids = self.state.nest_parent_object_ids
         if not parent_ids:
-            parent_ids = (self.state.player_colony_id,)
+            parent_ids = (self.state.player_affiliation_id,)
 
         for creature in world.creatures:
-            colony_data = getattr(creature.species, "affiliation_data", None) or {}
+            affiliation_data = getattr(creature.species, "affiliation_data", None) or {}
             inv = getattr(creature, "inventory", None)
-            if colony_data.get("enabled") or (inv is not None and inv.slot_count > 0):
+            if affiliation_data.get("enabled") or (inv is not None and inv.slot_count > 0):
                 set_creature_nest_parent_ids(creature, parent_ids)
             apply_spawn_profile(self.bridge, creature)
 
@@ -76,16 +76,16 @@ class GameDirector:
 
     def update_derived_levels(self, world: "World") -> None:
         """危険度・安定度・文明度の更新。"""
-        if self.state.has_flag("player_colony_defeated"):
+        if self.state.has_flag("player_affiliation_defeated"):
             self.state.stability_level = 0.0
         else:
-            root = world.nest_system.get_colony_root(self.state.player_colony_id)
+            root = world.nest_system.get_affiliation_root(self.state.player_affiliation_id)
             if root is None:
                 self.state.stability_level = 0.0
             else:
                 food_factor = min(
                     1.0,
-                    world.nest_system.colony_food_ratio(self.state.player_colony_id) / 0.5,
+                    world.nest_system.affiliation_food_ratio(self.state.player_affiliation_id) / 0.5,
                 )
                 self.state.stability_level = max(0.0, min(1.0, 0.3 + food_factor * 0.7))
 
@@ -113,8 +113,8 @@ class GameDirector:
             return self._on_item_found(world, event)
         if isinstance(event, CombatStartedEvent):
             return self._on_combat_started(world, event)
-        if isinstance(event, ColonyDefeatedEvent):
-            return self._on_colony_defeated(event)
+        if isinstance(event, AffiliationDefeatedEvent):
+            return self._on_affiliation_defeated(event)
         return []
 
     @staticmethod
@@ -129,7 +129,7 @@ class GameDirector:
         _ = world
         if event.source != "reproduction":
             return []
-        if event.colony_id != self.state.player_colony_id:
+        if event.affiliation_id != self.state.player_affiliation_id:
             return []
         if not self.state.set_flag("first_reproduction"):
             return []
@@ -142,7 +142,7 @@ class GameDirector:
 
     def _on_death(self, world: "World", event: DeathEvent) -> list[GameMessage]:
         _ = world
-        if event.colony_id != self.state.player_colony_id:
+        if event.affiliation_id != self.state.player_affiliation_id:
             return []
         if event.species_name.endswith("_queen"):
             return [
@@ -156,7 +156,7 @@ class GameDirector:
 
     def _on_item_found(self, world: "World", event: ItemFoundEvent) -> list[GameMessage]:
         _ = world
-        if event.colony_id != self.state.player_colony_id:
+        if event.affiliation_id != self.state.player_affiliation_id:
             return []
         if not self.state.set_flag("first_item_found"):
             return []
@@ -170,9 +170,9 @@ class GameDirector:
     def _on_combat_started(
         self, world: "World", event: CombatStartedEvent
     ) -> list[GameMessage]:
-        player_id = self.state.player_colony_id
-        attacker_cid = event.attacker_colony_id
-        if not attacker_cid or not is_rival_colony(world, player_id, attacker_cid):
+        player_id = self.state.player_affiliation_id
+        attacker_cid = event.attacker_affiliation_id
+        if not attacker_cid or not is_rival_affiliation(world, player_id, attacker_cid):
             return []
 
         player_attacked = False
@@ -182,7 +182,7 @@ class GameDirector:
             target_cid = get_creature_affiliation_id(event.target_creature)
             player_attacked = target_cid == player_id
         elif event.target_kind == "world_object":
-            player_attacked = event.target_colony_id == player_id
+            player_attacked = event.target_affiliation_id == player_id
 
         if not player_attacked:
             return []
@@ -196,11 +196,11 @@ class GameDirector:
             )
         ]
 
-    def _on_colony_defeated(self, event: ColonyDefeatedEvent) -> list[GameMessage]:
-        if event.colony_id == self.state.player_colony_id:
+    def _on_affiliation_defeated(self, event: AffiliationDefeatedEvent) -> list[GameMessage]:
+        if event.affiliation_id == self.state.player_affiliation_id:
             self.user_message = event.message
             self.state.stability_level = 0.0
-            self.state.set_flag("player_colony_defeated")
+            self.state.set_flag("player_affiliation_defeated")
             return [
                 GameMessage(
                     text=event.message,
@@ -208,10 +208,10 @@ class GameDirector:
                     priority=10,
                 )
             ]
-        if self.state.set_flag(f"rival_defeated_{event.colony_id}"):
+        if self.state.set_flag(f"rival_defeated_{event.affiliation_id}"):
             return [
                 GameMessage(
-                    text=f"敵勢力 {event.colony_id} が滅びました",
+                    text=f"敵勢力 {event.affiliation_id} が滅びました",
                     source="event",
                 )
             ]

@@ -1,20 +1,20 @@
 """ゲームレイヤー（GameController / GameMonitor）のテスト。"""
 import unittest
 
-from src.sim.ai.actions import ColonyReproduceAction
+from src.sim.ai.actions import AffiliationReproduceAction
 from src.sim.entities.creature_factory import CreatureFactory
 from src.game.game_controller import GameController
 from src.game.game_monitor import GameMonitor
 from src.game.mind_policy import MindPolicy
 from src.sim.bridge import SimBridge
-from src.sim.emitters import emit_colony_defeated, emit_combat_started_creature
+from src.sim.emitters import emit_affiliation_defeated, emit_combat_started_creature
 from src.sim.systems.world import World
 from tests.sim.world_fixtures import (
     BLUE_ANT_PROFILE,
     RED_ANT_PROFILE,
     affiliation_settings,
     load_test_world,
-    set_colony_stored_food,
+    set_affiliation_stored_food,
 )
 
 
@@ -51,15 +51,15 @@ class TestGameMonitor(unittest.TestCase):
         factory = CreatureFactory()
         queen = factory.create("red_ant_queen", world=world, x=120, y=120)
         world.add_creature(queen, spawn_source="initial")
-        nest = world.nest_system.get_colony_nest("red_ant")
+        nest = world.nest_system.get_affiliation_root("red_ant")
         world.events.drain()
 
         monitor = GameMonitor({"low_food_ratio": 0.10})
         from src.game.game_state import GameState
 
-        state = GameState(player_colony_id="red_ant")
+        state = GameState(player_affiliation_id="red_ant")
 
-        set_colony_stored_food(world, "red_ant", nest.max_food * 0.05)
+        set_affiliation_stored_food(world, "red_ant", nest.max_food * 0.05)
         alerts = monitor.check(world, state)
         self.assertEqual(len(alerts), 1)
         self.assertIn("低下", alerts[0].message)
@@ -74,7 +74,7 @@ class TestGameController(unittest.TestCase):
         bridge = SimBridge(world)
         ctrl = GameController(
             {
-                "player_colony_id": "red_ant",
+                "player_affiliation_id": "red_ant",
                 "monitor": {
                     "low_food_ratio": 0.10,
                     "high_food_ratio": 0.50,
@@ -93,19 +93,19 @@ class TestGameController(unittest.TestCase):
         factory = CreatureFactory()
         queen = factory.create("red_ant_queen", world=world, x=120, y=120)
         world.add_creature(queen, spawn_source="initial")
-        nest = world.nest_system.get_colony_nest("red_ant")
+        nest = world.nest_system.get_affiliation_root("red_ant")
         world.events.drain()
 
         profile = MindPolicy().get_profile("workers_only") or {}
         params = next(
             a["params"]
             for a in profile["actions"]
-            if a["name"] == "ColonyReproduceAction"
+            if a["name"] == "AffiliationReproduceAction"
         )
-        from src.sim.utils.colony_config_helpers import get_min_food_reserve
+        from src.sim.utils.affiliation_config_helpers import get_min_food_reserve
 
         nest.stored_food = get_min_food_reserve(world) + float(params["food_cost"]) + 10
-        action = ColonyReproduceAction(**{**params, "spawn_cooldown": 0})
+        action = AffiliationReproduceAction(**{**params, "spawn_cooldown": 0})
         action.execute(queen)
 
         msgs = ctrl.on_tick(world)
@@ -122,7 +122,7 @@ class TestGameController(unittest.TestCase):
         ctrl = self._controller(world)
         ctrl.reset_for_world(world, bridge=ctrl.bridge)
 
-        emit_colony_defeated(world, "red_ant", "勢力 red_ant が敗北しました")
+        emit_affiliation_defeated(world, "red_ant", "勢力 red_ant が敗北しました")
         msgs = ctrl.on_tick(world)
 
         self.assertEqual(ctrl.user_message, "勢力 red_ant が敗北しました")
@@ -152,12 +152,12 @@ class TestGameController(unittest.TestCase):
         factory = CreatureFactory()
         queen = factory.create("red_ant_queen", world=world, x=120, y=120)
         world.add_creature(queen, spawn_source="initial")
-        nest = world.nest_system.get_colony_nest("red_ant")
+        nest = world.nest_system.get_affiliation_root("red_ant")
         world.events.drain()
 
         ctrl = self._controller(world)
         ctrl.reset_for_world(world, bridge=ctrl.bridge)
-        set_colony_stored_food(world, "red_ant", nest.max_food * 0.05)
+        set_affiliation_stored_food(world, "red_ant", nest.max_food * 0.05)
 
         msgs = ctrl.on_tick(world)
         low_msgs = [m for m in msgs if m.source == "monitor" and "低下" in m.text]

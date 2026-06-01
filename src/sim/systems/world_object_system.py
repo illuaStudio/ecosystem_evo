@@ -48,9 +48,8 @@ class WorldObjectSystem:
         self._rebuild_child_index()
 
     def _load_from_instances(self, instances: List[Dict], layout: Dict) -> None:
-        colony_settings = dict(layout.get("colony") or {})
-        colony_settings.update(dict(layout.get("affiliation") or {}))
-        access_max_hp = get_access_max_hp(colony_settings)
+        affiliation_settings = dict(layout.get("affiliation") or {})
+        access_max_hp = get_access_max_hp(affiliation_settings)
         zone_defaults = dict((layout.get("zones") or {}).get("defaults") or {})
 
         for raw in instances:
@@ -65,9 +64,7 @@ class WorldObjectSystem:
                 if obj_id in self.objects:
                     continue
                 aff_profiles = (layout.get("affiliation") or {}).get("profiles") or {}
-                legacy_profiles = (layout.get("colony") or {}).get("profiles") or {}
-                profile = dict(legacy_profiles.get(obj_id) or {})
-                profile.update(dict(aff_profiles.get(obj_id) or {}))
+                profile = dict(aff_profiles.get(obj_id) or {})
                 type_ref = str(raw.get("type", "affiliation_site"))
                 type_def = config.get_object_type(type_ref)
                 merged = merge_type_with_instance(
@@ -246,13 +243,12 @@ class WorldObjectSystem:
                 )
 
     def _ensure_default_access_children(self, layout: Dict) -> None:
-        colony_settings = dict(layout.get("colony") or {})
-        colony_settings.update(dict(layout.get("affiliation") or {}))
-        access_max_hp = get_access_max_hp(colony_settings)
+        affiliation_settings = dict(layout.get("affiliation") or {})
+        access_max_hp = get_access_max_hp(affiliation_settings)
         for obj_id, parent in list(self.objects.items()):
             if not parent.is_root:
                 continue
-            if not parent.is_colony_compound:
+            if not parent.is_affiliation_compound:
                 continue
             if self.get_children(obj_id):
                 continue
@@ -261,7 +257,7 @@ class WorldObjectSystem:
             access = capability_block(type_def, "access")
             combat = capability_block(type_def, "combat")
             max_hp = float(access_max_hp)
-            if not parent.is_colony_compound and combat.get("max_hp") is not None:
+            if not parent.is_affiliation_compound and combat.get("max_hp") is not None:
                 max_hp = float(combat["max_hp"])
             child_id = f"{obj_id}_access_main"
             self.objects[child_id] = WorldObject(
@@ -340,12 +336,12 @@ class WorldObjectSystem:
         parent = self.get(parent_id)
         if parent is None or not parent.is_root:
             return None
-        colony_settings = getattr(self.world, "colony_settings", {}) or {}
-        hp_cap = float(max_hp if max_hp is not None else get_access_max_hp(colony_settings))
+        affiliation_settings = getattr(self.world, "affiliation_settings", {}) or {}
+        hp_cap = float(max_hp if max_hp is not None else get_access_max_hp(affiliation_settings))
         access_type = default_access_type_for_root(parent.type_ref)
         type_def = config.get_object_type(access_type)
         access = capability_block(type_def, "access")
-        if not parent.is_colony_compound:
+        if not parent.is_affiliation_compound:
             combat = capability_block(type_def, "combat")
             type_hp = combat.get("max_hp")
             if type_hp is not None and max_hp is None:
@@ -446,13 +442,13 @@ class WorldObjectSystem:
         """破壊されていない access の数。"""
         return len(self.iter_access_points(parent_id))
 
-    def has_colony_root(self, colony_id: str) -> bool:
-        root = self.get(colony_id)
+    def has_affiliation_root(self, affiliation_id: str) -> bool:
+        root = self.get(affiliation_id)
         return root is not None and root.is_root
 
-    def ensure_colony_site(
+    def ensure_affiliation_site(
         self,
-        colony_id: str,
+        affiliation_id: str,
         x: float,
         y: float,
         *,
@@ -460,13 +456,13 @@ class WorldObjectSystem:
         stored_food: float = 0.0,
     ) -> WorldObject:
         """runtime Nest から affiliation_site を生成。"""
-        existing = self.get(colony_id)
+        existing = self.get(affiliation_id)
         if existing is not None and existing.is_root:
             return existing
         cap = float(max_food)
         food = max(0.0, min(float(stored_food), cap))
         root = WorldObject(
-            id=str(colony_id),
+            id=str(affiliation_id),
             type_ref="affiliation_site",
             x=float(x),
             y=float(y),
@@ -474,16 +470,16 @@ class WorldObjectSystem:
             storage=ObjectStorage.from_config(
                 {"max_food": cap, "initial_stored_food": food}
             ),
-            label=str(colony_id),
+            label=str(affiliation_id),
             compound_profile="affiliation",
         )
-        self.objects[colony_id] = root
-        self._children.setdefault(colony_id, [])
+        self.objects[affiliation_id] = root
+        self._children.setdefault(affiliation_id, [])
         return root
 
-    def clear_colony_access(self, colony_id: str) -> None:
+    def clear_affiliation_access(self, affiliation_id: str) -> None:
         """勢力の接続点をすべて削除（敗北時など）。"""
-        for child in list(self.get_children(colony_id)):
+        for child in list(self.get_children(affiliation_id)):
             self.remove_access_point(child.id)
 
     def remove_access_point(self, access_id: str) -> None:

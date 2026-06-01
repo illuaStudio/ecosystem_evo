@@ -2,7 +2,7 @@
 import unittest
 
 from src.game.game_controller import GameController
-from src.sim.ai.actions import ColonyReproduceAction
+from src.sim.ai.actions import AffiliationReproduceAction
 from src.sim.bridge import SimBridge
 from src.sim.entities.creature_factory import CreatureFactory
 from src.sim.systems.world import World
@@ -26,7 +26,7 @@ class TestGameControllerBridge(unittest.TestCase):
     def test_spawn_creature_via_controller(self):
         world = _player_world()
         bridge = SimBridge(world)
-        ctrl = GameController({"player_colony_id": "red_ant"}, bridge=bridge)
+        ctrl = GameController({"player_affiliation_id": "red_ant"}, bridge=bridge)
 
         creature = ctrl.spawn_creature("Spider", x=100, y=100, source="game")
         self.assertIsNotNone(creature)
@@ -35,7 +35,7 @@ class TestGameControllerBridge(unittest.TestCase):
     def test_apply_mind_profile_via_controller(self):
         world = _player_world()
         bridge = SimBridge(world)
-        ctrl = GameController({"player_colony_id": "red_ant"}, bridge=bridge)
+        ctrl = GameController({"player_affiliation_id": "red_ant"}, bridge=bridge)
         factory = CreatureFactory()
         queen = factory.create("red_ant_queen", world=world, x=120, y=120)
         world.add_creature(queen, spawn_source="initial")

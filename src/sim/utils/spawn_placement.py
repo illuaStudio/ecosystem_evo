@@ -17,14 +17,14 @@ DEFAULT_ATTEMPTS = 32
 
 @dataclass(frozen=True)
 class SpawnAnchor:
-    """スポーン起点。type に応じて x/y/radius/spread/colony_id を解釈する。"""
+    """スポーン起点。type に応じて x/y/radius/spread/affiliation_id を解釈する。"""
 
     type: str  # world | area | point | nest | profile_nest
     x: float = 0.0
     y: float = 0.0
     radius: float = 0.0
     spread: float = 0.0
-    colony_id: str = ""
+    affiliation_id: str = ""
 
 
 @dataclass
@@ -60,7 +60,7 @@ def parse_anchor(raw: Any, *, default_type: str = "world") -> SpawnAnchor:
         y=float(raw.get("y", 0.0)),
         radius=float(raw.get("radius", 0.0)),
         spread=float(raw.get("spread", 0.0)),
-        colony_id=str(raw.get("colony_id", "")),
+        affiliation_id=str(raw.get("affiliation_id", "")),
     )
 
 
@@ -88,17 +88,17 @@ def parse_placement_options(
 def _colony_anchor_for_species(
     world: "World",
     species_name: str,
-    colony_cfg: Dict,
+    affiliation_cfg: Dict,
     *,
     prefer_profile: bool = False,
 ) -> SpawnAnchor:
-    colony_id = resolve_affiliation_id(species_name, colony_cfg)
+    affiliation_id = resolve_affiliation_id(species_name, affiliation_cfg)
     from src.sim.utils.affiliation_config_helpers import resolve_affiliation_runtime_cfg
 
-    runtime_cfg = resolve_affiliation_runtime_cfg(world, colony_id, colony_cfg)
+    runtime_cfg = resolve_affiliation_runtime_cfg(world, affiliation_id, affiliation_cfg)
     spread = float(runtime_cfg.get("spawn_spread", 28.0))
     anchor_type = "profile_nest" if prefer_profile else "nest"
-    return SpawnAnchor(type=anchor_type, colony_id=colony_id, spread=spread)
+    return SpawnAnchor(type=anchor_type, affiliation_id=affiliation_id, spread=spread)
 
 
 def expand_initial_entities(world_data: Dict, world: "World") -> List[InitialSpawnEntry]:
@@ -118,7 +118,7 @@ def expand_initial_entities(world_data: Dict, world: "World") -> List[InitialSpa
         if n <= 0:
             continue
         species_data = config.get_species(species_name) or {}
-        aff_cfg = species_data.get("affiliation") or species_data.get("colony") or {}
+        aff_cfg = species_data.get("affiliation") or {}
         if aff_cfg.get("enabled"):
             anchor = _colony_anchor_for_species(world, species_name, aff_cfg)
             options = SpawnPlacementOptions(
@@ -354,49 +354,49 @@ class SpawnPlacementResolver:
             if center is None:
                 return None
             cx, cy = center
-            spread = anchor.spread if anchor.spread > 0 else self._default_colony_spread(anchor.colony_id)
+            spread = anchor.spread if anchor.spread > 0 else self._default_colony_spread(anchor.affiliation_id)
             return self._apply_spread(cx, cy, spread)
 
         return None
 
     def _resolve_nest_center(self, anchor: SpawnAnchor) -> Optional[Tuple[float, float]]:
-        colony_id = anchor.colony_id
-        if not colony_id:
+        affiliation_id = anchor.affiliation_id
+        if not affiliation_id:
             return None
 
         if anchor.type == "profile_nest":
-            return self._profile_nest_center(colony_id)
+            return self._profile_nest_center(affiliation_id)
 
         nest_system = self.world.nest_system
-        nest = nest_system.get_colony_nest(colony_id)
+        nest = nest_system.get_affiliation_root(affiliation_id)
         if nest is not None:
             ws = getattr(self.world, "world_object_system", None)
-            if ws is not None and ws.has_colony_root(colony_id):
-                access = ws.iter_access_points(colony_id)
+            if ws is not None and ws.has_affiliation_root(affiliation_id):
+                access = ws.iter_access_points(affiliation_id)
                 if access:
                     child = random.choice(access)
                     return float(child.x), float(child.y)
             return float(nest.x), float(nest.y)
-        return self._profile_nest_center(colony_id)
+        return self._profile_nest_center(affiliation_id)
 
-    def _profile_nest_center(self, colony_id: str) -> Optional[Tuple[float, float]]:
+    def _profile_nest_center(self, affiliation_id: str) -> Optional[Tuple[float, float]]:
         ws = getattr(self.world, "world_object_system", None)
         if ws is not None:
-            root = ws.get(colony_id)
+            root = ws.get(affiliation_id)
             if root is not None:
                 return float(root.x), float(root.y)
 
-        from src.sim.utils.colony_config_helpers import get_colony_profile
+        from src.sim.utils.affiliation_config_helpers import get_affiliation_profile
 
-        profile = get_colony_profile(self.world, colony_id)
+        profile = get_affiliation_profile(self.world, affiliation_id)
         if not profile:
             return self.world.width * 0.5, self.world.height * 0.5
         return float(profile["nest_x"]), float(profile["nest_y"])
 
-    def _default_colony_spread(self, colony_id: str) -> float:
-        from src.sim.utils.colony_config_helpers import get_colony_profile
+    def _default_colony_spread(self, affiliation_id: str) -> float:
+        from src.sim.utils.affiliation_config_helpers import get_affiliation_profile
 
-        profile = get_colony_profile(self.world, colony_id)
+        profile = get_affiliation_profile(self.world, affiliation_id)
         return float(profile.get("spawn_spread", 28.0))
 
     def _apply_spread(self, x: float, y: float, spread: float) -> Tuple[float, float]:
@@ -448,9 +448,9 @@ class SpawnPlacementResolver:
         return self.world.biome.get_spawn_rate_multiplier(x, y)
 
     def _too_close_to_nest(self, x: float, y: float, radius: float) -> bool:
-        from src.sim.utils.world_object_helpers import iter_active_colony_roots
+        from src.sim.utils.world_object_helpers import iter_active_affiliation_roots
 
-        for root in iter_active_colony_roots(self.world):
+        for root in iter_active_affiliation_roots(self.world):
             if (x - root.x) ** 2 + (y - root.y) ** 2 < radius * radius:
                 return True
         return False

@@ -4,7 +4,7 @@ from __future__ import annotations
 import math
 from typing import TYPE_CHECKING, Any
 
-from src.sim.utils.creature_helpers import is_point_in_colony_territory
+from src.sim.utils.creature_helpers import is_point_in_affiliation_territory
 from src.sim.utils.field_modifiers import FieldModifiers, get_field_immunities
 from src.sim.utils.position_helpers import entity_xy
 
@@ -24,7 +24,7 @@ class FieldEffectCache:
         self._rows = 0
         self._biome: list[list[FieldModifiers]] = []
         self._zone: list[list["ZoneSample"]] = []
-        self._territory_colony_ids: tuple[str, ...] = ()
+        self._territory_affiliation_ids: tuple[str, ...] = ()
         self._territory_active: dict[str, list[list[bool]]] = {}
         self._territory_modifiers = FieldModifiers()
 
@@ -53,15 +53,15 @@ class FieldEffectCache:
         row = max(0, min(self._rows - 1, row))
         return col, row
 
-    def _colony_ids_for_territory(self) -> tuple[str, ...]:
+    def _affiliation_ids_for_territory(self) -> tuple[str, ...]:
         world = self._world
         ids: set[str] = set()
         for cid in (getattr(world, "affiliation_species", {}) or {}):
             if cid:
                 ids.add(str(cid))
-        from src.sim.utils.world_object_helpers import iter_active_colony_roots
+        from src.sim.utils.world_object_helpers import iter_active_affiliation_roots
 
-        for root in iter_active_colony_roots(world):
+        for root in iter_active_affiliation_roots(world):
             if root.id:
                 ids.add(str(root.id))
         return tuple(sorted(ids))
@@ -75,7 +75,7 @@ class FieldEffectCache:
         drain = float(effects.get("hp_drain_per_dt", 0.0))
         if regen == 0.0 and drain == 0.0:
             return FieldModifiers()
-        if bool(effects.get("requires_affiliation_match", effects.get("requires_colony_match", True))):
+        if bool(effects.get("requires_affiliation_match", effects.get("requires_affiliation_match", True))):
             return FieldModifiers(hp_regen_per_dt=regen, hp_drain_per_dt=drain)
         return FieldModifiers(hp_regen_per_dt=regen, hp_drain_per_dt=drain)
 
@@ -116,15 +116,15 @@ class FieldEffectCache:
         self._zone = zone_rows
 
         self._territory_modifiers = self._resolve_territory_modifiers()
-        colony_settings = getattr(world, "colony_settings", None) or {}
-        effects = colony_settings.get("territory_effects") or {}
-        requires_match = bool(effects.get("requires_colony_match", True))
-        colony_ids = self._colony_ids_for_territory()
-        self._territory_colony_ids = colony_ids
+        affiliation_settings = getattr(world, "affiliation_settings", None) or {}
+        effects = affiliation_settings.get("territory_effects") or {}
+        requires_match = bool(effects.get("requires_affiliation_match", True))
+        affiliation_ids = self._affiliation_ids_for_territory()
+        self._territory_affiliation_ids = affiliation_ids
 
         territory_active: dict[str, list[list[bool]]] = {}
         if self._territory_modifiers != FieldModifiers() and requires_match:
-            for colony_id in colony_ids:
+            for affiliation_id in affiliation_ids:
                 rows: list[list[bool]] = []
                 for row in range(self._rows):
                     cy = row * cell + cell * 0.5
@@ -132,30 +132,30 @@ class FieldEffectCache:
                     for col in range(self._cols):
                         cx = col * cell + cell * 0.5
                         row_flags.append(
-                            is_point_in_colony_territory(world, colony_id, cx, cy)
+                            is_point_in_affiliation_territory(world, affiliation_id, cx, cy)
                         )
                     rows.append(row_flags)
-                territory_active[colony_id] = rows
+                territory_active[affiliation_id] = rows
         self._territory_active = territory_active
 
     def _territory_for_creature(self, creature: Any, col: int, row: int) -> FieldModifiers:
         if self._territory_modifiers == FieldModifiers():
             return FieldModifiers()
 
-        colony_settings = getattr(self._world, "colony_settings", None) or {}
-        effects = colony_settings.get("territory_effects") or {}
-        requires_match = bool(effects.get("requires_colony_match", True))
+        affiliation_settings = getattr(self._world, "affiliation_settings", None) or {}
+        effects = affiliation_settings.get("territory_effects") or {}
+        requires_match = bool(effects.get("requires_affiliation_match", True))
 
         if not requires_match:
             return self._territory_modifiers
 
-        from src.sim.utils.colony_helpers import get_creature_colony_id
+        from src.sim.utils.affiliation_group_helpers import get_creature_affiliation_id
 
-        colony_id = get_creature_colony_id(creature)
-        if not colony_id:
+        affiliation_id = get_creature_affiliation_id(creature)
+        if not affiliation_id:
             return FieldModifiers()
 
-        grid = self._territory_active.get(str(colony_id))
+        grid = self._territory_active.get(str(affiliation_id))
         if grid is None or not grid[row][col]:
             return FieldModifiers()
         return self._territory_modifiers

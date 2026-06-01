@@ -98,43 +98,16 @@ class World:
             layout.get("population_limits", {})
         )
 
-        # 所属（affiliation）設定。
-        # - 新: layout["affiliation"]
-        # - 旧: layout["colony"]
-        # instances 展開が affiliation.profiles だけ部分的に生成することがあるため、
-        # colony 側の共通設定（min_food_reserve 等）とマージして扱う。
-        legacy_colony_block = dict(layout.get("colony") or {})
-        raw_affiliation_block = dict(layout.get("affiliation") or {})
-
-        affiliation_block = dict(legacy_colony_block)
-        affiliation_block.update(raw_affiliation_block)
-
-        if legacy_colony_block.get("profiles") and not raw_affiliation_block.get("profiles"):
-            affiliation_block["profiles"] = legacy_colony_block.get("profiles")
-        elif legacy_colony_block.get("profiles") and raw_affiliation_block.get("profiles"):
-            merged_profiles = dict(legacy_colony_block.get("profiles") or {})
-            merged_profiles.update(raw_affiliation_block.get("profiles") or {})
-            affiliation_block["profiles"] = merged_profiles
+        affiliation_block = dict(layout.get("affiliation") or {})
 
         self.affiliation_styles = dict(affiliation_block.pop("factions", {}))
         self.affiliation_species = dict(affiliation_block.pop("affiliation_species", {}))
-        if not self.affiliation_species:
-            # legacy key: faction_species
-            self.affiliation_species = dict(affiliation_block.pop("faction_species", {}))
-
         self.affiliation_profiles = {
             str(k): dict(v)
             for k, v in (affiliation_block.pop("profiles", {}) or {}).items()
         }
         self.affiliation_settings = affiliation_block
         self.defeated_affiliations: set[str] = set()
-
-        # legacy aliases (不要になったら削除): 既存の描画/テストを壊さないために残す
-        self.faction_styles = self.affiliation_styles
-        self.faction_species = self.affiliation_species
-        self.colony_profiles = self.affiliation_profiles
-        self.colony_settings = self.affiliation_settings
-        self.defeated_colonies = self.defeated_affiliations
         self.last_defeat_message: str = ""
         self.events = EventBus()
         self._combat_pairs_this_tick: set[tuple] = set()
@@ -202,12 +175,8 @@ class World:
         self._spatial_grid_valid = False
         if getattr(creature, "alive", True):
             self._adjust_alive_species_count(creature.species.name, 1)
-        # 旧 colony.enabled ではなく affiliation.enabled を優先する。
         if getattr(creature, "affiliation", None) is not None:
             self.nest_system.assign_creature(creature, creature.species.affiliation_data)
-        elif getattr(creature, "colony", None) is not None:
-            # legacy
-            self.nest_system.assign_creature(creature, creature.species.colony_data)
         from src.sim.utils.spawn_helpers import apply_creature_spawn_state
 
         apply_creature_spawn_state(creature)

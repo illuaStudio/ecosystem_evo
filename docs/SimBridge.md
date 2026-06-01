@@ -15,10 +15,10 @@
 | `SpawnCreature` | 指定種をスポーン。`x`/`y` 省略時はランダム座標 |
 | `SetCreatureMind` | 個体の AI actions を replace / merge / reset |
 | `SetSpeciesMind` | 種名一致の全個体に AI 適用（`colony_id` で絞り可） |
-| `SetColonyCasteMind` | **同一コロニー内の種別**全個体に AI 適用 |
+| `SetAffiliationCasteMind` | **同一コロニー内の種別**全個体に AI 適用 |
 | `EnterCreatureShelter` | 個体を巣穴 shelter へ |
 
-### SetColonyCasteMind.caste
+### SetAffiliationCasteMind.caste
 
 | 値 | 対象 |
 |----|------|
@@ -66,21 +66,21 @@ bridge.execute(SpawnCreature(species="Spider", source="game"))
 bridge.execute(SetSpeciesMind(
     species_name="red_ant_queen",
     actions=profile_actions,
-    colony_id="red_ant",
+    affiliation_id="red_ant",
     mode="replace",
 ))
 
 # 同一コロニーの働きアリ全員
-bridge.execute(SetColonyCasteMind(
-    colony_id="red_ant",
+bridge.execute(SetAffiliationCasteMind(
+    affiliation_id="red_ant",
     caste="worker",
     actions=profile_actions,
     mode="merge",
 ))
 
 # 兵隊 + 先兵
-bridge.execute(SetColonyCasteMind(
-    colony_id="red_ant",
+bridge.execute(SetAffiliationCasteMind(
+    affiliation_id="red_ant",
     caste="combat",
     actions=profile_actions,
     mode="replace",
@@ -102,8 +102,8 @@ bridge.execute(SetColonyCasteMind(
 
 - `spawn_creature(bridge, species, x=..., y=...)`
 - `apply_mind_profile(bridge, creature, profile_id)`
-- `apply_mind_profile_to_species(bridge, species, profile_id, colony_id=...)`
-- `apply_mind_profile_to_colony_caste(bridge, colony_id, caste, profile_id)`
+- `apply_mind_profile_to_species(bridge, species, profile_id, affiliation_id=...)`
+- `apply_mind_profile_to_affiliation_caste(bridge, affiliation_id, caste, profile_id)`
 - `apply_spawn_profile(bridge, creature)` — `spawn_profiles.json` 適用
 
 `GameController` は上記をラップ:
@@ -111,7 +111,7 @@ bridge.execute(SetColonyCasteMind(
 ```python
 ctrl.spawn_creature("Spider", x=100, y=200)
 ctrl.apply_mind_profile(queen, "workers_and_soldiers")
-ctrl.apply_mind_profile_to_species("red_ant_queen", "workers_only", colony_id="red_ant")
-ctrl.apply_mind_profile_to_colony_caste("red_ant", "worker", "some_profile")
-ctrl.apply_mind_profile_to_colony_caste("red_ant", "combat", "patrol_profile")
+ctrl.apply_mind_profile_to_species("red_ant_queen", "workers_only", affiliation_id="red_ant")
+ctrl.apply_mind_profile_to_affiliation_caste("red_ant", "worker", "some_profile")
+ctrl.apply_mind_profile_to_affiliation_caste("red_ant", "combat", "patrol_profile")
 ```

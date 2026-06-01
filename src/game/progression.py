@@ -86,18 +86,18 @@ def _unlock_ready(unlock: UnlockDef, state: GameState) -> bool:
     return True
 
 
-def _resolve_colony_id(target: dict[str, Any], state: GameState) -> str | None:
+def _resolve_affiliation_id(target: dict[str, Any], state: GameState) -> str | None:
     # legacy function name: 現在は affiliation を優先して解決する
     affiliation = target.get("affiliation")
     if affiliation == "player":
-        return state.player_colony_id
+        return state.player_affiliation_id
     if affiliation:
         return str(affiliation)
-    colony = target.get("colony")
-    if colony == "player":
-        return state.player_colony_id
-    if colony:
-        return str(colony)
+    aff = target.get("affiliation")
+    if aff == "player":
+        return state.player_affiliation_id
+    if aff:
+        return str(aff)
     return None
 
 
@@ -109,7 +109,7 @@ def execute_progression_command(
 ) -> bool:
     from src.game.command_builder import (
         apply_mind_profile,
-        apply_mind_profile_to_colony_caste,
+        apply_mind_profile_to_affiliation_caste,
         apply_mind_profile_to_species,
         spawn_creature,
     )
@@ -120,11 +120,11 @@ def execute_progression_command(
         target = cmd.target
         caste = target.get("caste")
         species = target.get("species") or cmd.species
-        colony_id = _resolve_colony_id(target, state)
+        affiliation_id = _resolve_affiliation_id(target, state)
 
-        if caste and colony_id:
-            count = apply_mind_profile_to_colony_caste(
-                bridge, colony_id, str(caste), cmd.profile, mode=cmd.mode
+        if caste and affiliation_id:
+            count = apply_mind_profile_to_affiliation_caste(
+                bridge, affiliation_id, str(caste), cmd.profile, mode=cmd.mode
             )
             return count > 0
         if species:
@@ -133,16 +133,16 @@ def execute_progression_command(
                     bridge,
                     species,
                     cmd.profile,
-                    colony_id=colony_id,
+                    affiliation_id=affiliation_id,
                     mode=cmd.mode,
                 )
                 > 0
             )
-        if colony_id:
+        if affiliation_id:
             for creature in world.creatures:
                 from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
 
-                if get_creature_affiliation_id(creature) == colony_id:
+                if get_creature_affiliation_id(creature) == affiliation_id:
                     if apply_mind_profile(bridge, creature, cmd.profile, mode=cmd.mode):
                         return True
             return False

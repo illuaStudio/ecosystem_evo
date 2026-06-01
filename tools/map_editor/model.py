@@ -205,8 +205,8 @@ class WorldMapDocument:
             )
 
     def _load_nests(self) -> None:
-        profiles = (self.data.get("affiliation") or self.data.get("colony") or {}).get("profiles") or {}
-        for colony_id, profile in profiles.items():
+        profiles = (self.data.get("affiliation") or {}).get("profiles") or {}
+        for affiliation_id, profile in profiles.items():
             if not isinstance(profile, dict):
                 continue
             if "nest_x" not in profile or "nest_y" not in profile:
@@ -219,10 +219,10 @@ class WorldMapDocument:
                     x=float(profile["nest_x"]),
                     y=float(profile["nest_y"]),
                     props={"role": "root"},
-                    source_id=str(colony_id),
+                    source_id=str(affiliation_id),
                 )
             )
-            cid = str(colony_id)
+            cid = str(affiliation_id)
             self.objects.append(
                 MapObject(
                     uid=self._new_uid("acc"),
@@ -237,30 +237,27 @@ class WorldMapDocument:
 
     def _flush_nests(self, objects: List[MapObject]) -> None:
         aff_block = self.data.setdefault("affiliation", {})
-        col_block = self.data.setdefault("colony", {})
         profiles = aff_block.setdefault("profiles", {})
-        col_profiles = col_block.setdefault("profiles", profiles)
         for obj in objects:
             profile_key = str(obj.source_id or obj.type_ref)
             profile = profiles.setdefault(profile_key, {})
             profile["nest_x"] = float(obj.x)
             profile["nest_y"] = float(obj.y)
-            col_profiles.setdefault(profile_key, profile)
 
-    def colony_id_for_site(self, obj: MapObject) -> str:
+    def affiliation_id_for_site(self, obj: MapObject) -> str:
         return str(obj.source_id or obj.type_ref)
 
-    def colony_access_for(self, site: MapObject) -> List[MapObject]:
-        colony_id = self.colony_id_for_site(site)
+    def affiliation_access_for(self, site: MapObject) -> List[MapObject]:
+        affiliation_id = self.affiliation_id_for_site(site)
         return [
             o
             for o in self.objects
-            if o.layer in ACCESS_LAYERS and str(o.props.get("parent", "")) == colony_id
+            if o.layer in ACCESS_LAYERS and str(o.props.get("parent", "")) == affiliation_id
         ]
 
     def move_site_with_access(self, site: MapObject, x: float, y: float) -> None:
         dx, dy = float(x) - site.x, float(y) - site.y
-        for child in self.colony_access_for(site):
+        for child in self.affiliation_access_for(site):
             child.x += dx
             child.y += dy
         site.x = float(x)
@@ -325,7 +322,7 @@ class WorldMapDocument:
             types = (self.data.get("spawn_emitters") or {}).get("types") or {}
             return list(types.keys()) or ["micro_fauna_mixed"]
         if layer in SITE_LAYERS:
-            profiles = (self.data.get("affiliation") or self.data.get("colony") or {}).get("profiles") or {}
+            profiles = (self.data.get("affiliation") or {}).get("profiles") or {}
             return list(profiles.keys()) or ["red_ant"]
         return []
 
@@ -350,8 +347,8 @@ class WorldMapDocument:
             tdef = types.get(obj.type_ref) or {}
             return float(obj.get("radius", tdef.get("radius", defaults.get("radius", 85.0))))
         if obj.layer in SITE_LAYERS:
-            profile = ((self.data.get("affiliation") or self.data.get("colony") or {}).get("profiles") or {}).get(
-                self.colony_id_for_site(obj)
+            profile = ((self.data.get("affiliation") or {}).get("profiles") or {}).get(
+                self.affiliation_id_for_site(obj)
             ) or {}
             return float(profile.get("territory_radius", 180.0))
         if obj.layer in ACCESS_LAYERS:
@@ -360,11 +357,11 @@ class WorldMapDocument:
 
     def add_object(self, layer: str, type_ref: str, x: float, y: float) -> MapObject:
         if layer in SITE_LAYERS:
-            colony_id = type_ref
+            affiliation_id = type_ref
             existing = [
                 o
                 for o in self.objects
-                if o.layer in SITE_LAYERS and self.colony_id_for_site(o) == colony_id
+                if o.layer in SITE_LAYERS and self.affiliation_id_for_site(o) == affiliation_id
             ]
             if existing:
                 self.move_site_with_access(existing[0], x, y)
@@ -376,7 +373,7 @@ class WorldMapDocument:
                 x=float(x),
                 y=float(y),
                 props={"role": "root"},
-                source_id=colony_id,
+                source_id=affiliation_id,
             )
             self.objects.append(obj)
             self.objects.append(
@@ -386,8 +383,8 @@ class WorldMapDocument:
                     type_ref="affiliation_access",
                     x=float(x),
                     y=float(y),
-                    props={"parent": colony_id, "role": "access"},
-                    source_id=f"{colony_id}_access_main",
+                    props={"parent": affiliation_id, "role": "access"},
+                    source_id=f"{affiliation_id}_access_main",
                 )
             )
             return obj

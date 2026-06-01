@@ -96,7 +96,7 @@ class TestWorldMapDocument(unittest.TestCase):
         nest = next(o for o in doc.objects if o.layer == "affiliation_site")
         doc.move_site_with_access(nest, 999, 888)
         doc._flush_objects()
-        profile = doc.data["colony"]["profiles"]["red_ant"]
+        profile = doc.data["affiliation"]["profiles"]["red_ant"]
         self.assertAlmostEqual(profile["nest_x"], 999)
         self.assertAlmostEqual(profile["nest_y"], 888)
         nest_inst = next(i for i in doc.data["instances"] if i["layer"] == "affiliation_site")

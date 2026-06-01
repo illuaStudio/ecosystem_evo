@@ -3,9 +3,9 @@ import unittest
 
 from src.sim.systems.world import World
 from src.sim.utils.affiliation_config_helpers import (
-    get_affiliation_profile as get_colony_profile,
+    get_affiliation_profile as get_affiliation_profile,
     get_min_food_reserve,
-    resolve_affiliation_runtime_cfg as resolve_colony_runtime_cfg,
+    resolve_affiliation_runtime_cfg as resolve_affiliation_runtime_cfg,
 )
 
 
@@ -25,16 +25,16 @@ class TestColonyConfigHelpers(unittest.TestCase):
         )
         self.assertEqual(get_min_food_reserve(world), 55.0)
 
-    def test_colony_profile_by_colony_id(self):
+    def test_colony_profile_by_affiliation_id(self):
         world = World()
-        profile = get_colony_profile(world, "red_ant")
+        profile = get_affiliation_profile(world, "red_ant")
         self.assertEqual(profile["nest_x"], 120)
         self.assertEqual(profile["initial_stored_food"], 1000)
         self.assertAlmostEqual(profile["food_leak_per_tick"], 0.0)
 
     def test_species_override_spawn_spread(self):
         world = World()
-        runtime = resolve_colony_runtime_cfg(
+        runtime = resolve_affiliation_runtime_cfg(
             world,
             "red_ant",
             {"spawn_spread": 22},

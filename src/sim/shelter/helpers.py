@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from src.sim.entities.creature import Creature
 
 
-def _is_colony_defeated(creature) -> bool:
+def _is_affiliation_defeated(creature) -> bool:
     from src.sim.utils.affiliation_group_helpers import is_creature_affiliation_defeated
 
     return is_creature_affiliation_defeated(creature)
@@ -70,17 +70,17 @@ def resolve_nest_shelter(creature, threat=None) -> ShelterRef | None:
     world = getattr(creature, "world", None)
     if world is None or affiliation is None:
         return None
-    if _is_colony_defeated(creature):
+    if _is_affiliation_defeated(creature):
         return None
-    from src.sim.utils.world_object_helpers import resolve_shelter_from_colony
+    from src.sim.utils.world_object_helpers import resolve_shelter_from_affiliation
 
-    return resolve_shelter_from_colony(world, affiliation.affiliation_id, creature, threat)
+    return resolve_shelter_from_affiliation(world, affiliation.affiliation_id, creature, threat)
 
 
 def resolve_creature_shelter(creature, threat=None) -> ShelterRef | None:
     """親オブジェクト優先。未設定時は勢力の colony_access。"""
     from src.sim.utils.world_object_helpers import (
-        resolve_shelter_from_colony,
+        resolve_shelter_from_affiliation,
         resolve_shelter_from_parents,
     )
 
@@ -91,7 +91,7 @@ def resolve_creature_shelter(creature, threat=None) -> ShelterRef | None:
     colony = getattr(creature, "affiliation", None)
     world = getattr(creature, "world", None)
     if colony is not None and world is not None:
-        return resolve_shelter_from_colony(world, colony.affiliation_id, creature, threat)
+        return resolve_shelter_from_affiliation(world, colony.affiliation_id, creature, threat)
     return None
 
 
@@ -148,7 +148,7 @@ def sync_shelter_after_defeat(creature) -> None:
     """コロニー敗北時: 隠れ中の個体は死亡。"""
     if not is_creature_sheltered(creature):
         return
-    if not _is_colony_defeated(creature):
+    if not _is_affiliation_defeated(creature):
         return
     creature.hp = 0.0
     clear_creature_shelter(creature)

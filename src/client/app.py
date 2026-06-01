@@ -32,7 +32,7 @@ class GameApp:
         self.world = None
         self.paused = False
         self.selected_creature = None
-        self.selected_colony_id: str | None = None
+        self.selected_affiliation_id: str | None = None
         self.show_debug = config.client.get("debug_hud", False)
         self.debug_game_messages = config.client.get("debug_game_messages", False)
         self.map_view_mode = "biome"
@@ -78,7 +78,7 @@ class GameApp:
         self.game_controller = GameController(bridge=self.sim_bridge)
         self.game_controller.debug_sim_events = debug_sim
         self.selected_creature = None
-        self.selected_colony_id: str | None = None
+        self.selected_affiliation_id: str | None = None
         self.user_message = ""
         self.message_feed.clear()
         self.species_visibility.reset_for_world(self.world)
@@ -92,7 +92,7 @@ class GameApp:
         )
         if self.show_debug:
             print(
-                f"  [game] プレイヤー勢力: {self.game_controller.state.player_colony_id}"
+                f"  [game] プレイヤー勢力: {self.game_controller.state.player_affiliation_id}"
             )
         if self.world.biome.biome_noise:
             bn = self.world.biome.biome_noise
@@ -110,15 +110,15 @@ class GameApp:
             return
         self.game_controller.spawn_creature(species, source="debug")
 
-    def debug_spawn_colony_member(self, species: str = "red_ant") -> None:
+    def debug_spawn_affiliation_member(self, species: str = "red_ant") -> None:
         """巣付近へコロニー種をスポーン。"""
         if self.world is None or self.game_controller.bridge is None:
             return
         from src.config import config
 
-        colony_cfg = (config.get_species(species) or {}).get("colony", {})
-        if colony_cfg.get("enabled"):
-            x, y = self.world.nest_system.spawn_position(species, colony_cfg)
+        affiliation_cfg = (config.get_species(species) or {}).get("affiliation", {})
+        if affiliation_cfg.get("enabled"):
+            x, y = self.world.nest_system.spawn_position(species, affiliation_cfg)
             self.game_controller.spawn_creature(species, x=x, y=y, source="debug")
         else:
             self.game_controller.spawn_creature(species, source="debug")
@@ -147,7 +147,7 @@ class GameApp:
     def _update_camera_pan_insets(self) -> None:
         extra = float(config.client.get("camera_pan_extra", 16))
         has_selection = (
-            self.selected_creature is not None or self.selected_colony_id is not None
+            self.selected_creature is not None or self.selected_affiliation_id is not None
         )
         sw = self.screen.get_width()
         top = (
@@ -182,7 +182,7 @@ class GameApp:
             self.world.creatures,
             self.camera,
             self.selected_creature,
-            self.selected_colony_id,
+            self.selected_affiliation_id,
             self.paused,
             self.show_debug,
             self.map_view_mode,
@@ -190,7 +190,7 @@ class GameApp:
             self.show_sheltered,
             user_message=getattr(self, "user_message", ""),
             message_feed=getattr(self, "message_feed", None),
-            player_colony_id=self.game_controller.state.player_colony_id,
+            player_affiliation_id=self.game_controller.state.player_affiliation_id,
             game_state=self.game_controller.state,
             species_visibility=self.species_visibility,
         )

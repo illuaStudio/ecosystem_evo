@@ -55,15 +55,15 @@ from src.sim.utils.nutrition_helpers import (
 from src.sim.utils.territory_helpers import (
     DEFAULT_TERRITORY_RADIUS,
     distance_from_nest_center,
-    expand_faction_species,
+    expand_affiliation_species,
     get_territory_radius_for_nest,
     is_creature_threatening_territory,
     is_in_creature_territory,
-    is_point_in_colony_territory,
+    is_point_in_affiliation_territory,
     is_point_in_creature_territory,
     is_point_in_nest_territory,
     iter_territory_centers,
-    resolve_colony_id,  # legacy: use territory_helpers.resolve_affiliation_id instead
+    resolve_affiliation_id,  # legacy: use territory_helpers.resolve_affiliation_id instead
 )
 from src.sim.utils.target_helpers import (
     carcass_on_field,
@@ -134,7 +134,7 @@ __all__ = [
     "distance_from_nest_center",
     "distance_to_creature_nest",
     "distance_to_point",
-    "expand_faction_species",
+    "expand_affiliation_species",
     "find_nearest_carcass_in_vision",
     "find_nearest_edible",
     "find_nearest_edible_among",
@@ -172,7 +172,7 @@ __all__ = [
     "is_in_creature_territory",
     "is_in_vision",
     "is_living_prey",
-    "is_point_in_colony_territory",
+    "is_point_in_affiliation_territory",
     "is_point_in_creature_territory",
     "is_point_in_nest_territory",
     "is_satiated",
@@ -194,7 +194,7 @@ __all__ = [
     "nest_stored_food",
     "refresh_flee_latch_from_species",
     "release_carried_carcass",
-    "resolve_colony_id",
+    "resolve_affiliation_id",
     "return_toward_nest",
     "same_species_repulsion_angle",
     "satiety_feed_target",

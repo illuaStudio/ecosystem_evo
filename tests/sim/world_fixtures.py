@@ -75,24 +75,24 @@ def affiliation_settings(**extra) -> dict:
     return base
 
 
-def colony_instances_from_colony(colony_block: dict) -> List[Dict[str, Any]]:
+def affiliation_instances_from_colony(affiliation_block: dict) -> List[Dict[str, Any]]:
     """legacy: colony.profiles から colony_site + colony_access instances を生成。"""
     from src.sim.utils.world_instances import nest_profile_to_instance
 
     instances: List[Dict[str, Any]] = []
-    profiles = colony_block.get("profiles") or {}
-    factions = colony_block.get("affiliation_species") or colony_block.get("faction_species") or {}
+    profiles = affiliation_block.get("profiles") or {}
+    factions = affiliation_block.get("affiliation_species") or affiliation_block.get("affiliation_species") or {}
     allowed = set(factions.keys()) if factions else None
-    for colony_id, profile in profiles.items():
-        if allowed is not None and str(colony_id) not in allowed:
+    for affiliation_id, profile in profiles.items():
+        if allowed is not None and str(affiliation_id) not in allowed:
             continue
         if not isinstance(profile, dict):
             continue
-        inst = nest_profile_to_instance(str(colony_id), profile)
+        inst = nest_profile_to_instance(str(affiliation_id), profile)
         if inst is None:
             continue
         instances.append(inst)
-        cid = str(colony_id)
+        cid = str(affiliation_id)
         instances.append(
             {
                 "id": f"{cid}_access_main",
@@ -107,20 +107,20 @@ def colony_instances_from_colony(colony_block: dict) -> List[Dict[str, Any]]:
     return instances
 
 
-def ensure_colony_instances(world_data: dict) -> None:
+def ensure_affiliation_instances(world_data: dict) -> None:
     """instances[] に colony_site/access が無ければ profiles から追加（in-place）。"""
     existing = list(world_data.get("instances") or []) if "instances" in world_data else []
-    has_colony_layer = any(
+    has_affiliation_layer = any(
         isinstance(entry, dict)
         and str(entry.get("layer", "")) in ("affiliation_site", "nest", "affiliation_access")
         for entry in existing
     )
-    if has_colony_layer:
+    if has_affiliation_layer:
         world_data["instances"] = existing
         return
 
-    colony_inst = colony_instances_from_colony(world_data.get("affiliation") or world_data.get("colony") or {})
-    world_data["instances"] = existing + colony_inst
+    affiliation_inst = affiliation_instances_from_colony(world_data.get("affiliation") or {})
+    world_data["instances"] = existing + affiliation_inst
 
 
 def build_test_world(**overrides) -> dict:
@@ -130,19 +130,18 @@ def build_test_world(**overrides) -> dict:
     world_height = overrides.pop("world_height", 1000)
     initial_entities = overrides.pop("initial_entities", {})
     affiliation = overrides.pop("affiliation", None)
-    colony = overrides.pop("colony", None)
 
     data: Dict[str, Any] = {
         "name": name,
         "world_width": world_width,
         "world_height": world_height,
         "initial_entities": initial_entities,
-        "affiliation": affiliation if affiliation is not None else (colony if colony is not None else affiliation_settings()),
+        "affiliation": affiliation if affiliation is not None else affiliation_settings(),
     }
     if "world" not in overrides:
         data["world"] = dict(MINIMAL_TEST_BIOME)
     data.update(overrides)
-    ensure_colony_instances(data)
+    ensure_affiliation_instances(data)
     return data
 
 
@@ -153,15 +152,15 @@ def load_test_world(**overrides):
     return World.from_json(build_test_world(**overrides))
 
 
-def set_colony_stored_food(world, colony_id: str, amount: float) -> None:
+def set_affiliation_stored_food(world, affiliation_id: str, amount: float) -> None:
     """Nest ミラーと colony_site ObjectStorage の両方に備蓄を設定。"""
-    world.nest_system.set_colony_stored_food(colony_id, amount)
+    world.nest_system.set_affiliation_stored_food(affiliation_id, amount)
 
 
-def primary_colony_access(world, colony_id: str):
+def primary_affiliation_access(world, affiliation_id: str):
     """勢力の先頭 colony_access（テスト用）。"""
     ws = getattr(world, "world_object_system", None)
     if ws is None:
         return None
-    points = ws.iter_access_points(colony_id)
+    points = ws.iter_access_points(affiliation_id)
     return points[0] if points else None

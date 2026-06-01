@@ -6,9 +6,9 @@ from src.sim.systems.world import World
 from src.sim.utils.creature_helpers import (
     is_in_creature_territory,
     is_point_in_nest_territory,
-    resolve_colony_id,
+    resolve_affiliation_id,
 )
-from tests.sim.world_fixtures import affiliation_settings, set_colony_stored_food
+from tests.sim.world_fixtures import affiliation_settings, set_affiliation_stored_food
 
 
 def _colony_world(**overrides) -> World:
@@ -35,7 +35,7 @@ def _colony_world(**overrides) -> World:
 
 
 class TestNestHolesAndColonyId(unittest.TestCase):
-    def test_soldier_shares_colony_id_with_worker(self):
+    def test_soldier_shares_affiliation_id_with_worker(self):
         world = _colony_world()
         factory = CreatureFactory()
         worker = factory.create("red_ant", world=world, x=100, y=100)
@@ -52,7 +52,7 @@ class TestNestHolesAndColonyId(unittest.TestCase):
             world.nest_system.get_creature_nest(worker),
         )
 
-    def test_distinct_colony_ids(self):
+    def test_distinct_affiliation_ids(self):
         world = _colony_world()
         factory = CreatureFactory()
         red = factory.create("red_ant", world=world, x=100, y=100)
@@ -65,7 +65,7 @@ class TestNestHolesAndColonyId(unittest.TestCase):
         red_nest = world.nest_system.get_creature_nest(red)
         blue_nest = world.nest_system.get_creature_nest(blue)
         yellow_nest = world.nest_system.get_creature_nest(yellow)
-        ids = {red_nest.colony_id, blue_nest.colony_id, yellow_nest.colony_id}
+        ids = {red_nest.affiliation_id, blue_nest.affiliation_id, yellow_nest.affiliation_id}
         self.assertEqual(ids, {"red_ant", "blue_ant", "yellow_ant"})
 
     def test_place_hole_extends_territory(self):
@@ -74,7 +74,7 @@ class TestNestHolesAndColonyId(unittest.TestCase):
         worker = factory.create("red_ant", world=world, x=200, y=200)
         world.add_creature(worker)
         nest = world.nest_system.get_creature_nest(worker)
-        set_colony_stored_food(world, nest.colony_id, 5000.0)
+        set_affiliation_stored_food(world, nest.affiliation_id, 5000.0)
 
         radius = 180.0
         edge_x = 200.0 + radius - 10
@@ -93,7 +93,7 @@ class TestNestHolesAndColonyId(unittest.TestCase):
         worker = factory.create("red_ant", world=world, x=200, y=200)
         world.add_creature(worker)
         nest = world.nest_system.get_creature_nest(worker)
-        set_colony_stored_food(world, nest.colony_id, 5000.0)
+        set_affiliation_stored_food(world, nest.affiliation_id, 5000.0)
 
         ok, msg = world.nest_system.try_place_hole(nest, 600.0, 600.0)
         self.assertFalse(ok)
@@ -105,7 +105,7 @@ class TestNestHolesAndColonyId(unittest.TestCase):
         worker = factory.create("red_ant", world=world, x=300, y=300)
         world.add_creature(worker)
         nest = world.nest_system.get_creature_nest(worker)
-        set_colony_stored_food(world, nest.colony_id, 400.0)
+        set_affiliation_stored_food(world, nest.affiliation_id, 400.0)
         before = nest.stored_food
 
         ok, _ = world.nest_system.try_place_hole(nest, 450.0, 300.0)
@@ -118,7 +118,7 @@ class TestNestHolesAndColonyId(unittest.TestCase):
         worker = factory.create("red_ant", world=world, x=100, y=100)
         world.add_creature(worker)
         nest = world.nest_system.get_creature_nest(worker)
-        set_colony_stored_food(world, nest.colony_id, 5000.0)
+        set_affiliation_stored_food(world, nest.affiliation_id, 5000.0)
 
         ok, _ = world.nest_system.try_place_hole(nest, 250.0, 100.0)
         self.assertTrue(ok)
@@ -134,7 +134,7 @@ class TestNestHolesAndColonyId(unittest.TestCase):
         soldier = factory.create("red_ant_soldier", world=world, x=105, y=100)
         world.add_creature(soldier)
         nest = world.nest_system.get_creature_nest(worker)
-        set_colony_stored_food(world, nest.colony_id, 5000.0)
+        set_affiliation_stored_food(world, nest.affiliation_id, 5000.0)
 
         prey_x = 100.0 + 180 + 150
         prey = factory.create("Spider", world=world, x=prey_x, y=100)
@@ -144,11 +144,11 @@ class TestNestHolesAndColonyId(unittest.TestCase):
         world.nest_system.try_place_hole(nest, 270.0, 100.0)
         self.assertTrue(is_in_creature_territory(soldier, prey))
 
-    def test_resolve_colony_id_join_species(self):
+    def test_resolve_affiliation_id_join_species(self):
         from src.config import config
 
-        soldier_cfg = config.get_species("red_ant_soldier").get("colony", {})
-        self.assertEqual(resolve_colony_id("red_ant_soldier", soldier_cfg), "red_ant")
+        soldier_cfg = config.get_species("red_ant_soldier").get("affiliation", {})
+        self.assertEqual(resolve_affiliation_id("red_ant_soldier", soldier_cfg), "red_ant")
 
 
 if __name__ == "__main__":

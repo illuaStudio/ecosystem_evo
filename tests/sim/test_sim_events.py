@@ -1,11 +1,11 @@
 """??????????????????????"""
 import unittest
 
-from src.sim.ai.actions import ColonyReproduceAction
+from src.sim.ai.actions import AffiliationReproduceAction
 from src.sim.entities.creature_factory import CreatureFactory
 from src.game.mind_policy import MindPolicy
 from src.sim.events import (
-    ColonyDefeatedEvent,
+    AffiliationDefeatedEvent,
     CombatStartedEvent,
     DeathEvent,
     ItemFoundEvent,
@@ -112,13 +112,13 @@ class TestSimEvents(unittest.TestCase):
         params = next(
             a["params"]
             for a in profile["actions"]
-            if a["name"] == "ColonyReproduceAction"
+            if a["name"] == "AffiliationReproduceAction"
         )
-        from src.sim.utils.colony_config_helpers import get_min_food_reserve
+        from src.sim.utils.affiliation_config_helpers import get_min_food_reserve
 
         nest.stored_food = get_min_food_reserve(world) + float(params["food_cost"]) + 10
 
-        action = ColonyReproduceAction(**{**params, "spawn_cooldown": 0})
+        action = AffiliationReproduceAction(**{**params, "spawn_cooldown": 0})
         self.assertTrue(action.execute(queen))
 
         events = world.events.drain()
@@ -133,7 +133,7 @@ class TestSimEvents(unittest.TestCase):
         factory = CreatureFactory()
         worker = factory.create("red_ant", world=world, x=120, y=120)
         world.add_creature(worker, spawn_source="initial")
-        nest = world.nest_system.get_colony_nest("red_ant")
+        nest = world.nest_system.get_affiliation_root("red_ant")
         world.events.drain()
 
         world.affiliation_species = {"red_ant": ["red_ant"], "blue_ant": ["blue_ant"]}
@@ -141,13 +141,13 @@ class TestSimEvents(unittest.TestCase):
         for access in list(ws.iter_access_points("red_ant")):
             access.hp = 0.8
             world.nest_system.damage_access(
-                access, "red_ant", 5.0, attacker_colony_id="blue_ant"
+                access, "red_ant", 5.0, attacker_affiliation_id="blue_ant"
             )
 
         events = world.events.drain()
-        defeated = [e for e in events if isinstance(e, ColonyDefeatedEvent)]
+        defeated = [e for e in events if isinstance(e, AffiliationDefeatedEvent)]
         self.assertEqual(len(defeated), 1)
-        self.assertEqual(defeated[0].colony_id, "red_ant")
+        self.assertEqual(defeated[0].affiliation_id, "red_ant")
 
     def test_event_bus_subscribe(self):
         world = self._empty_world()

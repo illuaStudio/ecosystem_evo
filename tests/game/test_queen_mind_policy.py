@@ -1,7 +1,7 @@
 """女王の不老・MindPolicy・巣穴待機のテスト。"""
 import unittest
 
-from src.sim.ai.actions import ColonyReproduceAction
+from src.sim.ai.actions import AffiliationReproduceAction
 from src.sim.entities.creature_factory import CreatureFactory
 from src.game.command_builder import apply_spawn_profile
 from src.game.mind_policy import MindPolicy
@@ -71,7 +71,7 @@ class TestQueenAndMindPolicy(unittest.TestCase):
         self.assertTrue(apply_mind_profile(bridge, queen, "workers_and_soldiers"))
 
         repro = next(
-            a for a in queen.mind.action_defs if a["name"] == "ColonyReproduceAction"
+            a for a in queen.mind.action_defs if a["name"] == "AffiliationReproduceAction"
         )
         offspring = repro["params"]["offspring"]
         species = {entry["species"] for entry in offspring}
@@ -111,21 +111,21 @@ class TestQueenAndMindPolicy(unittest.TestCase):
         params = next(
             a["params"]
             for a in profile["actions"]
-            if a["name"] == "ColonyReproduceAction"
+            if a["name"] == "AffiliationReproduceAction"
         )
         from src.sim.utils.affiliation_config_helpers import get_min_food_reserve
 
         nest.stored_food = get_min_food_reserve(world) + float(params["food_cost"]) + 10
 
-        action = ColonyReproduceAction(**{**params, "spawn_cooldown": 0})
+        action = AffiliationReproduceAction(**{**params, "spawn_cooldown": 0})
         member_species = [
             str(e["species"])
             for e in params.get("offspring", [])
             if e.get("species")
         ]
-        before = world.nest_system.count_colony_members(nest.id, member_species)
+        before = world.nest_system.count_affiliation_members(nest.id, member_species)
         self.assertTrue(action.execute(queen))
-        after = world.nest_system.count_colony_members(nest.id, member_species)
+        after = world.nest_system.count_affiliation_members(nest.id, member_species)
         self.assertEqual(after, before + 1)
 
 

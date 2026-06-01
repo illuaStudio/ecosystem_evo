@@ -42,7 +42,7 @@
         "weight": 5.5,
         "description": "視界内の敵巣穴を攻撃",
         "params": {
-          "hostile_colony_ids": [
+          "hostile_affiliation_ids": [
             "red_ant",
             "yellow_ant"
           ],

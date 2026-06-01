@@ -23,12 +23,12 @@ class GameMonitor:
 
     def check(self, world: "World", state: "GameState") -> list[MonitorAlert]:
         alerts: list[MonitorAlert] = []
-        colony_id = state.player_colony_id
-        if world.nest_system.get_colony_root(colony_id) is None:
+        affiliation_id = state.player_affiliation_id
+        if world.nest_system.get_affiliation_root(affiliation_id) is None:
             return alerts
 
         low_ratio = float(self.settings.get("low_food_ratio", 0.10))
-        food_ratio = world.nest_system.colony_food_ratio(colony_id)
+        food_ratio = world.nest_system.affiliation_food_ratio(affiliation_id)
         if food_ratio < low_ratio:
             if state.set_flag("low_food_warned"):
                 alerts.append(
@@ -50,9 +50,9 @@ class GameMonitor:
                     )
                 )
 
-        worker_species = self._colony_member_species(world, colony_id)
+        worker_species = self._affiliation_member_species(world, affiliation_id)
         if worker_species:
-            count = world.nest_system.count_colony_members(colony_id, worker_species)
+            count = world.nest_system.count_affiliation_members(affiliation_id, worker_species)
             milestone = int(self.settings.get("milestone_workers", 5))
             if count >= milestone and state.set_flag("workers_milestone"):
                 alerts.append(
@@ -65,9 +65,9 @@ class GameMonitor:
         return alerts
 
     @staticmethod
-    def _colony_member_species(world: "World", colony_id: str) -> list[str]:
-        groups = getattr(world, "affiliation_species", {}) or getattr(world, "faction_species", {}) or {}
-        names = list(groups.get(colony_id, []))
+    def _affiliation_member_species(world: "World", affiliation_id: str) -> list[str]:
+        groups = getattr(world, "affiliation_species", {}) or getattr(world, "affiliation_species", {}) or {}
+        names = list(groups.get(affiliation_id, []))
         if names:
             return [s for s in names if not s.endswith("_queen")]
         return []

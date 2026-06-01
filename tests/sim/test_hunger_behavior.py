@@ -109,7 +109,7 @@ class TestHungerBehavior(unittest.TestCase):
         nest.stored_food = nest.max_food
 
         hunt = HuntAction(
-            target_types=["springtail", "Spider"], colony_hoard_strength=0.8
+            target_types=["springtail", "Spider"], affiliation_hoard_strength=0.8
         )
         self.assertGreater(hunt.calculate_utility(ant), 0.0)
 
@@ -357,9 +357,9 @@ class TestQueenNestFeeding(unittest.TestCase):
         queen.nutrition_recovery = False
         update_nutrition_recovery(queen)
         nest = world.nest_system.get_creature_nest(queen)
-        from tests.sim.world_fixtures import set_colony_stored_food
+        from tests.sim.world_fixtures import set_affiliation_stored_food
 
-        set_colony_stored_food(world, nest.colony_id, 500.0)
+        set_affiliation_stored_food(world, nest.affiliation_id, 500.0)
         self.assertTrue(is_creature_sheltered(queen))
         return world, queen, nest
 

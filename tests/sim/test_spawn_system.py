@@ -64,7 +64,7 @@ def _minimal_world_data(**overrides):
 class TestSpawnSystemAmbient(unittest.TestCase):
     def test_spawns_toward_target_population(self):
         world = World.from_json(_minimal_world_data())
-        world.nest_system.create_nest(120, 120, "red_ant", colony_id="red_ant")
+        world.nest_system.create_nest(120, 120, "red_ant", affiliation_id="red_ant")
         pool = list(DEFAULT_MICRO_FAUNA_SPECIES)
 
         self.assertEqual(count_alive_in_pool(world, pool), 0)
@@ -77,7 +77,7 @@ class TestSpawnSystemAmbient(unittest.TestCase):
 
     def test_respects_nest_exclusion_radius(self):
         world = World.from_json(_minimal_world_data())
-        world.nest_system.create_nest(500, 500, "red_ant", colony_id="red_ant")
+        world.nest_system.create_nest(500, 500, "red_ant", affiliation_id="red_ant")
         pool = list(DEFAULT_MICRO_FAUNA_SPECIES)
 
         for _ in range(30):

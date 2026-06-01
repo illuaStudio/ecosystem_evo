@@ -43,7 +43,7 @@ class TestQueenStatus(unittest.TestCase):
         world.add_creature(queen, spawn_source="initial")
         queen.shelter = object()
 
-        state = GameState(player_colony_id="red_ant")
+        state = GameState(player_affiliation_id="red_ant")
         lines = build_queen_panel_lines(world, "red_ant", state)
         texts = [t for t, _ in lines]
 
@@ -69,7 +69,7 @@ class TestQueenStatus(unittest.TestCase):
             mode="replace",
         )
 
-        state = GameState(player_colony_id="red_ant")
+        state = GameState(player_affiliation_id="red_ant")
         state.flags["queen_can_reproduce"] = True
         lines = build_queen_panel_lines(world, "red_ant", state)
         texts = [t for t, _ in lines]

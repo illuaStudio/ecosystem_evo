@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any, Optional
 
 from src.sim.events import (
     CombatStartedEvent,
-    ColonyDefeatedEvent,
+    AffiliationDefeatedEvent,
     CombatTargetKind,
     DeathCause,
     DeathEvent,
@@ -27,24 +27,10 @@ def _sim_time(world: "World") -> float:
     return 0.0
 
 
-def _colony_id(creature) -> Optional[str]:
-    # シミュ層では affiliation を優先し、未設定なら colony をフォールバックする。
+def _affiliation_id_from_creature(creature) -> Optional[str]:
     from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
 
-    cid = get_creature_affiliation_id(creature)
-    if cid:
-        return cid
-    if creature is None:
-        return None
-    species = getattr(creature, "species", None)
-    if species is None:
-        return None
-    cfg = getattr(species, "colony_data", None) or {}
-    if not cfg.get("enabled", False):
-        return None
-    from src.sim.utils.territory_helpers import resolve_colony_id
-
-    return resolve_colony_id(species.name, cfg)
+    return get_creature_affiliation_id(creature)
 
 
 def emit_death(world: "World", creature, *, cause: DeathCause = "unknown") -> None:
@@ -55,7 +41,7 @@ def emit_death(world: "World", creature, *, cause: DeathCause = "unknown") -> No
             sim_time=_sim_time(world),
             creature=creature,
             species_name=creature.species.name,
-            colony_id=_colony_id(creature),
+            affiliation_id=_affiliation_id_from_creature(creature),
             cause=cause,
         )
     )
@@ -75,7 +61,7 @@ def emit_spawn(
             sim_time=_sim_time(world),
             creature=creature,
             species_name=creature.species.name,
-            colony_id=_colony_id(creature),
+            affiliation_id=_affiliation_id_from_creature(creature),
             source=source,
             parent=parent,
         )
@@ -96,7 +82,7 @@ def emit_item_found(
             sim_time=_sim_time(world),
             carrier=carrier,
             species_name=carrier.species.name,
-            colony_id=_colony_id(carrier),
+            affiliation_id=_affiliation_id_from_creature(carrier),
             item_kind=item_kind,
             amount=float(amount),
         )
@@ -127,20 +113,20 @@ def emit_combat_started_creature(world: "World", attacker, target_creature) -> N
             sim_time=_sim_time(world),
             attacker=attacker,
             attacker_species=attacker.species.name,
-            attacker_colony_id=_colony_id(attacker),
+            attacker_affiliation_id=_affiliation_id_from_creature(attacker),
             target_kind="creature",
             target_creature=target_creature,
-            target_colony_id=_colony_id(target_creature),
+            target_affiliation_id=_affiliation_id_from_creature(target_creature),
         )
     )
 
 
-def emit_combat_started_colony_access(
+def emit_combat_started_affiliation_access(
     world: "World",
     attacker,
     *,
     access_id: str,
-    target_colony_id: Optional[str],
+    target_affiliation_id: Optional[str],
 ) -> None:
     if world is None or attacker is None or not access_id:
         return
@@ -154,21 +140,21 @@ def emit_combat_started_colony_access(
             sim_time=_sim_time(world),
             attacker=attacker,
             attacker_species=attacker.species.name,
-            attacker_colony_id=_colony_id(attacker),
+            attacker_affiliation_id=_affiliation_id_from_creature(attacker),
             target_kind="world_object",
-            target_colony_id=target_colony_id,
+            target_affiliation_id=target_affiliation_id,
             target_object_id=str(access_id),
         )
     )
 
 
-def emit_colony_defeated(world: "World", colony_id: str, message: str) -> None:
-    if world is None or not colony_id:
+def emit_affiliation_defeated(world: "World", affiliation_id: str, message: str) -> None:
+    if world is None or not affiliation_id:
         return
     world.events.emit(
-        ColonyDefeatedEvent(
+        AffiliationDefeatedEvent(
             sim_time=_sim_time(world),
-            colony_id=str(colony_id),
+            affiliation_id=str(affiliation_id),
             message=message,
         )
     )
@@ -194,10 +180,10 @@ def maybe_emit_combat_from_damage(
         access = ref.world_object
         if access is None:
             return
-        emit_combat_started_colony_access(
+        emit_combat_started_affiliation_access(
             world,
             attacker,
             access_id=access.id,
-            target_colony_id=ref.colony_id or access.parent_id,
+            target_affiliation_id=ref.affiliation_id or access.parent_id,
         )
         return

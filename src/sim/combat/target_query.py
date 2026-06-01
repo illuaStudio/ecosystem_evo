@@ -5,8 +5,8 @@ import math
 
 from src.sim.combat.target_ref import TargetKind, TargetRef
 from src.sim.utils.affiliation_group_helpers import (
-    can_attack_affiliation_access as can_attack_colony_access,
-    is_affiliation_defeated as is_colony_defeated,
+    can_attack_affiliation_access as can_attack_affiliation_access,
+    is_affiliation_defeated as is_affiliation_defeated,
 )
 from src.sim.utils.creature_helpers import (
     closeness_ratio,
@@ -50,7 +50,7 @@ def iter_targets(world, kinds: tuple[TargetKind, ...] | list[TargetKind]):
         return
 
     for root in ws.iter_roots():
-        if is_colony_defeated(world, root.id):
+        if is_affiliation_defeated(world, root.id):
             continue
         for child in ws.get_children(root.id):
             if float(getattr(child, "max_hp", 0)) <= 0 or child.is_destroyed:
@@ -215,16 +215,16 @@ def is_trackable_prey_creature(
     return True
 
 
-def find_nearest_colony_access(
+def find_nearest_affiliation_access(
     creature,
-    hostile_colony_ids: tuple[str, ...],
+    hostile_affiliation_ids: tuple[str, ...],
     *,
     unrestricted: bool = False,
     max_distance: float | None = None,
 ) -> TargetRef | None:
-    from src.sim.utils.colony_helpers import is_creature_colony_defeated
+    from src.sim.utils.affiliation_group_helpers import is_creature_affiliation_defeated
 
-    if not creature.world or is_creature_colony_defeated(creature):
+    if not creature.world or is_creature_affiliation_defeated(creature):
         return None
 
     max_d = vision_range(creature) if max_distance is None else float(max_distance)
@@ -233,14 +233,14 @@ def find_nearest_colony_access(
     best_d = float("inf")
 
     for ref in iter_targets(creature.world, (TargetKind.WORLD_OBJECT,)):
-        colony_id = ref.colony_id
-        if not colony_id or colony_id not in hostile_colony_ids:
+        affiliation_id = ref.affiliation_id
+        if not affiliation_id or affiliation_id not in hostile_affiliation_ids:
             continue
         access = ref.world_object
         if access is None:
             continue
-        if not can_attack_colony_access(
-            creature, access, colony_id, unrestricted=unrestricted
+        if not can_attack_affiliation_access(
+            creature, access, affiliation_id, unrestricted=unrestricted
         ):
             continue
         tx, ty = float(access.x), float(access.y)
@@ -252,35 +252,35 @@ def find_nearest_colony_access(
     return best
 
 
-def is_valid_colony_access(
+def is_valid_affiliation_access(
     creature,
     ref: TargetRef,
     *,
-    hostile_colony_ids: tuple[str, ...],
+    hostile_affiliation_ids: tuple[str, ...],
     unrestricted: bool = False,
 ) -> bool:
     if creature.world is None or ref.kind is not TargetKind.WORLD_OBJECT:
         return False
     access = ref.world_object
-    colony_id = ref.colony_id
-    if access is None or not colony_id:
+    affiliation_id = ref.affiliation_id
+    if access is None or not affiliation_id:
         return False
     ws = getattr(creature.world, "world_object_system", None)
     live = ws.get(access.id) if ws is not None else None
     if live is None or live is not access:
         return False
-    if is_colony_defeated(creature.world, colony_id):
+    if is_affiliation_defeated(creature.world, affiliation_id):
         return False
     if float(live.hp) <= 0 or live.is_destroyed:
         return False
-    if colony_id not in hostile_colony_ids:
+    if affiliation_id not in hostile_affiliation_ids:
         return False
-    return can_attack_colony_access(
-        creature, live, colony_id, unrestricted=unrestricted
+    return can_attack_affiliation_access(
+        creature, live, affiliation_id, unrestricted=unrestricted
     )
 
 
-def colony_access_in_range(creature, ref: TargetRef, max_distance: float) -> bool:
+def affiliation_access_in_range(creature, ref: TargetRef, max_distance: float) -> bool:
     if ref.kind is not TargetKind.WORLD_OBJECT:
         return False
     if ref.world_object is None or float(ref.world_object.hp) <= 0:

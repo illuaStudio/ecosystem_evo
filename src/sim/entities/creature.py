@@ -4,7 +4,6 @@ import random
 from src.sim.ai.mind import UtilityMind
 from src.sim.behavior import PostLifeRunner, death_policy_for_creature
 from src.sim.components.affiliation import AffiliationComponent
-from src.sim.components.colony import ColonyComponent
 from src.sim.components.corpse import CorpseComponent
 from src.sim.components.energy import Energy
 from src.sim.components.life_cycle import LifeCycleManager
@@ -65,19 +64,10 @@ class Creature(BaseEntity):
         self.reproduction = ReproductionComponent(self)
         self.inventory = build_inventory_from_species(self.species)
 
-        # 汎用な社会的所属（唯一の所属軸）。
         self.affiliation: AffiliationComponent | None = None
         affiliation_cfg = getattr(self.species, "affiliation_data", None) or {}
-        if affiliation_cfg.get("enabled") or self.species.colony_data.get("enabled"):
+        if affiliation_cfg.get("enabled"):
             self.affiliation = AffiliationComponent()
-
-        # legacy: colony（後方互換）。多くの既存AI/ゲーム層が colony 存在を前提にするため、
-        # affiliation.enabled の個体には colony も常に用意して同期する。
-        self.colony: ColonyComponent | None = None
-        if self.species.colony_data.get("enabled"):
-            self.colony = ColonyComponent()
-        elif self.affiliation is not None:
-            self.colony = ColonyComponent()
 
     def sync_derived_stats(self) -> None:
         """traits の max_hp / max_satiety を個体ステータスへ反映（生成時用）。"""

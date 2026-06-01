@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 class GameState:
     """プレイヤー勢力の解釈・初回フラグ・進行指標（プレースホルダ）。"""
 
-    player_colony_id: str = "red_ant"
+    player_affiliation_id: str = "red_ant"
     danger_level: float = 0.0
     stability_level: float = 1.0
     civilization_level: int = 0

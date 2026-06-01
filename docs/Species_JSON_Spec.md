@@ -169,7 +169,7 @@
 | description | string | 任意 | 人間向けメモ。コードでは未使用 |
 | params | object | 任意 | Action 固有パラメータ。省略時は `actions.py` の `DEFAULT_PARAMS` |
 
-**登録済み Action 名:** `WanderAction`, `ChaseAction`, `HuntAction`, `ScavengeCarriedAction`, `ReturnToNestAction`, `FeedAtNestAction`, `NestPatrolAction`, `ColonyReproduceAction`, `SeekShelterAction`, `CombatAction` など
+**登録済み Action 名:** `WanderAction`, `ChaseAction`, `HuntAction`, `ScavengeCarriedAction`, `ReturnToNestAction`, `FeedAtNestAction`, `NestPatrolAction`, `AffiliationReproduceAction`, `SeekShelterAction`, `CombatAction` など
 
 ---
 
@@ -207,8 +207,8 @@
 | キー | 型 | 意味 | デフォルト |
 |------|----|------|-----------|
 | enabled | bool | コロニー機能を有効化 | false |
-| single_colony | bool | 同種はワールドに巣を1つだけ（初期スポーン・P 追加も既存巣へ） | true |
-| join_radius | float | `single_colony: false` 時の合流半径（px） | 200 |
+| single_affiliation | bool | 同種はワールドに巣を1つだけ（初期スポーン・P 追加も既存巣へ） | true |
+| join_radius | float | `single_affiliation: false` 時の合流半径（px） | 200 |
 | deposit_radius | float | 持ち帰り判定半径（ReturnToNest と共有） | 30 |
 | max_food | float | 巣の最大食料備蓄（旧 `max_storage` も可） | 400 |
 | initial_stored_food | float | **新設巣**の開始時備蓄（`max_food` でクランプ。合流時は加算しない） | 0 |
@@ -239,9 +239,9 @@
 | attack_power | float | bite ダメージ倍率 | 1.2 |
 | pickup_on_kill | bool | 満腹時、殺害直後に死骸を拾う | true |
 | bite_gain | float | 飢餓時のその場食事効率 | 1.35 |
-| colony_hoard_strength | float | **満腹時**のコロニー備蓄のための狩り動機（0〜1） | 0.8 |
+| affiliation_hoard_strength | float | **満腹時**のコロニー備蓄のための狩り動機（0〜1） | 0.8 |
 
-**utility:** 飢餓時は 1.0（巣に食料があれば 0）。通常・満腹帯は `colony_hoard_strength` で備蓄狩り。
+**utility:** 飢餓時は 1.0（巣に食料があれば 0）。通常・満腹帯は `affiliation_hoard_strength` で備蓄狩り。
 
 ---
 

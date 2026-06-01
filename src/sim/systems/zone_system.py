@@ -86,7 +86,7 @@ class Zone:
     half_h: float = 0.0
     effects: ZoneEffects = field(default_factory=ZoneEffects)
     label: str = ""
-    colony_id: str = ""
+    affiliation_id: str = ""
     auto_generated: bool = False
 
     @property
@@ -137,7 +137,7 @@ class ZoneSystem:
         cfg: Dict | None,
         *,
         legacy_field_emitters: Dict | None = None,
-        colony_profiles: Dict | None = None,
+        affiliation_profiles: Dict | None = None,
     ) -> None:
         self.zones.clear()
         self._next_id = 1
@@ -160,8 +160,8 @@ class ZoneSystem:
                 if isinstance(entry, dict):
                     self._add_from_legacy_field_emitter(entry, legacy_defaults)
 
-        if colony_profiles:
-            self._add_colony_clearing_zones(colony_profiles)
+        if affiliation_profiles:
+            self._add_affiliation_clearing_zones(affiliation_profiles)
 
     def init_from_layout(self, layout: Dict | None) -> None:
         """instances 由来の WorldObject を優先し、なければ legacy zones.sources。"""
@@ -193,11 +193,11 @@ class ZoneSystem:
                 if isinstance(entry, dict):
                     self._add_from_legacy_field_emitter(entry, legacy_defaults)
 
-        colony_profiles = getattr(self.world, "colony_profiles", None) or (
-            (layout.get("colony") or {}).get("profiles")
+        affiliation_profiles = getattr(self.world, "affiliation_profiles", None) or (
+            (layout.get("affiliation") or {}).get("profiles")
         )
-        if colony_profiles:
-            self._add_colony_clearing_zones(colony_profiles)
+        if affiliation_profiles:
+            self._add_affiliation_clearing_zones(affiliation_profiles)
 
     def bootstrap_from_world_objects(self) -> bool:
         """WorldObjectSystem の zone 配置から Zone キャッシュを構築。"""
@@ -265,7 +265,7 @@ class ZoneSystem:
         half_w: float = 0.0,
         half_h: float = 0.0,
         label: str = "",
-        colony_id: str = "",
+        affiliation_id: str = "",
         auto_generated: bool = False,
     ) -> None:
         self.zones.append(
@@ -280,15 +280,15 @@ class ZoneSystem:
                 half_h=max(0.0, float(half_h)),
                 effects=effects,
                 label=label,
-                colony_id=colony_id,
+                affiliation_id=affiliation_id,
                 auto_generated=auto_generated,
             )
         )
         self._next_id += 1
 
     def _add_from_entry(self, entry: Dict, global_defaults: Dict) -> None:
-        if entry.get("colony_id"):
-            self._add_colony_zone_entry(entry, global_defaults)
+        if entry.get("affiliation_id"):
+            self._add_affiliation_zone_entry(entry, global_defaults)
             return
         if "x" not in entry or "y" not in entry:
             return
@@ -307,10 +307,10 @@ class ZoneSystem:
             label=str(data.get("label", data.get("type", ""))),
         )
 
-    def _add_colony_zone_entry(self, entry: Dict, global_defaults: Dict) -> None:
-        colony_id = str(entry["colony_id"])
-        profiles = getattr(self.world, "colony_profiles", None) or {}
-        profile = dict(profiles.get(colony_id) or {})
+    def _add_affiliation_zone_entry(self, entry: Dict, global_defaults: Dict) -> None:
+        affiliation_id = str(entry["affiliation_id"])
+        profiles = getattr(self.world, "affiliation_profiles", None) or {}
+        profile = dict(profiles.get(affiliation_id) or {})
         data = self._resolve_entry(entry, global_defaults)
         x = entry.get("x", profile.get("nest_x"))
         y = entry.get("y", profile.get("nest_y"))
@@ -334,8 +334,8 @@ class ZoneSystem:
             effects=effects,
             shape="circle",
             radius=radius,
-            label=str(data.get("label", f"{colony_id}_clearing")),
-            colony_id=colony_id,
+            label=str(data.get("label", f"{affiliation_id}_clearing")),
+            affiliation_id=affiliation_id,
         )
 
     def _add_from_legacy_field_emitter(self, entry: Dict, global_defaults: Dict) -> None:
@@ -364,8 +364,8 @@ class ZoneSystem:
             label=str(merged.get("label", zone_type)),
         )
 
-    def _add_colony_clearing_zones(self, colony_profiles: Dict) -> None:
-        for colony_id, raw_profile in colony_profiles.items():
+    def _add_affiliation_clearing_zones(self, affiliation_profiles: Dict) -> None:
+        for affiliation_id, raw_profile in affiliation_profiles.items():
             profile = dict(raw_profile or {})
             radius = float(profile.get("spawn_exclusion_radius", DEFAULT_NEST_CLEARING["radius"]))
             if radius <= 0:
@@ -374,7 +374,7 @@ class ZoneSystem:
             nest_y = profile.get("nest_y")
             if nest_x is None or nest_y is None:
                 continue
-            if self._has_colony_clearing(colony_id):
+            if self._has_affiliation_clearing(affiliation_id):
                 continue
             self._add_zone(
                 x=float(nest_x),
@@ -383,30 +383,30 @@ class ZoneSystem:
                 effects=ZoneEffects(spawn_rate_multiplier=0.0),
                 shape="circle",
                 radius=radius,
-                label=f"{colony_id}_clearing",
-                colony_id=str(colony_id),
+                label=f"{affiliation_id}_clearing",
+                affiliation_id=str(affiliation_id),
                 auto_generated=True,
             )
 
-    def sync_colony_clearing(
+    def sync_affiliation_clearing(
         self,
-        colony_id: str,
+        affiliation_id: str,
         x: float,
         y: float,
         *,
         radius: float | None = None,
     ) -> None:
         """巣の実位置に合わせてクリアリング Zone を更新または追加する。"""
-        if not colony_id:
+        if not affiliation_id:
             return
         if radius is None:
-            radius = self._clearing_radius_for_colony(colony_id)
+            radius = self._clearing_radius_for_affiliation(affiliation_id)
         radius = float(radius)
         if radius <= 0:
             return
 
         for zone in self.zones:
-            if zone.colony_id == colony_id and zone.effects.spawn_rate_multiplier == 0.0:
+            if zone.affiliation_id == affiliation_id and zone.effects.spawn_rate_multiplier == 0.0:
                 zone.x = float(x)
                 zone.y = float(y)
                 zone.radius = radius
@@ -420,19 +420,19 @@ class ZoneSystem:
             effects=ZoneEffects(spawn_rate_multiplier=0.0),
             shape="circle",
             radius=radius,
-            label=f"{colony_id}_clearing",
-            colony_id=str(colony_id),
+            label=f"{affiliation_id}_clearing",
+            affiliation_id=str(affiliation_id),
             auto_generated=True,
         )
 
-    def _clearing_radius_for_colony(self, colony_id: str) -> float:
-        profiles = getattr(self.world, "colony_profiles", None) or {}
-        profile = dict(profiles.get(colony_id) or {})
+    def _clearing_radius_for_affiliation(self, affiliation_id: str) -> float:
+        profiles = getattr(self.world, "affiliation_profiles", None) or {}
+        profile = dict(profiles.get(affiliation_id) or {})
         return float(profile.get("spawn_exclusion_radius", DEFAULT_NEST_CLEARING["radius"]))
 
-    def _has_colony_clearing(self, colony_id: str) -> bool:
+    def _has_affiliation_clearing(self, affiliation_id: str) -> bool:
         for zone in self.zones:
-            if zone.colony_id == colony_id and zone.effects.spawn_rate_multiplier == 0.0:
+            if zone.affiliation_id == affiliation_id and zone.effects.spawn_rate_multiplier == 0.0:
                 return True
         return False
 

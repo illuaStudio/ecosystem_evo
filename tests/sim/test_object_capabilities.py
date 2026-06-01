@@ -54,7 +54,7 @@ class TestObjectCapabilities(unittest.TestCase):
     def test_legacy_colony_storage_and_access(self):
         site = normalize_capabilities(
             {
-                "id": "colony_site",
+                "id": "affiliation_site",
                 "category": "colony",
                 "role": "root",
                 "max_food": 5000,
@@ -65,7 +65,7 @@ class TestObjectCapabilities(unittest.TestCase):
 
         access = normalize_capabilities(
             {
-                "id": "colony_access",
+                "id": "affiliation_access",
                 "category": "colony",
                 "role": "access",
                 "shelter": True,

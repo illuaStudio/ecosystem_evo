@@ -65,11 +65,6 @@ class WorldObject:
         return self.parent_id is not None
 
     @property
-    def is_colony_compound(self) -> bool:
-        # legacy name: affiliation compound root
-        return self.compound_profile in ("affiliation", "colony")
-
-    @property
     def is_affiliation_compound(self) -> bool:
         return self.compound_profile == "affiliation"
 
@@ -79,12 +74,11 @@ class WorldObject:
 
     @property
     def compound_id(self) -> str:
-        """ルート=自身 id、接続点=parent_id（colony_id の汎化名）。"""
+        """ルート=自身 id、接続点=parent_id（affiliation_id の汎化名）。"""
         return str(self.parent_id or self.id)
 
     @property
-    def colony_id(self) -> str:
-        """後方互換。"""
+    def affiliation_id(self) -> str:
         return self.compound_id
 
     @property

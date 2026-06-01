@@ -7,22 +7,22 @@ from src.sim.ai.actions.tracking import (
 from src.sim.combat.target_damage import apply_damage_to_target
 from src.sim.combat.target_query import (
     find_nearest_hostile_creature,
-    find_nearest_colony_access,
+    find_nearest_affiliation_access,
     is_trackable_hostile_creature,
-    is_valid_colony_access,
-    colony_access_in_range,
+    is_valid_affiliation_access,
+    affiliation_access_in_range,
     target_closeness,
     target_position,
 )
 from src.sim.utils.affiliation_group_helpers import (
-    get_rival_affiliation_ids as get_rival_colony_ids,
-    is_creature_affiliation_defeated as is_creature_colony_defeated,
+    get_rival_affiliation_ids as get_rival_affiliation_ids,
+    is_creature_affiliation_defeated as is_creature_affiliation_defeated,
 )
-from src.sim.utils.affiliation_helpers import get_creature_affiliation_id as get_creature_colony_id
+from src.sim.utils.affiliation_helpers import get_creature_affiliation_id as get_creature_affiliation_id
 from src.sim.utils.creature_helpers import (
     closeness_ratio,
     contact_range,
-    expand_faction_species,
+    expand_affiliation_species,
     is_beyond_nest_leash,
     move_toward_contact,
     move_toward_point,
@@ -36,7 +36,7 @@ class CombatAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Acti
 
     DEFAULT_PARAMS = {
         "hostile_species": (),
-        "hostile_colony_ids": (),
+        "hostile_affiliation_ids": (),
         "speed_multiplier": 1.4,
         "contact_padding": 8.0,
         "attack_power": 1.3,
@@ -50,9 +50,9 @@ class CombatAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Acti
 
     def _enemies(self, creature=None) -> tuple[str, ...]:
         raw = list(self.params.get("hostile_species") or ())
-        colony_ids = self.params.get("hostile_colony_ids") or ()
+        colony_ids = self.params.get("hostile_affiliation_ids") or ()
         if colony_ids and creature is not None and creature.world is not None:
-            raw.extend(expand_faction_species(creature.world, colony_ids))
+            raw.extend(expand_affiliation_species(creature.world, colony_ids))
         return tuple(raw)
 
     def _find_hostile(self, creature, enemies: tuple[str, ...]):
@@ -73,7 +73,7 @@ class CombatAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Acti
         )
 
     def execute(self, creature) -> bool:
-        if not creature.world or is_creature_colony_defeated(creature):
+        if not creature.world or is_creature_affiliation_defeated(creature):
             return False
         from src.sim.utils.inventory_helpers import inventory_is_loaded
 
@@ -108,7 +108,7 @@ class CombatAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Acti
         return False
 
     def calculate_utility(self, creature) -> float:
-        if is_creature_colony_defeated(creature):
+        if is_creature_affiliation_defeated(creature):
             return 0.0
         from src.sim.utils.inventory_helpers import inventory_is_loaded
 
@@ -147,7 +147,7 @@ class AttackHoleAction(NestLeashMixin, Action):
     """
 
     DEFAULT_PARAMS = {
-        "hostile_colony_ids": (),
+        "hostile_affiliation_ids": (),
         "speed_multiplier": 1.25,
         "attack_power": 1.15,
         "contact_padding": 14.0,
@@ -162,17 +162,17 @@ class AttackHoleAction(NestLeashMixin, Action):
         self._target_ref = None
 
     def _hostile_colonies(self, creature) -> tuple[str, ...]:
-        raw = list(self.params.get("hostile_colony_ids") or ())
+        raw = list(self.params.get("hostile_affiliation_ids") or ())
         if not raw and creature is not None and creature.world is not None:
-            cid = get_creature_colony_id(creature)
+            cid = get_creature_affiliation_id(creature)
             if cid:
-                raw = list(get_rival_colony_ids(creature.world, cid))
+                raw = list(get_rival_affiliation_ids(creature.world, cid))
         return tuple(raw)
 
     def _enemy_species(self, creature) -> tuple[str, ...]:
         if creature is None or creature.world is None:
             return ()
-        return expand_faction_species(creature.world, self._hostile_colonies(creature))
+        return expand_affiliation_species(creature.world, self._hostile_colonies(creature))
 
     def _ignore_territory(self) -> bool:
         return bool(self.params.get("ignore_territory"))
@@ -191,7 +191,7 @@ class AttackHoleAction(NestLeashMixin, Action):
 
     def _spawn_filter_kwargs(self, creature) -> dict:
         return {
-            "hostile_colony_ids": self._hostile_colonies(creature),
+            "hostile_affiliation_ids": self._hostile_colonies(creature),
             "unrestricted": self._ignore_territory(),
         }
 
@@ -199,7 +199,7 @@ class AttackHoleAction(NestLeashMixin, Action):
         colonies = self._hostile_colonies(creature)
         if not colonies:
             return None
-        return find_nearest_colony_access(
+        return find_nearest_affiliation_access(
             creature,
             colonies,
             unrestricted=self._ignore_territory(),
@@ -209,10 +209,10 @@ class AttackHoleAction(NestLeashMixin, Action):
     def _spawn_target_valid(self, creature, ref) -> bool:
         if ref is None:
             return False
-        return is_valid_colony_access(creature, ref, **self._spawn_filter_kwargs(creature))
+        return is_valid_affiliation_access(creature, ref, **self._spawn_filter_kwargs(creature))
 
     def calculate_utility(self, creature) -> float:
-        if is_creature_colony_defeated(creature):
+        if is_creature_affiliation_defeated(creature):
             return 0.0
         if is_beyond_nest_leash(creature, self._nest_leash()):
             return 0.0
@@ -238,7 +238,7 @@ class AttackHoleAction(NestLeashMixin, Action):
         return min(1.0, 0.4 + closeness * 0.5)
 
     def execute(self, creature) -> bool:
-        if not creature.world or is_creature_colony_defeated(creature):
+        if not creature.world or is_creature_affiliation_defeated(creature):
             return False
 
         if self._abort_if_beyond_nest_leash(creature):
@@ -247,7 +247,7 @@ class AttackHoleAction(NestLeashMixin, Action):
         max_d = self._max_search_distance(creature)
         if self._target_ref and not self._spawn_target_valid(creature, self._target_ref):
             self._target_ref = None
-        if self._target_ref and not colony_access_in_range(
+        if self._target_ref and not affiliation_access_in_range(
             creature, self._target_ref, max_d
         ):
             self._target_ref = None
@@ -270,7 +270,7 @@ class AttackHoleAction(NestLeashMixin, Action):
                 creature,
                 ref,
                 float(self.params["attack_power"]),
-                attacker_colony_id=get_creature_colony_id(creature) or "",
+                attacker_affiliation_id=get_creature_affiliation_id(creature) or "",
             )
             if not self._spawn_target_valid(creature, self._target_ref):
                 self._target_ref = None

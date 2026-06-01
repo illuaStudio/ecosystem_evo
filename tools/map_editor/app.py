@@ -20,21 +20,21 @@ from src.client.rendering.spawn_emitter_renderer import SpawnEmitterRenderer
 from src.client.rendering.zone_renderer import ZoneRenderer
 from src.client.rendering.nest_renderer import get_faction_style
 
-LAYER_ORDER = ["obstacle", "zone", "spawn", "colony_site"]
+LAYER_ORDER = ["obstacle", "zone", "spawn", "affiliation_site"]
 LAYER_LABELS = {
     "obstacle": "障害物",
     "zone": "Zone（毒霧等）",
     "spawn": "湧きエミッタ",
-    "colony_site": "拠点（コロニー）",
+    "affiliation_site": "拠点（コロニー）",
     "nest": "拠点（コロニー）",
 }
 LAYER_KEYS = {
     pygame.K_1: "obstacle",
     pygame.K_2: "zone",
     pygame.K_3: "spawn",
-    pygame.K_4: "colony_site",
+    pygame.K_4: "affiliation_site",
 }
-SITE_LAYERS = frozenset({"nest", "colony_site"})
+SITE_LAYERS = frozenset({"nest", "affiliation_site"})
 HUD_LEFT = 280
 HUD_TOP = 88
 
@@ -300,11 +300,11 @@ class MapEditorApp:
         pygame.draw.circle(self.screen, (255, 255, 80), (sx, sy), radius, 2)
 
     def _draw_nest_markers(self) -> None:
-        for obj in self.doc.objects_in_layer("colony_site"):
+        for obj in self.doc.objects_in_layer("affiliation_site"):
             sx = int(obj.x - self.camera.x)
             sy = int(obj.y - self.camera.y)
-            colony_id = self.doc.colony_id_for_site(obj)
-            style = get_faction_style(self.world, colony_id)
+            affiliation_id = self.doc.affiliation_id_for_site(obj)
+            style = get_faction_style(self.world, affiliation_id)
             outer = style.get("nest_outer", (90, 45, 30))
             inner = style.get("nest_inner_base", (180, 90, 40))
             tr = min(36, int(self.doc.resolve_radius(obj) * 0.2))
@@ -312,7 +312,7 @@ class MapEditorApp:
             pygame.draw.circle(self.screen, inner, (sx, sy), tr)
             label = style.get("label", colony_id[:1])
             self.screen.blit(self.small_font.render(str(label), True, (255, 240, 220)), (sx - 6, sy - 8))
-        for obj in self.doc.objects_in_layer("colony_access"):
+        for obj in self.doc.objects_in_layer("affiliation_access"):
             sx = int(obj.x - self.camera.x)
             sy = int(obj.y - self.camera.y)
             pygame.draw.circle(self.screen, (200, 160, 80), (sx, sy), 6, 2)

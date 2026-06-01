@@ -5,7 +5,7 @@ from src.game.game_director import GameDirector
 from src.game.game_monitor import GameMonitor
 from src.game.game_state import GameState
 from src.sim.bridge import SimBridge
-from src.sim.emitters import emit_colony_defeated, emit_combat_started_creature
+from src.sim.emitters import emit_affiliation_defeated, emit_combat_started_creature
 from src.sim.systems.world import World
 from src.sim.entities.creature_factory import CreatureFactory
 from tests.sim.world_fixtures import affiliation_settings
@@ -35,7 +35,7 @@ def _player_world(**overrides) -> World:
 
 class TestGameDirector(unittest.TestCase):
     def _director(self, world: World) -> GameDirector:
-        state = GameState(player_colony_id="red_ant")
+        state = GameState(player_affiliation_id="red_ant")
         return GameDirector(state, SimBridge(world))
 
     def test_first_enemy_contact(self):
@@ -56,7 +56,7 @@ class TestGameDirector(unittest.TestCase):
 
     def test_colony_defeated_user_message(self):
         world = _player_world()
-        emit_colony_defeated(world, "red_ant", "勢力 red_ant が敗北しました")
+        emit_affiliation_defeated(world, "red_ant", "勢力 red_ant が敗北しました")
         events = world.events.drain()
 
         director = self._director(world)
@@ -70,7 +70,7 @@ class TestGameDirector(unittest.TestCase):
         factory = CreatureFactory()
         queen = factory.create("red_ant_queen", world=world, x=120, y=120)
         world.add_creature(queen, spawn_source="initial")
-        nest = world.nest_system.get_colony_nest("red_ant")
+        nest = world.nest_system.get_affiliation_root("red_ant")
         world.events.drain()
 
         director = self._director(world)

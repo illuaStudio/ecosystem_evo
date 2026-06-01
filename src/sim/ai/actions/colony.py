@@ -4,7 +4,7 @@ from src.sim.ai.action_config import get_mind_action_param
 from src.sim.ai.actions.base import Action
 from src.sim.shelter.state import is_creature_sheltered
 from src.sim.utils.inventory_helpers import inventory_is_loaded
-from src.sim.utils.world_object_helpers import creature_has_colony_target, parent_stored_food
+from src.sim.utils.world_object_helpers import creature_has_affiliation_target, parent_stored_food
 from src.sim.utils.creature_helpers import (
     consume_carcass,
     consume_carried_biomass,
@@ -28,8 +28,8 @@ class ScavengeCarriedAction(Action):
     """回復中かつ運搬中: 持ち帰り予定のバイオマスをその場で1口食べる。残りは巣へ運ぶ。"""
 
     def execute(self, creature) -> bool:
-        colony = getattr(creature, "colony", None)
-        if colony is None or not inventory_is_loaded(creature):
+        affiliation = getattr(creature, "affiliation", None)
+        if affiliation is None or not inventory_is_loaded(creature):
             return False
 
         consume_carried_biomass(
@@ -39,8 +39,8 @@ class ScavengeCarriedAction(Action):
         return False
 
     def calculate_utility(self, creature) -> float:
-        colony = getattr(creature, "colony", None)
-        if colony is None or not inventory_is_loaded(creature) or not needs_self_feed(creature):
+        affiliation = getattr(creature, "affiliation", None)
+        if affiliation is None or not inventory_is_loaded(creature) or not needs_self_feed(creature):
             return 0.0
         return 0.85
 
@@ -55,14 +55,14 @@ class ReturnToNestAction(Action):
     }
 
     def execute(self, creature) -> bool:
-        colony = getattr(creature, "colony", None)
-        if colony is None or not inventory_is_loaded(creature) or not creature.world:
+        affiliation = getattr(creature, "affiliation", None)
+        if affiliation is None or not inventory_is_loaded(creature) or not creature.world:
             return False
         if needs_self_feed(creature):
             return False
 
         ns = creature.world.nest_system
-        if not creature_has_colony_target(creature):
+        if not creature_has_affiliation_target(creature):
             return False
 
         deposit_radius = float(self.params["deposit_radius"])
@@ -83,14 +83,14 @@ class ReturnToNestAction(Action):
         return False
 
     def calculate_utility(self, creature) -> float:
-        colony = getattr(creature, "colony", None)
-        if colony is None or not inventory_is_loaded(creature):
+        affiliation = getattr(creature, "affiliation", None)
+        if affiliation is None or not inventory_is_loaded(creature):
             return 0.0
         if needs_self_feed(creature) or not creature.world:
             return 0.0
 
         ns = creature.world.nest_system
-        if not creature_has_colony_target(creature):
+        if not creature_has_affiliation_target(creature):
             return 0.0
 
         tx, ty = ns.nest_target_xy(creature)
@@ -153,13 +153,13 @@ class FeedAtNestAction(Action):
         return needs_self_feed(creature) or is_hungry(creature)
 
     def execute(self, creature) -> bool:
-        if not creature.world or getattr(creature, "colony", None) is None:
+        if not creature.world or getattr(creature, "affiliation", None) is None:
             return False
         if inventory_is_loaded(creature):
             return False
 
         ns = creature.world.nest_system
-        if not creature_has_colony_target(creature):
+        if not creature_has_affiliation_target(creature):
             return False
 
         feed_radius = float(self.params["feed_radius"])
@@ -215,13 +215,13 @@ class FeedAtNestAction(Action):
         return False
 
     def calculate_utility(self, creature) -> float:
-        colony = getattr(creature, "colony", None)
-        if colony is None or inventory_is_loaded(creature) or not creature.world:
+        affiliation = getattr(creature, "affiliation", None)
+        if affiliation is None or inventory_is_loaded(creature) or not creature.world:
             return 0.0
 
         ns = creature.world.nest_system
         nest = ns.get_creature_nest(creature)
-        if not creature_has_colony_target(creature):
+        if not creature_has_affiliation_target(creature):
             return 0.0
 
         usable = self._has_usable_food(creature)
@@ -241,12 +241,12 @@ class FeedAtNestAction(Action):
             return 0.0
 
         if at_nest and usable:
-            from src.sim.utils.colony_helpers import get_creature_colony_id
-            from src.sim.utils.world_object_helpers import colony_food_ratio, parent_stored_food
+            from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
+            from src.sim.utils.world_object_helpers import affiliation_food_ratio, parent_stored_food
 
-            cid = get_creature_colony_id(creature)
+            cid = get_creature_affiliation_id(creature)
             if cid:
-                fill = colony_food_ratio(creature.world, cid)
+                fill = affiliation_food_ratio(creature.world, cid)
             else:
                 ws = creature.world.world_object_system
                 parent_ids = getattr(creature, "nest_parent_object_ids", ()) or ()
@@ -284,7 +284,7 @@ class NestPatrolAction(Action):
     }
 
     def execute(self, creature) -> bool:
-        if not creature.world or getattr(creature, "colony", None) is None:
+        if not creature.world or getattr(creature, "affiliation", None) is None:
             wander_step(
                 creature,
                 self.params["angle_range"],
@@ -293,7 +293,7 @@ class NestPatrolAction(Action):
             return False
 
         ns = creature.world.nest_system
-        if not creature_has_colony_target(creature):
+        if not creature_has_affiliation_target(creature):
             wander_step(
                 creature,
                 self.params["angle_range"],
@@ -328,8 +328,8 @@ class NestPatrolAction(Action):
         return False
 
     def calculate_utility(self, creature) -> float:
-        colony = getattr(creature, "colony", None)
-        if colony is None or inventory_is_loaded(creature) or not creature.world:
+        affiliation = getattr(creature, "affiliation", None)
+        if affiliation is None or inventory_is_loaded(creature) or not creature.world:
             return 0.0
 
         if needs_self_feed(creature):
@@ -343,7 +343,7 @@ class NestPatrolAction(Action):
 
         hunger = hunger_ratio(creature)
         nest = creature.world.nest_system.get_creature_nest(creature)
-        if not creature_has_colony_target(creature):
+        if not creature_has_affiliation_target(creature):
             return 0.2
 
         dist = creature.world.nest_system.distance_to_nest(creature)
@@ -356,9 +356,9 @@ class NestPatrolAction(Action):
             return 0.88
 
         if dist <= patrol_r:
-            from src.sim.utils.colony_helpers import get_creature_colony_id
+            from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
 
-            cid = get_creature_colony_id(creature) or ""
+            cid = get_creature_affiliation_id(creature) or ""
             members = creature.world.nest_system.member_count(
                 cid, creature.species.name
             )

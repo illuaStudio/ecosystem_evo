@@ -38,13 +38,13 @@ class ReproductionAction(Action):
             )
 
 
-class ColonyReproduceAction(ReproductionAction):
+class AffiliationReproduceAction(ReproductionAction):
     """巣の食料備蓄を消費してコロニー子個体を生成する（女王など個体の AI 判断）。"""
 
     DEFAULT_PARAMS = {
         "offspring": [],
         "food_cost": 55,
-        "max_colony_members": 10,
+        "max_affiliation_members": 10,
         "member_species": [],
         "spawn_cooldown": 900,
         "spawn_radius": 40.0,
@@ -55,7 +55,7 @@ class ColonyReproduceAction(ReproductionAction):
         """最低備蓄は world.json affiliation.min_food_reserve（拠点設置と共通）。"""
         world = getattr(creature, "world", None)
         if world is None:
-            raise RuntimeError("ColonyReproduceAction: world が未設定です")
+            raise RuntimeError("AffiliationReproduceAction: world が未設定です")
         from src.sim.utils.affiliation_config_helpers import get_min_food_reserve
 
         return get_min_food_reserve(world)
@@ -63,9 +63,11 @@ class ColonyReproduceAction(ReproductionAction):
     def _member_species(self) -> list[str]:
         return [str(s) for s in self.params["member_species"]]
 
-    def _pick_offspring_species(self, world, colony_id: str) -> str | None:
+    def _pick_offspring_species(self, world, affiliation_id: str) -> str | None:
         entries = self.params.get("offspring") or []
-        owner = world.nest_system.owner_species_for_colony(colony_id) if world else colony_id
+        owner = (
+            world.nest_system.owner_species_for_affiliation(affiliation_id) if world else affiliation_id
+        )
         if not entries:
             return owner
 
@@ -87,7 +89,7 @@ class ColonyReproduceAction(ReproductionAction):
             return owner
         return str(sp)
 
-    def _creature_colony_id(self, creature) -> str | None:
+    def _creature_affiliation_id(self, creature) -> str | None:
         # legacy method name: 中身は affiliation を返す
         from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
 
@@ -100,19 +102,19 @@ class ColonyReproduceAction(ReproductionAction):
         if getattr(creature, "affiliation", None) is None:
             return False, "所属なし"
 
-        colony_id = self._creature_colony_id(creature)
-        if not colony_id:
+        affiliation_id = self._creature_affiliation_id(creature)
+        if not affiliation_id:
             return False, "巣なし"
 
         cost = float(self.params["food_cost"])
         if cost <= 0:
             return False, "繁殖未設定"
 
-        max_members = int(self.params["max_colony_members"])
+        max_members = int(self.params["max_affiliation_members"])
         if max_members <= 0:
             return False, "繁殖未設定"
 
-        offspring_species = self._pick_offspring_species(creature.world, colony_id)
+        offspring_species = self._pick_offspring_species(creature.world, affiliation_id)
         if offspring_species and is_species_at_population_cap(
             creature.world, offspring_species
         ):
@@ -125,18 +127,18 @@ class ColonyReproduceAction(ReproductionAction):
         member_species = self._member_species()
         ns = creature.world.nest_system
         if member_species:
-            members = ns.count_colony_members(colony_id, member_species)
+            members = ns.count_affiliation_members(affiliation_id, member_species)
         else:
-            members = ns.total_member_count(colony_id)
+            members = ns.total_member_count(affiliation_id)
 
         if members >= max_members:
             return False, f"個体数上限 ({members}/{max_members})"
 
         reserve = self._min_food_reserve(creature)
         needed = reserve + cost
-        from src.sim.utils.world_object_helpers import colony_stored_food
+        from src.sim.utils.world_object_helpers import affiliation_stored_food
 
-        stored = colony_stored_food(creature.world, colony_id)
+        stored = affiliation_stored_food(creature.world, affiliation_id)
         if stored < needed:
             return (
                 False,
@@ -168,38 +170,38 @@ class ColonyReproduceAction(ReproductionAction):
             return None
 
         ns = creature.world.nest_system
-        colony_id = self._creature_colony_id(creature)
-        if not colony_id:
+        affiliation_id = self._creature_affiliation_id(creature)
+        if not affiliation_id:
             return None
 
         cost = float(self.params["food_cost"])
-        if not ns.try_consume_food(colony_id, cost):
+        if not ns.try_consume_food(affiliation_id, cost):
             return None
 
         from src.config import config
         from src.sim.entities.creature_factory import CreatureFactory
 
-        offspring_species = self._pick_offspring_species(creature.world, colony_id)
+        offspring_species = self._pick_offspring_species(creature.world, affiliation_id)
         if not offspring_species:
-            from src.sim.utils.world_object_helpers import get_colony_root
+            from src.sim.utils.world_object_helpers import get_affiliation_root
 
-            root = get_colony_root(creature.world, colony_id)
+            root = get_affiliation_root(creature.world, affiliation_id)
             if root is not None and root.storage is not None:
                 root.storage.deposit(cost)
             return None
 
         data = config.get_species(offspring_species) or {}
-        offspring_cfg = data.get("affiliation") or data.get("colony") or {}
+        offspring_cfg = data.get("affiliation") or {}
         x, y = ns.spawn_position(offspring_species, offspring_cfg)
         return CreatureFactory.create(offspring_species, world=creature.world, x=x, y=y)
 
     def execute(self, creature) -> bool:
         if not self.can_execute(creature):
             ns = creature.world.nest_system if creature.world else None
-            colony_id = self._creature_colony_id(creature)
+            affiliation_id = self._creature_affiliation_id(creature)
             spawn_radius = float(self.params["spawn_radius"])
 
-            if ns is not None and colony_id and not ns.is_at_nest(
+            if ns is not None and affiliation_id and not ns.is_at_nest(
                 creature, spawn_radius
             ):
                 tx, ty = ns.nest_target_xy(creature)
@@ -227,24 +229,24 @@ class ColonyReproduceAction(ReproductionAction):
             return 0.0
 
         ns = creature.world.nest_system
-        colony_id = self._creature_colony_id(creature)
-        if not colony_id:
+        affiliation_id = self._creature_affiliation_id(creature)
+        if not affiliation_id:
             return 0.0
 
         cost = float(self.params["food_cost"])
         reserve = self._min_food_reserve(creature)
-        max_members = max(1, int(self.params["max_colony_members"]))
+        max_members = max(1, int(self.params["max_affiliation_members"]))
         member_species = self._member_species()
         if member_species:
-            members = ns.count_colony_members(colony_id, member_species)
+            members = ns.count_affiliation_members(affiliation_id, member_species)
         else:
-            members = ns.total_member_count(colony_id)
+            members = ns.total_member_count(affiliation_id)
 
         headroom = max(0.0, (max_members - members) / max_members)
-        from src.sim.utils.world_object_helpers import colony_max_food, colony_stored_food
+        from src.sim.utils.world_object_helpers import affiliation_max_food, affiliation_stored_food
 
-        stored = colony_stored_food(creature.world, colony_id)
-        cap = colony_max_food(creature.world, colony_id)
+        stored = affiliation_stored_food(creature.world, affiliation_id)
+        cap = affiliation_max_food(creature.world, affiliation_id)
         surplus = stored - reserve - cost
         denom = max(1.0, cap - reserve - cost)
         food_factor = max(0.0, min(1.0, surplus / denom))
@@ -255,5 +257,5 @@ class ColonyReproduceAction(ReproductionAction):
         return min(1.0, headroom * (0.35 + food_factor * 0.65) * proximity)
 
 
-class SpawnWorkerAction(ColonyReproduceAction):
+class SpawnWorkerAction(AffiliationReproduceAction):
     """後方互換: offspring 未指定時は巣 owner_species と同種を生成。"""

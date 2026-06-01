@@ -55,11 +55,11 @@ def source_entry_to_instance(layer: str, entry: Dict[str, Any]) -> Dict[str, Any
     return instance
 
 
-def nest_profile_to_instance(colony_id: str, profile: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+def nest_profile_to_instance(affiliation_id: str, profile: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     if "nest_x" not in profile or "nest_y" not in profile:
         return None
     return {
-        "id": str(colony_id),
+        "id": str(affiliation_id),
         "layer": "affiliation_site",
         "type": "affiliation_site",
         "role": "root",
@@ -87,14 +87,14 @@ def collapse_legacy_to_instances(world_data: Dict[str, Any]) -> List[Dict[str, A
         if isinstance(entry, dict):
             instances.append(source_entry_to_instance("spawn", entry))
 
-    profiles = (world_data.get("affiliation") or world_data.get("colony") or {}).get("profiles") or {}
-    for colony_id, profile in profiles.items():
+    profiles = (world_data.get("affiliation") or {}).get("profiles") or {}
+    for affiliation_id, profile in profiles.items():
         if not isinstance(profile, dict):
             continue
-        inst = nest_profile_to_instance(str(colony_id), profile)
+        inst = nest_profile_to_instance(str(affiliation_id), profile)
         if inst is not None:
             instances.append(inst)
-            cid = str(colony_id)
+            cid = str(affiliation_id)
             instances.append(
                 {
                     "id": f"{cid}_access_main",
@@ -126,15 +126,15 @@ def expand_instances_to_legacy(world_data: MutableMapping[str, Any]) -> None:
         if layer not in INSTANCE_LAYERS:
             continue
         if layer in COLONY_PROFILE_LAYERS:
-            colony_id = str(raw.get("id", raw.get("type", "")))
-            if not colony_id:
+            affiliation_id = str(raw.get("id", raw.get("type", "")))
+            if not affiliation_id:
                 continue
             affiliation = world_data.setdefault("affiliation", {})
             profiles = affiliation.setdefault("profiles", {})
-            profile = profiles.setdefault(colony_id, {})
+            profile = profiles.setdefault(affiliation_id, {})
             if not isinstance(profile, dict):
                 profile = {}
-                profiles[colony_id] = profile
+                profiles[affiliation_id] = profile
             profile["nest_x"] = float(raw.get("x", profile.get("nest_x", 0.0)))
             profile["nest_y"] = float(raw.get("y", profile.get("nest_y", 0.0)))
             continue

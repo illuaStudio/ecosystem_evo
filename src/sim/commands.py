@@ -6,7 +6,7 @@ from typing import Any, Literal, Optional, Union
 
 MindApplyMode = Literal["replace", "merge", "reset"]
 CommandSpawnSource = Literal["game", "debug"]
-ColonyCaste = Literal["worker", "soldier", "vanguard", "combat", "queen", "member"]
+AffiliationCaste = Literal["worker", "soldier", "vanguard", "combat", "queen", "member"]
 DirectiveKind = Literal["move_to", "warp_to"]
 
 
@@ -32,20 +32,20 @@ class SetCreatureMind:
 
 @dataclass(frozen=True)
 class SetSpeciesMind:
-    """種名一致の全個体（任意で colony_id 絞り）に mind を適用。"""
+    """種名一致の全個体（任意で affiliation_id 絞り）に mind を適用。"""
 
     species_name: str
     actions: tuple[dict[str, Any], ...] = ()
     mode: MindApplyMode = "replace"
-    colony_id: Optional[str] = None
+    affiliation_id: Optional[str] = None
 
 
 @dataclass(frozen=True)
-class SetColonyCasteMind:
+class SetAffiliationCasteMind:
     """同一コロニー内の種別（働きアリ・兵隊等）全個体に mind を適用。"""
 
-    colony_id: str
-    caste: ColonyCaste
+    affiliation_id: str
+    caste: AffiliationCaste
     actions: tuple[dict[str, Any], ...] = ()
     mode: MindApplyMode = "replace"
 
@@ -80,7 +80,7 @@ SimCommand = Union[
     SpawnCreature,
     SetCreatureMind,
     SetSpeciesMind,
-    SetColonyCasteMind,
+    SetAffiliationCasteMind,
     EnterCreatureShelter,
     IssueCreatureDirective,
     ClearCreatureDirective,

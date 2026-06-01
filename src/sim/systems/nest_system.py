@@ -14,16 +14,16 @@ from src.sim.utils.affiliation_config_helpers import (
     resolve_affiliation_runtime_cfg as _resolve_affiliation_runtime_cfg,
 )
 from src.sim.utils.creature_helpers import (
-    is_point_in_colony_territory,
+    is_point_in_affiliation_territory,
 )
 from src.sim.utils.position_helpers import entity_xy
 from src.sim.utils.field_effect_cache import invalidate_field_effect_cache
 from src.sim.utils.world_object_helpers import (
-    colony_food_ratio,
-    colony_stored_food,
-    get_colony_root,
-    get_creature_colony_root,
-    owner_species_for_colony,
+    affiliation_food_ratio,
+    affiliation_stored_food,
+    get_affiliation_root,
+    get_creature_affiliation_root,
+    owner_species_for_affiliation,
 )
 
 if TYPE_CHECKING:
@@ -44,33 +44,17 @@ def resolve_affiliation_runtime_cfg(world, affiliation_id: str, cfg: dict | None
 
 def is_affiliation_defeated(world, affiliation_id: str) -> bool:
     """互換: defeated 判定は colony の仕組みを流用（world.defeated_affiliations に統合済み）。"""
-    from src.sim.utils.colony_helpers import is_colony_defeated
+    from src.sim.utils.affiliation_group_helpers import is_affiliation_defeated
 
-    return is_colony_defeated(world, affiliation_id)
-
-
-def _sync_legacy_colony(creature, affiliation_id: str, *, defeated: bool = False) -> None:
-    """段階移行用: affiliation の値を legacy colony にも写す（あれば）。"""
-    colony = getattr(creature, "colony", None)
-    if colony is None:
-        try:
-            from src.sim.components.colony import ColonyComponent
-
-            colony = ColonyComponent()
-            creature.colony = colony
-        except Exception:
-            return
-    colony.colony_id = str(affiliation_id) if affiliation_id else None
-    if defeated:
-        colony.defeated = True
+    return is_affiliation_defeated(world, affiliation_id)
 
 
-def _resolve_colony_id(target) -> str:
+def _resolve_affiliation_id(target) -> str:
     if target is None:
         return ""
     if isinstance(target, str):
         return target
-    cid = getattr(target, "colony_id", None)
+    cid = getattr(target, "affiliation_id", None)
     if cid:
         return str(cid)
     oid = getattr(target, "id", None)
@@ -91,12 +75,12 @@ class NestSystem:
 
     @property
     def nests(self) -> dict[str, object]:
-        """後方互換: 非敗北 colony_site を colony_id → root で列挙。"""
-        from src.sim.utils.world_object_helpers import iter_active_colony_roots
+        """後方互換: 非敗北 colony_site を affiliation_id → root で列挙。"""
+        from src.sim.utils.world_object_helpers import iter_active_affiliation_roots
 
-        return {root.id: root for root in iter_active_colony_roots(self.world)}
+        return {root.id: root for root in iter_active_affiliation_roots(self.world)}
 
-    def clear_all_colony_sites(self) -> None:
+    def clear_all_affiliation_sites(self) -> None:
         """テスト用: 全 colony_site / colony_access を削除。"""
         ws = self.world.world_object_system
         ws.objects.clear()
@@ -111,38 +95,34 @@ class NestSystem:
         y: float,
         species_name: str,
         *,
-        colony_id: str | None = None,
+        affiliation_id: str | None = None,
         max_food: float = 400.0,
         stored_food: float = 0.0,
     ):
         """後方互換: colony_site + 既定 access を登録。"""
-        cid = str(colony_id or species_name)
-        self._register_colony_site(
+        cid = str(affiliation_id or species_name)
+        self._register_affiliation_site(
             cid,
             float(x),
             float(y),
             max_food=float(max_food),
             stored_food=float(stored_food),
         )
-        return self.get_colony_root(cid)
+        return self.get_affiliation_root(cid)
 
-    def get_colony_root(self, colony_id: str):
-        return get_colony_root(self.world, colony_id)
+    def get_affiliation_root(self, affiliation_id: str):
+        return get_affiliation_root(self.world, affiliation_id)
 
-    def get_creature_colony_root(self, creature):
-        return get_creature_colony_root(creature)
-
-    def get_colony_nest(self, colony_id: str):
-        """後方互換: colony_site 親 WorldObject。"""
-        return self.get_colony_root(colony_id)
+    def get_creature_affiliation_root(self, creature):
+        return get_creature_affiliation_root(creature)
 
     def get_creature_nest(self, creature):
         """後方互換: 個体の colony_site 親 WorldObject。"""
-        return self.get_creature_colony_root(creature)
+        return self.get_creature_affiliation_root(creature)
 
-    def _register_colony_site(
+    def _register_affiliation_site(
         self,
-        colony_id: str,
+        affiliation_id: str,
         x: float,
         y: float,
         *,
@@ -151,135 +131,135 @@ class NestSystem:
         with_default_access: bool = True,
     ) -> None:
         ws = self.world.world_object_system
-        if not ws.has_colony_root(colony_id):
-            ws.ensure_colony_site(
-                colony_id,
+        if not ws.has_affiliation_root(affiliation_id):
+            ws.ensure_affiliation_site(
+                affiliation_id,
                 x,
                 y,
                 max_food=max_food,
                 stored_food=stored_food,
             )
-            if with_default_access and ws.find_access_at(colony_id, x, y) is None:
-                ws.add_access_point(colony_id, x, y)
+            if with_default_access and ws.find_access_at(affiliation_id, x, y) is None:
+                ws.add_access_point(affiliation_id, x, y)
         invalidate_field_effect_cache(self.world)
         zone_system = getattr(self.world, "zone_system", None)
         if zone_system is not None:
-            root = ws.get(colony_id)
+            root = ws.get(affiliation_id)
             if root is not None:
-                zone_system.sync_colony_clearing(colony_id, root.x, root.y)
+                zone_system.sync_affiliation_clearing(affiliation_id, root.x, root.y)
 
-    def iter_colony_access(self, colony_id: str):
+    def iter_affiliation_access(self, affiliation_id: str):
         ws = self.world.world_object_system
-        if not ws.has_colony_root(colony_id):
+        if not ws.has_affiliation_root(affiliation_id):
             return ()
-        return ws.iter_access_points(colony_id)
+        return ws.iter_access_points(affiliation_id)
 
-    def _iter_colony_access_xy(self, colony_id: str):
+    def _iter_affiliation_access_xy(self, affiliation_id: str):
         ws = self.world.world_object_system
-        if ws.has_colony_root(colony_id):
-            for child in ws.iter_access_points(colony_id):
+        if ws.has_affiliation_root(affiliation_id):
+            for child in ws.iter_access_points(affiliation_id):
                 yield float(child.x), float(child.y)
             return
-        root = get_colony_root(self.world, colony_id)
+        root = get_affiliation_root(self.world, affiliation_id)
         if root is not None:
             yield float(root.x), float(root.y)
 
-    def _colony_access_count(self, colony_id: str) -> int:
+    def _affiliation_access_count(self, affiliation_id: str) -> int:
         ws = self.world.world_object_system
-        if ws.has_colony_root(colony_id):
-            return ws.count_active_access(colony_id)
+        if ws.has_affiliation_root(affiliation_id):
+            return ws.count_active_access(affiliation_id)
         return 0
 
-    def _colony_access_exhausted(self, colony_id: str) -> bool:
+    def _affiliation_access_exhausted(self, affiliation_id: str) -> bool:
         ws = self.world.world_object_system
-        if ws.has_colony_root(colony_id):
-            return ws.count_active_access(colony_id) == 0
+        if ws.has_affiliation_root(affiliation_id):
+            return ws.count_active_access(affiliation_id) == 0
         return True
 
-    def set_colony_stored_food(self, colony_id: str, amount: float) -> None:
+    def set_affiliation_stored_food(self, affiliation_id: str, amount: float) -> None:
         amount = max(0.0, float(amount))
-        root = get_colony_root(self.world, colony_id)
+        root = get_affiliation_root(self.world, affiliation_id)
         if root is None or root.storage is None:
             return
         cap = float(root.storage.max_food)
         root.storage.stored_food = min(amount, cap) if cap > 0 else amount
 
-    def colony_food_ratio(self, colony_id: str) -> float:
-        return colony_food_ratio(self.world, colony_id)
+    def affiliation_food_ratio(self, affiliation_id: str) -> float:
+        return affiliation_food_ratio(self.world, affiliation_id)
 
-    def nest_food_ratio(self, colony_id: str) -> float:
+    def nest_food_ratio(self, affiliation_id: str) -> float:
         """後方互換。"""
-        return self.colony_food_ratio(colony_id)
+        return self.affiliation_food_ratio(affiliation_id)
 
-    def _colony_settings(self) -> dict:
-        return getattr(self.world, "colony_settings", {}) or {}
+    def _affiliation_settings(self) -> dict:
+        return getattr(self.world, "affiliation_settings", {}) or {}
 
-    def add_hole(self, colony_id: str, x: float, y: float) -> None:
+    def add_hole(self, affiliation_id: str, x: float, y: float) -> None:
         x, y = self._clamp_to_world(float(x), float(y))
         cs = self.world.compound_system
-        root = get_colony_root(self.world, colony_id)
+        root = get_affiliation_root(self.world, affiliation_id)
         if root is None:
-            self._register_colony_site(
-                colony_id, x, y, max_food=400.0, stored_food=0.0, with_default_access=False
+            self._register_affiliation_site(
+                affiliation_id, x, y, max_food=400.0, stored_food=0.0, with_default_access=False
             )
-        if cs.find_access_at(colony_id, x, y) is None:
-            cs.add_access_point(colony_id, x, y)
+        if cs.find_access_at(affiliation_id, x, y) is None:
+            cs.add_access_point(affiliation_id, x, y)
         invalidate_field_effect_cache(self.world)
 
     def damage_access(
         self,
         access,
-        colony_id: str,
+        affiliation_id: str,
         amount: float,
         *,
-        attacker_colony_id: str,
+        attacker_affiliation_id: str,
     ) -> float:
         from src.sim.utils.affiliation_group_helpers import (
-            is_affiliation_defeated as is_colony_defeated,
-            is_rival_affiliation as is_rival_colony,
+            is_affiliation_defeated as is_affiliation_defeated,
+            is_rival_affiliation as is_rival_affiliation,
         )
 
-        if access is None or amount <= 0 or not colony_id:
+        if access is None or amount <= 0 or not affiliation_id:
             return 0.0
-        if str(access.parent_id or "") != str(colony_id):
+        if str(access.parent_id or "") != str(affiliation_id):
             return 0.0
-        if is_colony_defeated(self.world, colony_id):
+        if is_affiliation_defeated(self.world, affiliation_id):
             return 0.0
-        if not is_rival_colony(self.world, attacker_colony_id, colony_id):
+        if not is_rival_affiliation(self.world, attacker_affiliation_id, affiliation_id):
             return 0.0
 
-        root = get_colony_root(self.world, colony_id)
+        root = get_affiliation_root(self.world, affiliation_id)
         on_all_removed = None
-        if root is not None and root.is_colony_compound:
-            on_all_removed = self.defeat_colony
+        if root is not None and root.is_affiliation_compound:
+            on_all_removed = self.defeat_affiliation
 
         return self.world.compound_system.damage_access(
             access,
-            colony_id,
+            affiliation_id,
             float(amount),
             on_all_access_removed=on_all_removed,
         )
 
-    def defeat_colony(self, colony_id: str) -> None:
-        if not colony_id:
+    def defeat_affiliation(self, affiliation_id: str) -> None:
+        if not affiliation_id:
             return
-        defeated = getattr(self.world, "defeated_colonies", None)
+        defeated = getattr(self.world, "defeated_affiliations", None)
         if defeated is None:
-            self.world.defeated_colonies = set()
-        if colony_id in self.world.defeated_colonies:
+            self.world.defeated_affiliations = set()
+        if affiliation_id in self.world.defeated_affiliations:
             return
 
-        self.world.compound_system.clear_access_points(colony_id)
+        self.world.compound_system.clear_access_points(affiliation_id)
 
-        self.world.defeated_colonies.add(colony_id)
+        self.world.defeated_affiliations.add(affiliation_id)
 
         from src.sim.shelter.state import clear_creature_shelter, is_creature_sheltered
 
+        from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
+
         for creature in self.world.creatures:
-            colony = getattr(creature, "colony", None)
-            if colony is None or colony.colony_id != colony_id:
+            if get_creature_affiliation_id(creature) != affiliation_id:
                 continue
-            colony.defeated = True
             from src.sim.utils.inventory_helpers import clear_inventory_biomass
 
             clear_inventory_biomass(creature)
@@ -287,40 +267,40 @@ class NestSystem:
                 creature.become_corpse(cause="defeat")
                 clear_creature_shelter(creature)
 
-        message = f"勢力 {colony_id} が敗北しました"
+        message = f"勢力 {affiliation_id} が敗北しました"
         self.world.last_defeat_message = message
-        from src.sim.emitters import emit_colony_defeated
+        from src.sim.emitters import emit_affiliation_defeated
 
-        emit_colony_defeated(self.world, colony_id, message)
+        emit_affiliation_defeated(self.world, affiliation_id, message)
 
-    def can_place_hole(self, colony_id, x: float, y: float) -> tuple[bool, str]:
-        colony_id = _resolve_colony_id(colony_id)
-        if not colony_id or get_colony_root(self.world, colony_id) is None:
+    def can_place_hole(self, affiliation_id, x: float, y: float) -> tuple[bool, str]:
+        affiliation_id = _resolve_affiliation_id(affiliation_id)
+        if not affiliation_id or get_affiliation_root(self.world, affiliation_id) is None:
             return False, "巣が選択されていません"
 
-        cfg = self._colony_settings()
+        cfg = self._affiliation_settings()
         max_access = get_max_access_points(cfg)
-        if self._colony_access_count(colony_id) >= max_access:
+        if self._affiliation_access_count(affiliation_id) >= max_access:
             return False, f"接続点上限 ({max_access} 個)"
 
         x, y = self._clamp_to_world(float(x), float(y))
-        if not is_point_in_colony_territory(self.world, colony_id, x, y):
+        if not is_point_in_affiliation_territory(self.world, affiliation_id, x, y):
             return False, "既存テリトリー外です"
 
         from src.sim.utils.affiliation_group_helpers import is_point_in_rival_territory
 
-        if is_point_in_rival_territory(self.world, colony_id, x, y):
+        if is_point_in_rival_territory(self.world, affiliation_id, x, y):
             return False, "敵テリトリーと重なります"
 
         min_spacing = get_min_access_spacing(cfg)
-        for ax, ay in self._iter_colony_access_xy(colony_id):
+        for ax, ay in self._iter_affiliation_access_xy(affiliation_id):
             if math.hypot(ax - x, ay - y) < min_spacing:
                 return False, f"既存の接続点に近すぎます (要 {min_spacing:.0f}px 以上)"
 
         cost = get_access_food_cost(cfg)
         reserve = get_min_food_reserve(self.world)
         needed = reserve + cost
-        stored = colony_stored_food(self.world, colony_id)
+        stored = affiliation_stored_food(self.world, affiliation_id)
         if stored < needed:
             return (
                 False,
@@ -329,30 +309,30 @@ class NestSystem:
 
         return True, ""
 
-    def try_place_hole(self, colony_id, x: float, y: float) -> tuple[bool, str]:
-        colony_id = _resolve_colony_id(colony_id)
-        ok, reason = self.can_place_hole(colony_id, x, y)
+    def try_place_hole(self, affiliation_id, x: float, y: float) -> tuple[bool, str]:
+        affiliation_id = _resolve_affiliation_id(affiliation_id)
+        ok, reason = self.can_place_hole(affiliation_id, x, y)
         if not ok:
             return False, reason
 
-        cost = get_access_food_cost(self._colony_settings())
-        root = get_colony_root(self.world, colony_id)
+        cost = get_access_food_cost(self._affiliation_settings())
+        root = get_affiliation_root(self.world, affiliation_id)
         if root is not None and root.storage is not None:
             root.storage.stored_food = max(0.0, root.storage.stored_food - cost)
-        self.add_hole(colony_id, x, y)
+        self.add_hole(affiliation_id, x, y)
         return True, "接続点を設置しました"
 
-    def _nearest_access_xy(self, colony_id: str, x: float, y: float) -> tuple[float, float]:
+    def _nearest_access_xy(self, affiliation_id: str, x: float, y: float) -> tuple[float, float]:
         best = None
         best_d = float("inf")
-        for ax, ay in self._iter_colony_access_xy(colony_id):
+        for ax, ay in self._iter_affiliation_access_xy(affiliation_id):
             d = (ax - x) ** 2 + (ay - y) ** 2
             if d < best_d:
                 best_d = d
                 best = (ax, ay)
         if best is not None:
             return best
-        root = get_colony_root(self.world, colony_id)
+        root = get_affiliation_root(self.world, affiliation_id)
         if root is not None:
             return float(root.x), float(root.y)
         return x, y
@@ -372,18 +352,18 @@ class NestSystem:
 
         from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
 
-        colony_id = get_creature_affiliation_id(creature)
-        if not colony_id:
+        affiliation_id = get_creature_affiliation_id(creature)
+        if not affiliation_id:
             return entity_xy(creature)
         cx, cy = entity_xy(creature)
-        return self._nearest_access_xy(colony_id, cx, cy)
+        return self._nearest_access_xy(affiliation_id, cx, cy)
 
-    def find_colony_at(self, x: float, y: float, pick_radius: float = 36.0) -> str | None:
-        from src.sim.utils.world_object_helpers import iter_active_colony_roots
+    def find_affiliation_at(self, x: float, y: float, pick_radius: float = 36.0) -> str | None:
+        from src.sim.utils.world_object_helpers import iter_active_affiliation_roots
 
         best_id = None
         min_dist = float("inf")
-        for root in iter_active_colony_roots(self.world):
+        for root in iter_active_affiliation_roots(self.world):
             tx, ty = self._nearest_access_xy(root.id, x, y)
             dist = math.hypot(tx - x, ty - y)
             if dist <= pick_radius and dist < min_dist:
@@ -393,19 +373,19 @@ class NestSystem:
 
     def find_nest_at(self, x: float, y: float, pick_radius: float = 36.0):
         """後方互換: colony_site 親 WorldObject。"""
-        colony_id = self.find_colony_at(x, y, pick_radius)
-        if colony_id is None:
+        affiliation_id = self.find_affiliation_at(x, y, pick_radius)
+        if affiliation_id is None:
             return None
-        return get_colony_root(self.world, colony_id)
+        return get_affiliation_root(self.world, affiliation_id)
 
-    def find_nearest_colony_root(
+    def find_nearest_affiliation_root(
         self,
         x: float,
         y: float,
-        colony_id: str,
+        affiliation_id: str,
         max_dist: float,
     ):
-        root = get_colony_root(self.world, colony_id)
+        root = get_affiliation_root(self.world, affiliation_id)
         if root is None:
             return None
         dist = math.hypot(root.x - x, root.y - y)
@@ -413,23 +393,23 @@ class NestSystem:
             return root
         return None
 
-    def find_nearest_nest(self, x: float, y: float, colony_id: str, max_dist: float):
+    def find_nearest_nest(self, x: float, y: float, affiliation_id: str, max_dist: float):
         """後方互換。"""
-        return self.find_nearest_colony_root(x, y, colony_id, max_dist)
+        return self.find_nearest_affiliation_root(x, y, affiliation_id, max_dist)
 
-    def spawn_position(self, species_name: str, colony_cfg: dict | None = None) -> tuple[float, float]:
+    def spawn_position(self, species_name: str, affiliation_cfg: dict | None = None) -> tuple[float, float]:
         from src.sim.utils.spawn_placement import (
             SpawnAnchor,
             SpawnPlacementOptions,
             SpawnPlacementResolver,
         )
 
-        cfg = colony_cfg or {}
+        cfg = affiliation_cfg or {}
         affiliation_id = resolve_affiliation_id(species_name, cfg)
         runtime_cfg = resolve_affiliation_runtime_cfg(self.world, affiliation_id, cfg)
         spread = float(runtime_cfg["spawn_spread"])
         resolver = SpawnPlacementResolver(self.world)
-        anchor = SpawnAnchor(type="nest", colony_id=affiliation_id, spread=spread)
+        anchor = SpawnAnchor(type="nest", affiliation_id=affiliation_id, spread=spread)
         pos = resolver.pick(
             anchor,
             SpawnPlacementOptions(
@@ -473,41 +453,36 @@ class NestSystem:
 
         cfg = affiliation_cfg or {}
         species_name = creature.species.name
-        single_affiliation = cfg.get("single_affiliation", cfg.get("single_colony", True))
+        single_affiliation = cfg.get("single_affiliation", cfg.get("single_affiliation", True))
         affiliation_id = resolve_affiliation_id(species_name, cfg)
         join_species = cfg.get("join_species")
 
-        from src.sim.utils.affiliation_group_helpers import is_affiliation_defeated as is_colony_defeated
+        from src.sim.utils.affiliation_group_helpers import is_affiliation_defeated as is_affiliation_defeated
 
         if affiliation_id and is_affiliation_defeated(self.world, affiliation_id):
             affiliation.affiliation_id = str(affiliation_id)
-            _sync_legacy_colony(creature, affiliation_id, defeated=True)
             return
 
         ws = self.world.world_object_system
-        if single_affiliation and ws.has_colony_root(affiliation_id):
+        if single_affiliation and ws.has_affiliation_root(affiliation_id):
             affiliation.affiliation_id = str(affiliation_id)
-            _sync_legacy_colony(creature, affiliation_id)
             return
 
         if not single_affiliation:
             cx, cy = entity_xy(creature)
             join_radius = float(cfg.get("join_radius", self.DEFAULT_JOIN_RADIUS))
-            root = self.find_nearest_colony_root(cx, cy, affiliation_id, join_radius)
+            root = self.find_nearest_affiliation_root(cx, cy, affiliation_id, join_radius)
             if root is not None:
                 affiliation.affiliation_id = str(affiliation_id)
-                _sync_legacy_colony(creature, affiliation_id)
                 return
 
         if join_species is not None:
-            # join 種は新規拠点を作らないが、所属 ID 自体は確定させる
             affiliation.affiliation_id = str(affiliation_id) if affiliation_id else None
-            _sync_legacy_colony(creature, affiliation_id)
             return
 
         cx, cy = entity_xy(creature)
         runtime_cfg = resolve_affiliation_runtime_cfg(self.world, affiliation_id, cfg)
-        self._register_colony_site(
+        self._register_affiliation_site(
             affiliation_id,
             cx,
             cy,
@@ -515,25 +490,24 @@ class NestSystem:
             stored_food=float(runtime_cfg["initial_stored_food"]),
         )
         affiliation.affiliation_id = str(affiliation_id)
-        _sync_legacy_colony(creature, affiliation_id)
 
     def update(self, dt: float = 1.0) -> None:
         dt = float(dt)
         self._sim_time += dt
-        from src.sim.utils.world_object_helpers import iter_active_colony_roots
+        from src.sim.utils.world_object_helpers import iter_active_affiliation_roots
 
-        for root in iter_active_colony_roots(self.world):
+        for root in iter_active_affiliation_roots(self.world):
             if root.storage is None:
                 continue
             runtime_cfg = resolve_affiliation_runtime_cfg(self.world, root.id, {})
             if root.storage.stored_food > 0:
                 self._leak_food_storage(root.storage, runtime_cfg, dt)
 
-    def _leak_food_storage(self, storage, colony_cfg: dict, dt: float) -> None:
-        if not colony_cfg:
+    def _leak_food_storage(self, storage, affiliation_cfg: dict, dt: float) -> None:
+        if not affiliation_cfg:
             return
-        leak_per_tick = float(colony_cfg["food_leak_per_tick"])
-        reserve_ratio = float(colony_cfg["food_leak_reserve_ratio"])
+        leak_per_tick = float(affiliation_cfg["food_leak_per_tick"])
+        reserve_ratio = float(affiliation_cfg["food_leak_reserve_ratio"])
         if leak_per_tick <= 0:
             return
         reserve = storage.max_food * reserve_ratio
@@ -542,11 +516,11 @@ class NestSystem:
             return
         storage.stored_food = max(reserve, storage.stored_food - leak_per_tick * dt)
 
-    def try_consume_food(self, colony_id, amount: float) -> bool:
-        colony_id = _resolve_colony_id(colony_id)
-        if not colony_id or amount <= 0:
+    def try_consume_food(self, affiliation_id, amount: float) -> bool:
+        affiliation_id = _resolve_affiliation_id(affiliation_id)
+        if not affiliation_id or amount <= 0:
             return False
-        root = get_colony_root(self.world, colony_id)
+        root = get_affiliation_root(self.world, affiliation_id)
         if root is None or root.storage is None:
             return False
         if root.storage.stored_food < amount:
@@ -554,12 +528,12 @@ class NestSystem:
         root.storage.withdraw(amount)
         return True
 
-    def count_colony_members(self, colony_id, species_names: list[str]) -> int:
-        colony_id = _resolve_colony_id(colony_id)
-        if not colony_id:
+    def count_affiliation_members(self, affiliation_id, species_names: list[str]) -> int:
+        affiliation_id = _resolve_affiliation_id(affiliation_id)
+        if not affiliation_id:
             return 0
         if not species_names:
-            return self.total_member_count(colony_id)
+            return self.total_member_count(affiliation_id)
         names = set(species_names)
         count = 0
         for c in self.world.creatures:
@@ -568,7 +542,7 @@ class NestSystem:
             if c.species.name not in names:
                 continue
             aff = getattr(c, "affiliation", None)
-            if aff is not None and str(getattr(aff, "affiliation_id", "") or "") == colony_id:
+            if aff is not None and str(getattr(aff, "affiliation_id", "") or "") == affiliation_id:
                 count += 1
         return count
 
@@ -580,8 +554,8 @@ class NestSystem:
     def is_at_nest(self, creature, deposit_radius: float) -> bool:
         return self.distance_to_nest(creature) <= deposit_radius
 
-    def deposit_space(self, colony_id: str) -> float:
-        root = get_colony_root(self.world, colony_id)
+    def deposit_space(self, affiliation_id: str) -> float:
+        root = get_affiliation_root(self.world, affiliation_id)
         if root is None or root.storage is None:
             return 0.0
         return max(0.0, root.storage.max_food - root.storage.stored_food)
@@ -600,11 +574,11 @@ class NestSystem:
         if get_creature_nest_parent_ids(creature):
             return deposit_carried_to_parent(creature)
 
-        colony_id = get_creature_affiliation_id(creature)
-        if not colony_id:
+        affiliation_id = get_creature_affiliation_id(creature)
+        if not affiliation_id:
             return 0.0
 
-        root = get_colony_root(self.world, colony_id)
+        root = get_affiliation_root(self.world, affiliation_id)
         if root is None or root.storage is None:
             return 0.0
 
@@ -633,8 +607,8 @@ class NestSystem:
                 feed_per_tick=feed_per_tick,
             )
 
-        colony_id = get_creature_affiliation_id(creature)
-        root = get_colony_root(self.world, colony_id) if colony_id else None
+        affiliation_id = get_creature_affiliation_id(creature)
+        root = get_affiliation_root(self.world, affiliation_id) if affiliation_id else None
         if root is None or root.storage is None:
             return 0.0
         if root.storage.stored_food <= 0:
@@ -655,21 +629,21 @@ class NestSystem:
         )
         return take
 
-    def member_count(self, colony_id, species_name: str) -> int:
-        return self.count_colony_members(_resolve_colony_id(colony_id), [species_name])
+    def member_count(self, affiliation_id, species_name: str) -> int:
+        return self.count_affiliation_members(_resolve_affiliation_id(affiliation_id), [species_name])
 
-    def total_member_count(self, colony_id) -> int:
-        colony_id = _resolve_colony_id(colony_id)
-        if not colony_id:
+    def total_member_count(self, affiliation_id) -> int:
+        affiliation_id = _resolve_affiliation_id(affiliation_id)
+        if not affiliation_id:
             return 0
         count = 0
         for c in self.world.creatures:
             if not getattr(c, "alive", True):
                 continue
             aff = getattr(c, "affiliation", None)
-            if aff is not None and str(getattr(aff, "affiliation_id", "") or "") == colony_id:
+            if aff is not None and str(getattr(aff, "affiliation_id", "") or "") == affiliation_id:
                 count += 1
         return count
 
-    def owner_species_for_colony(self, colony_id: str) -> str:
-        return owner_species_for_colony(self.world, colony_id)
+    def owner_species_for_affiliation(self, affiliation_id: str) -> str:
+        return owner_species_for_affiliation(self.world, affiliation_id)

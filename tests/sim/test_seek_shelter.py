@@ -75,7 +75,7 @@ class TestSeekShelter(unittest.TestCase):
         world.add_creature(spider)
 
         nest = world.nest_system.get_creature_nest(ant)
-        access = primary_access(world, nest.colony_id)
+        access = primary_access(world, nest.affiliation_id)
         spider.position.x = access.x
         spider.position.y = access.y
 
@@ -105,9 +105,9 @@ class TestSeekShelter(unittest.TestCase):
         enter_creature_shelter(worker, ref)
 
         nest = world.nest_system.get_creature_nest(worker)
-        access = primary_access(world, nest.colony_id)
+        access = primary_access(world, nest.affiliation_id)
         damage_colony_access(
-            world, nest.colony_id, access, 500, attacker_colony_id="blue_ant"
+            world, nest.affiliation_id, access, 500, attacker_affiliation_id="blue_ant"
         )
 
         self.assertLessEqual(worker.hp, 0.0)

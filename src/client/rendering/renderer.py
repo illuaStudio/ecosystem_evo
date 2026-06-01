@@ -56,7 +56,7 @@ class Renderer:
         creatures,
         camera,
         selected_creature,
-        selected_colony_id,
+        selected_affiliation_id,
         paused,
         show_debug=False,
         map_view_mode="biome",
@@ -64,7 +64,7 @@ class Renderer:
         show_sheltered=False,
         user_message: str = "",
         message_feed=None,
-        player_colony_id: str = "",
+        player_affiliation_id: str = "",
         game_state=None,
         species_visibility: SpeciesVisibilityManager | None = None,
     ):
@@ -77,27 +77,27 @@ class Renderer:
         self._draw_background(world, camera, map_view_mode)
 
         if world is not None:
-            colony_id = selected_colony_id
+            affiliation_id = selected_affiliation_id
             NestRenderer.draw_territories(
                 world,
                 self.screen,
                 camera,
                 show_territory=show_territory,
-                selected_colony_id=colony_id,
+                selected_affiliation_id=affiliation_id,
             )
-            NestRenderer.draw(world, self.screen, camera, colony_id)
+            NestRenderer.draw(world, self.screen, camera, affiliation_id)
             ZoneRenderer.draw(world, self.screen, camera)
             ObstacleRenderer.draw(world, self.screen, camera)
             SpawnEmitterRenderer.draw(world, self.screen, camera)
-            if show_territory and colony_id is not None:
+            if show_territory and affiliation_id is not None:
                 import pygame as _pg
 
                 mx, my = _pg.mouse.get_pos()
-                NestRenderer.draw_colony_access_placement_preview(
+                NestRenderer.draw_affiliation_access_placement_preview(
                     world,
                     self.screen,
                     camera,
-                    colony_id,
+                    affiliation_id,
                     mx + camera.x,
                     my + camera.y,
                 )
@@ -144,7 +144,7 @@ class Renderer:
                 world, camera, selected_creature, species_visibility
             )
 
-        has_selection = selected_creature is not None or selected_colony_id is not None
+        has_selection = selected_creature is not None or selected_affiliation_id is not None
         self._draw_hud_panels(has_selection=has_selection, show_debug=show_debug)
 
         if selected_creature:
@@ -187,28 +187,29 @@ class Renderer:
                     f"バイオーム: {biome.get('display_name', biome.get('name', '?'))}"
                 )
 
-            colony = getattr(sc, "colony", None)
-            if colony is not None and world is not None and colony.colony_id:
-                cid = colony.colony_id
-                root = world.nest_system.get_colony_root(cid)
+            from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
+
+            cid = get_creature_affiliation_id(sc)
+            if cid and world is not None:
+                root = world.nest_system.get_affiliation_root(cid)
                 if root is not None and root.storage is not None:
                     texts.append(
                         f"コロニー {cid}: 食料 "
                         f"{root.storage.stored_food:.0f}/{root.storage.max_food:.0f}"
                     )
                     texts.append(
-                        f"  備蓄率 {world.nest_system.colony_food_ratio(cid) * 100:.0f}%"
+                        f"  備蓄率 {world.nest_system.affiliation_food_ratio(cid) * 100:.0f}%"
                     )
                     texts.append(
                         f"コロニー: {world.nest_system.total_member_count(cid)} 匹"
                     )
-                    from src.sim.utils.territory_helpers import get_territory_radius_for_colony
-                    from src.sim.utils.world_object_helpers import colony_access_count
+                    from src.sim.utils.territory_helpers import get_territory_radius_for_affiliation
+                    from src.sim.utils.world_object_helpers import affiliation_access_count
 
-                    access_n = colony_access_count(world, cid)
+                    access_n = affiliation_access_count(world, cid)
                     texts.append(
                         f"勢力 {cid} | テリトリー半径 "
-                        f"{get_territory_radius_for_colony(world, cid):.0f} px | 接続点 {access_n}"
+                        f"{get_territory_radius_for_affiliation(world, cid):.0f} px | 接続点 {access_n}"
                     )
                 carry_line = format_carry_status(sc)
                 if carry_line is not None:
@@ -252,8 +253,8 @@ class Renderer:
                 self.screen.blit(self.small_font.render(text, True, (255, 255, 255)), (15, y))
                 y += 24
 
-        elif selected_colony_id is not None and world is not None:
-            y = self._draw_colony_detail_panel(selected_colony_id, world, y=130)
+        elif selected_affiliation_id is not None and world is not None:
+            y = self._draw_affiliation_detail_panel(selected_affiliation_id, world, y=130)
 
         status = "【PAUSED】" if paused else "実行中"
         self.screen.blit(
@@ -285,8 +286,8 @@ class Renderer:
 
         if world is not None:
             self._draw_population_panel(world)
-            if player_colony_id:
-                self._draw_queen_status_panel(world, player_colony_id, game_state)
+            if player_affiliation_id:
+                self._draw_queen_status_panel(world, player_affiliation_id, game_state)
             if species_visibility is not None:
                 self._draw_visibility_panel(world, species_visibility, creatures)
 
@@ -376,11 +377,11 @@ class Renderer:
             self.screen.blit(surf, (x, y))
             y += surf.get_height() + 4
 
-    def _draw_queen_status_panel(self, world, player_colony_id: str, game_state) -> None:
+    def _draw_queen_status_panel(self, world, player_affiliation_id: str, game_state) -> None:
         """右上（個体数パネル下）: プレイヤー女王の状態。"""
         from src.client.queen_status import build_queen_panel_lines
 
-        lines = build_queen_panel_lines(world, player_colony_id, game_state)
+        lines = build_queen_panel_lines(world, player_affiliation_id, game_state)
         if not lines:
             return
 
@@ -531,29 +532,29 @@ class Renderer:
         label = font.render("TARGET", True, (255, 220, 160))
         self.screen.blit(label, (sx - 22, sy - size - 32))
 
-    def _draw_colony_detail_panel(self, colony_id: str, world, y: int = 130) -> int:
+    def _draw_affiliation_detail_panel(self, affiliation_id: str, world, y: int = 130) -> int:
         """選択中のコロニー詳細 HUD。戻り値は次の描画 Y。"""
-        from src.sim.utils.colony_config_helpers import (
-            get_colony_profile,
+        from src.sim.utils.affiliation_config_helpers import (
+            get_affiliation_profile,
             get_access_food_cost,
             get_max_access_points,
         )
         from src.sim.utils.world_object_helpers import (
-            colony_access_count,
-            colony_food_ratio,
-            colony_site_xy,
-            colony_stored_food,
-            colony_max_food,
-            get_colony_root,
-            owner_species_for_colony,
+            affiliation_access_count,
+            affiliation_food_ratio,
+            affiliation_site_xy,
+            affiliation_stored_food,
+            affiliation_max_food,
+            get_affiliation_root,
+            owner_species_for_affiliation,
         )
 
         ns = world.nest_system
-        total = ns.total_member_count(colony_id)
-        root = get_colony_root(world, colony_id)
+        total = ns.total_member_count(affiliation_id)
+        root = get_affiliation_root(world, affiliation_id)
 
         leak_per_tick = float(
-            get_colony_profile(world, colony_id).get("food_leak_per_tick", 0)
+            get_affiliation_profile(world, affiliation_id).get("food_leak_per_tick", 0)
         )
 
         self.screen.blit(
@@ -561,18 +562,18 @@ class Renderer:
         )
         y += 35
 
-        colony_world = getattr(world, "colony_settings", {}) or {}
+        colony_world = getattr(world, "affiliation_settings", {}) or {}
         access_cost = get_access_food_cost(colony_world)
         max_access = get_max_access_points(colony_world)
-        access_count = colony_access_count(world, colony_id)
-        sx, sy = colony_site_xy(world, colony_id)
-        owner = owner_species_for_colony(world, colony_id)
-        stored = colony_stored_food(world, colony_id)
-        cap = colony_max_food(world, colony_id)
-        ratio = colony_food_ratio(world, colony_id)
+        access_count = affiliation_access_count(world, affiliation_id)
+        sx, sy = affiliation_site_xy(world, affiliation_id)
+        owner = owner_species_for_affiliation(world, affiliation_id)
+        stored = affiliation_stored_food(world, affiliation_id)
+        cap = affiliation_max_food(world, affiliation_id)
+        ratio = affiliation_food_ratio(world, affiliation_id)
 
         texts = [
-            f"勢力:{colony_id}  種:{owner}",
+            f"勢力:{affiliation_id}  種:{owner}",
             f"位置: ({sx:.0f}, {sy:.0f})",
             f"接続点: {access_count}/{max_access}  (H:カーソルに設置 / 費用 {access_cost:.0f})",
             f"食料: {stored:.1f} / {cap:.0f}",

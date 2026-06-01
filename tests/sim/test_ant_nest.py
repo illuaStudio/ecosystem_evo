@@ -16,12 +16,12 @@ from tests.sim.legacy_corpse_helpers import use_legacy_corpse_on_death
 from src.config import config
 from src.sim.utils.creature_helpers import distance_to_point
 from src.sim.utils.position_helpers import entity_xy
-from src.sim.utils.affiliation_config_helpers import get_affiliation_profile as get_colony_profile, get_min_food_reserve
+from src.sim.utils.affiliation_config_helpers import get_affiliation_profile as get_affiliation_profile, get_min_food_reserve
 from tests.sim.world_fixtures import (
     RED_ANT_PROFILE,
     affiliation_settings,
     load_test_world,
-    set_colony_stored_food,
+    set_affiliation_stored_food,
 )
 
 
@@ -74,17 +74,17 @@ class TestAntNest(unittest.TestCase):
 
     def test_initial_predators_spawn_near_nest_anchor(self):
         world = World()
-        colony_cfg = config.get_species("red_ant").get("colony", {})
-        from src.sim.utils.colony_config_helpers import get_colony_profile
+        affiliation_cfg = config.get_species("red_ant").get("affiliation", {})
+        from src.sim.utils.affiliation_config_helpers import get_affiliation_profile
 
-        profile = get_colony_profile(world, "red_ant")
+        profile = get_affiliation_profile(world, "red_ant")
         anchor_x = float(profile.get("nest_x", world.width * 0.5))
         anchor_y = float(profile.get("nest_y", world.height * 0.5))
-        spread = float(profile.get("spawn_spread", colony_cfg.get("spawn_spread", 28)))
+        spread = float(profile.get("spawn_spread", affiliation_cfg.get("spawn_spread", 28)))
 
         preds = [c for c in world.creatures if c.species.name == "red_ant"]
         self.assertGreaterEqual(len(preds), 1)
-        nest = world.nest_system.get_colony_nest("red_ant")
+        nest = world.nest_system.get_affiliation_root("red_ant")
         self.assertIsNotNone(nest)
         for p in preds:
             px, py = entity_xy(p)
@@ -94,14 +94,14 @@ class TestAntNest(unittest.TestCase):
     def test_nest_spawn_position_uses_existing_nest(self):
         world = World()
         factory = CreatureFactory()
-        colony_cfg = config.get_species("red_ant").get("colony", {})
+        affiliation_cfg = config.get_species("red_ant").get("affiliation", {})
         first = factory.create("red_ant", world=world, x=300, y=300)
         world.add_creature(first)
         nest = world.nest_system.get_creature_nest(first)
 
-        x, y = world.nest_system.spawn_position("red_ant", colony_cfg)
+        x, y = world.nest_system.spawn_position("red_ant", affiliation_cfg)
         dist = distance_to_point(type("_P", (), {"pos": [x, y]})(), nest.x, nest.y)
-        spread = float(colony_cfg.get("spawn_spread", 28))
+        spread = float(affiliation_cfg.get("spawn_spread", 28))
         self.assertLessEqual(dist, spread + 1)
 
     def test_p_spawn_joins_existing_nest(self):
@@ -111,14 +111,14 @@ class TestAntNest(unittest.TestCase):
         world.add_creature(first)
         from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
 
-        colony_id = get_creature_affiliation_id(first)
+        affiliation_id = get_creature_affiliation_id(first)
 
         second = factory.create("red_ant", world=world, x=900, y=900)
         world.add_creature(second)
-        self.assertEqual(get_creature_affiliation_id(second), colony_id)
+        self.assertEqual(get_creature_affiliation_id(second), affiliation_id)
         self.assertEqual(len(world.nest_system.nests), 1)
 
-    def test_new_nest_gets_initial_stored_food_from_colony_cfg(self):
+    def test_new_nest_gets_initial_stored_food_from_affiliation_cfg(self):
         world = load_test_world(
             name="Test",
             affiliation=affiliation_settings(profiles={}, affiliation_species={}),
@@ -145,7 +145,7 @@ class TestAntNest(unittest.TestCase):
         world.nest_system.assign_creature(
             ant,
             {
-                "single_colony": True,
+                "single_affiliation": True,
                 "max_food": 80.0,
                 "initial_stored_food": 999.0,
             },
@@ -171,7 +171,7 @@ class TestAntNest(unittest.TestCase):
         )
         from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
 
-        self.assertEqual(get_creature_affiliation_id(second), nest.colony_id)
+        self.assertEqual(get_creature_affiliation_id(second), nest.affiliation_id)
         self.assertAlmostEqual(nest.stored_food, 50.0)
 
     def test_hunt_pickup_and_deposit_increases_nest_storage(self):
@@ -216,7 +216,7 @@ class TestAntNest(unittest.TestCase):
         preds = self._spawn_predators(world, 1)
         predator = preds[0]
         nest = world.nest_system.get_creature_nest(predator)
-        set_colony_stored_food(world, nest.colony_id, 200.0)
+        set_affiliation_stored_food(world, nest.affiliation_id, 200.0)
         predator.satiety = predator.max_satiety * 0.2
 
         before = hunger_ratio(predator)
@@ -235,9 +235,9 @@ class TestAntNest(unittest.TestCase):
         preds = self._spawn_predators(world, 1)
         nest = world.nest_system.get_creature_nest(preds[0])
         reserve = nest.max_food * float(
-            get_colony_profile(world, "red_ant")["food_leak_reserve_ratio"]
+            get_affiliation_profile(world, "red_ant")["food_leak_reserve_ratio"]
         )
-        set_colony_stored_food(world, "red_ant", reserve + 500.0)
+        set_affiliation_stored_food(world, "red_ant", reserve + 500.0)
         food_before = nest.stored_food
 
         dt = 10.0
@@ -246,7 +246,7 @@ class TestAntNest(unittest.TestCase):
             world.nest_system.update(dt)
 
         self.assertLess(nest.stored_food, food_before)
-        leak_per_tick = float(get_colony_profile(world, "red_ant")["food_leak_per_tick"])
+        leak_per_tick = float(get_affiliation_profile(world, "red_ant")["food_leak_per_tick"])
         expected = reserve + 500.0 - ticks * leak_per_tick * dt
         self.assertAlmostEqual(nest.stored_food, max(reserve, expected))
 
@@ -255,7 +255,7 @@ class TestAntNest(unittest.TestCase):
         for c in list(world.creatures):
             if c.species.name == "red_ant":
                 world.remove_creature(c)
-        world.nest_system.clear_all_colony_sites()
+        world.nest_system.clear_all_affiliation_sites()
         preds = self._spawn_predators(world, 3)
         nest = world.nest_system.get_creature_nest(preds[0])
         nest.stored_food = 200.0
@@ -285,7 +285,7 @@ class TestAntNest(unittest.TestCase):
 
         profile = MindPolicy().get_profile("workers_only") or {}
         for action in profile.get("actions", []):
-            if action.get("name") == "ColonyReproduceAction":
+            if action.get("name") == "AffiliationReproduceAction":
                 return dict(action.get("params", {}))
         return {}
 
@@ -294,12 +294,12 @@ class TestAntNest(unittest.TestCase):
         queen, nest, _ = self._spawn_colony(world, workers=0)
         params = self._reproduce_params()
         cost = _repro_food_cost(params)
-        from src.sim.utils.colony_config_helpers import get_colony_profile, get_min_food_reserve
+        from src.sim.utils.affiliation_config_helpers import get_affiliation_profile, get_min_food_reserve
 
         reserve = get_min_food_reserve(world)
 
-        set_colony_stored_food(world, nest.colony_id, reserve + cost + 10)
-        members_before = world.nest_system.count_colony_members(
+        set_affiliation_stored_food(world, nest.affiliation_id, reserve + cost + 10)
+        members_before = world.nest_system.count_affiliation_members(
             nest.id, _repro_member_species(params)
         )
         food_before = nest.stored_food
@@ -310,13 +310,13 @@ class TestAntNest(unittest.TestCase):
             queen.position.x = nest.x
             queen.position.y = nest.y
 
-        from src.sim.ai.actions import ColonyReproduceAction
+        from src.sim.ai.actions import AffiliationReproduceAction
 
-        action = ColonyReproduceAction(**{**params, "spawn_cooldown": 0})
+        action = AffiliationReproduceAction(**{**params, "spawn_cooldown": 0})
         self.assertTrue(action.execute(queen))
 
         self.assertEqual(
-            world.nest_system.count_colony_members(nest.id, _repro_member_species(params)),
+            world.nest_system.count_affiliation_members(nest.id, _repro_member_species(params)),
             members_before + 1,
         )
         self.assertAlmostEqual(nest.stored_food, food_before - cost)
@@ -324,13 +324,13 @@ class TestAntNest(unittest.TestCase):
     def test_spawn_worker_blocked_at_max_workers(self):
         world = self._empty_world()
         params = self._reproduce_params()
-        max_members = int(params["max_colony_members"])
+        max_members = int(params["max_affiliation_members"])
         queen, nest, _ = self._spawn_colony(world, workers=max_members)
         nest.stored_food = nest.max_food
 
-        from src.sim.ai.actions import ColonyReproduceAction
+        from src.sim.ai.actions import AffiliationReproduceAction
 
-        action = ColonyReproduceAction(**{**params, "spawn_cooldown": 0})
+        action = AffiliationReproduceAction(**{**params, "spawn_cooldown": 0})
         self.assertFalse(action.can_execute(queen))
 
     def test_spawn_worker_blocked_below_min_reserve(self):
@@ -338,15 +338,15 @@ class TestAntNest(unittest.TestCase):
         queen, nest, _ = self._spawn_colony(world, workers=0)
         params = self._reproduce_params()
         cost = _repro_food_cost(params)
-        from src.sim.utils.colony_config_helpers import get_colony_profile, get_min_food_reserve
+        from src.sim.utils.affiliation_config_helpers import get_affiliation_profile, get_min_food_reserve
 
         reserve = get_min_food_reserve(world)
 
         nest.stored_food = reserve + cost - 1
 
-        from src.sim.ai.actions import ColonyReproduceAction
+        from src.sim.ai.actions import AffiliationReproduceAction
 
-        action = ColonyReproduceAction(**{**params, "spawn_cooldown": 0})
+        action = AffiliationReproduceAction(**{**params, "spawn_cooldown": 0})
         self.assertFalse(action.can_execute(queen))
 
     def test_hunt_utility_positive_when_satiated_regardless_of_nest_fill(self):
@@ -445,7 +445,7 @@ class TestAntNest(unittest.TestCase):
         queen, nest, _ = self._spawn_colony(world, workers=0)
         params = self._reproduce_params()
         cost = _repro_food_cost(params)
-        from src.sim.utils.colony_config_helpers import get_colony_profile, get_min_food_reserve
+        from src.sim.utils.affiliation_config_helpers import get_affiliation_profile, get_min_food_reserve
 
         reserve = get_min_food_reserve(world)
         nest.stored_food = reserve + cost + 50
@@ -456,15 +456,15 @@ class TestAntNest(unittest.TestCase):
             queen.position.x = nest.x
             queen.position.y = nest.y
 
-        from src.sim.ai.actions import ColonyReproduceAction
+        from src.sim.ai.actions import AffiliationReproduceAction
 
-        action = ColonyReproduceAction(**{**params, "spawn_cooldown": 0})
-        members_before = world.nest_system.count_colony_members(
+        action = AffiliationReproduceAction(**{**params, "spawn_cooldown": 0})
+        members_before = world.nest_system.count_affiliation_members(
             nest.id, _repro_member_species(params)
         )
         self.assertTrue(action.execute(queen))
         self.assertEqual(
-            world.nest_system.count_colony_members(nest.id, _repro_member_species(params)),
+            world.nest_system.count_affiliation_members(nest.id, _repro_member_species(params)),
             members_before + 1,
         )
 
@@ -484,13 +484,13 @@ class TestAntNest(unittest.TestCase):
         world = self._empty_world()
         queen, nest, _ = self._spawn_colony(world, workers=0)
         params = self._reproduce_params()
-        from src.sim.utils.colony_config_helpers import get_colony_profile, get_min_food_reserve
+        from src.sim.utils.affiliation_config_helpers import get_affiliation_profile, get_min_food_reserve
 
         needed = get_min_food_reserve(world) + _repro_food_cost(params)
 
-        from src.sim.ai.actions import ColonyReproduceAction
+        from src.sim.ai.actions import AffiliationReproduceAction
 
-        action = ColonyReproduceAction(**params)
+        action = AffiliationReproduceAction(**params)
 
         nest.stored_food = needed - 1
         ok, msg = action.reproduction_readiness(queen)
@@ -507,7 +507,7 @@ class TestAntNest(unittest.TestCase):
         preds = self._spawn_predators(world, 1)
         ant = preds[0]
         nest = world.nest_system.get_creature_nest(ant)
-        set_colony_stored_food(world, nest.colony_id, nest.max_food)
+        set_affiliation_stored_food(world, nest.affiliation_id, nest.max_food)
 
         ant.inventory.slots[0].item = BiomassItem(amount=42.0)
         px, py = entity_xy(ant)

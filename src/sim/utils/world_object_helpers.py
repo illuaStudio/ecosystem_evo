@@ -26,17 +26,17 @@ def get_compound_root(world, compound_id: str):
     return None
 
 
-def get_colony_root(world, colony_id: str):
+def get_affiliation_root(world, affiliation_id: str):
     """colony_site 親 WorldObject（存在しなければ None）。"""
-    if world is None or not colony_id:
+    if world is None or not affiliation_id:
         return None
-    defeated = getattr(world, "defeated_affiliations", None) or getattr(world, "defeated_colonies", None) or set()
-    if str(colony_id) in defeated:
+    defeated = getattr(world, "defeated_affiliations", None) or getattr(world, "defeated_affiliations", None) or set()
+    if str(affiliation_id) in defeated:
         return None
-    return get_compound_root(world, colony_id)
+    return get_compound_root(world, affiliation_id)
 
 
-def get_creature_colony_root(creature):
+def get_creature_affiliation_root(creature):
     """個体の所属 colony_site 親 WorldObject。"""
     from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
 
@@ -44,65 +44,65 @@ def get_creature_colony_root(creature):
     cid = get_creature_affiliation_id(creature)
     if world is None or not cid:
         return None
-    return get_colony_root(world, cid)
+    return get_affiliation_root(world, cid)
 
 
-def colony_stored_food(world, colony_id: str, default: float = 0.0) -> float:
-    root = get_colony_root(world, colony_id)
+def affiliation_stored_food(world, affiliation_id: str, default: float = 0.0) -> float:
+    root = get_affiliation_root(world, affiliation_id)
     if root is None or root.storage is None:
         return default
     return float(root.storage.stored_food)
 
 
-def colony_max_food(world, colony_id: str, default: float = 0.0) -> float:
-    root = get_colony_root(world, colony_id)
+def affiliation_max_food(world, affiliation_id: str, default: float = 0.0) -> float:
+    root = get_affiliation_root(world, affiliation_id)
     if root is None or root.storage is None:
         return default
     return float(root.storage.max_food)
 
 
-def owner_species_for_colony(world, colony_id: str) -> str:
-    groups = getattr(world, "affiliation_species", {}) or getattr(world, "faction_species", {}) or {}
-    pool = groups.get(colony_id) or ()
+def owner_species_for_affiliation(world, affiliation_id: str) -> str:
+    groups = getattr(world, "affiliation_species", {}) or getattr(world, "affiliation_species", {}) or {}
+    pool = groups.get(affiliation_id) or ()
     if pool:
         return str(pool[0])
-    return str(colony_id)
+    return str(affiliation_id)
 
 
-def _colony_has_living_members(world, colony_id: str) -> bool:
+def _affiliation_has_living_members(world, affiliation_id: str) -> bool:
     for creature in getattr(world, "creatures", ()) or ():
         if not getattr(creature, "alive", True):
             continue
         aff = getattr(creature, "affiliation", None)
-        if aff is not None and str(getattr(aff, "affiliation_id", "") or "") == str(colony_id):
+        if aff is not None and str(getattr(aff, "affiliation_id", "") or "") == str(affiliation_id):
             return True
     return False
 
 
-def _colony_is_active(world, colony_id: str) -> bool:
+def _affiliation_is_active(world, affiliation_id: str) -> bool:
     """faction 所属・接続点・生存メンバーのいずれかがあれば稼働中。"""
-    defeated = getattr(world, "defeated_affiliations", None) or getattr(world, "defeated_colonies", None) or set()
-    cid = str(colony_id)
+    defeated = getattr(world, "defeated_affiliations", None) or getattr(world, "defeated_affiliations", None) or set()
+    cid = str(affiliation_id)
     if cid in defeated:
         return False
-    groups = getattr(world, "affiliation_species", {}) or getattr(world, "faction_species", {}) or {}
+    groups = getattr(world, "affiliation_species", {}) or getattr(world, "affiliation_species", {}) or {}
     if groups:
         if cid in groups:
             return True
-        return _colony_has_living_members(world, cid)
+        return _affiliation_has_living_members(world, cid)
     ws = getattr(world, "world_object_system", None)
     if ws is not None and ws.count_active_access(cid) > 0:
         return True
-    return _colony_has_living_members(world, cid)
+    return _affiliation_has_living_members(world, cid)
 
 
-def iter_active_colony_roots(world):
+def iter_active_affiliation_roots(world):
     """稼働中の colony_site を列挙（マップ上の休眠拠点は除外）。"""
     ws = getattr(world, "world_object_system", None)
     if ws is None:
         return
     for root in ws.iter_roots():
-        if _colony_is_active(world, root.id):
+        if _affiliation_is_active(world, root.id):
             yield root
 
 
@@ -287,12 +287,12 @@ def parent_stored_food(creature, default: float = 0.0) -> float:
     return cs.stored_food(parent_ids[0])
 
 
-def creature_has_colony_target(creature) -> bool:
+def creature_has_affiliation_target(creature) -> bool:
     """預入/拠点行動の行き先があるか。"""
     if get_creature_compound_parent_ids(creature):
         parent, _access = resolve_deposit_target(creature)
         return parent is not None
-    return get_creature_colony_root(creature) is not None
+    return get_creature_affiliation_root(creature) is not None
 
 
 def iter_obstacle_objects(world):
@@ -316,29 +316,29 @@ def iter_access_xy(world, compound_id: str) -> list[tuple[float, float]]:
     return []
 
 
-def iter_colony_access_xy(world, colony_id: str) -> list[tuple[float, float]]:
+def iter_affiliation_access_xy(world, affiliation_id: str) -> list[tuple[float, float]]:
     """後方互換。"""
-    return iter_access_xy(world, colony_id)
+    return iter_access_xy(world, affiliation_id)
 
 
-def iter_colony_access_for_display(world, colony_id: str):
+def iter_affiliation_access_for_display(world, affiliation_id: str):
     """描画・HP 表示用: colony_access オブジェクト。"""
     ws = getattr(world, "world_object_system", None)
-    if ws is not None and ws.has_colony_root(colony_id):
-        yield from ws.iter_access_points(colony_id)
+    if ws is not None and ws.has_affiliation_root(affiliation_id):
+        yield from ws.iter_access_points(affiliation_id)
 
 
-def colony_site_xy(world, colony_id: str) -> tuple[float, float]:
+def affiliation_site_xy(world, affiliation_id: str) -> tuple[float, float]:
     """拠点中心座標。"""
-    root = get_colony_root(world, colony_id)
+    root = get_affiliation_root(world, affiliation_id)
     if root is not None:
         return float(root.x), float(root.y)
     return 0.0, 0.0
 
 
-def colony_food_ratio(world, colony_id: str) -> float:
+def affiliation_food_ratio(world, affiliation_id: str) -> float:
     """備蓄率 0..1。"""
-    root = get_colony_root(world, colony_id)
+    root = get_affiliation_root(world, affiliation_id)
     if root is not None and root.storage is not None and root.storage.max_food > 0:
         return max(
             0.0,
@@ -354,14 +354,14 @@ def access_count(world, compound_id: str) -> int:
     return 0
 
 
-def colony_access_count(world, colony_id: str) -> int:
-    return access_count(world, colony_id)
+def affiliation_access_count(world, affiliation_id: str) -> int:
+    return access_count(world, affiliation_id)
 
 
-def resolve_shelter_from_colony(world, colony_id: str, creature, threat=None) -> Optional[ShelterRef]:
+def resolve_shelter_from_affiliation(world, affiliation_id: str, creature, threat=None) -> Optional[ShelterRef]:
     """勢力 ID 指定で colony_access から Shelter を解決。"""
     cs = _compound_system(world)
-    if cs is None or not cs.has_root(colony_id):
+    if cs is None or not cs.has_root(affiliation_id):
         return None
 
     from src.sim.shelter.helpers import _threat_blocks_approach, get_hide_radius
@@ -371,7 +371,7 @@ def resolve_shelter_from_colony(world, colony_id: str, creature, threat=None) ->
     best: Optional[ShelterRef] = None
     best_dist = float("inf")
 
-    for child in cs.iter_access_points(colony_id, require_shelter=True):
+    for child in cs.iter_access_points(affiliation_id, require_shelter=True):
         if _threat_blocks_approach(
             creature, child.x, child.y, threat, approach_radius=approach_radius
         ):
@@ -382,7 +382,7 @@ def resolve_shelter_from_colony(world, colony_id: str, creature, threat=None) ->
             best = ShelterRef(
                 kind="compound_access",
                 object_id=child.id,
-                parent_id=colony_id,
+                parent_id=affiliation_id,
                 x=float(child.x),
                 y=float(child.y),
             )

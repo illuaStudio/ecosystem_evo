@@ -137,7 +137,7 @@ def get_haul_max_carry(creature, default: float = 50.0) -> float:
 
 def nest_stored_food(creature, default: float = 0.0) -> float:
     from src.sim.utils.world_object_helpers import (
-        get_creature_colony_root,
+        get_creature_affiliation_root,
         get_creature_nest_parent_ids,
         parent_stored_food,
     )
@@ -145,7 +145,7 @@ def nest_stored_food(creature, default: float = 0.0) -> float:
     if get_creature_nest_parent_ids(creature):
         return parent_stored_food(creature, default=default)
 
-    root = get_creature_colony_root(creature)
+    root = get_creature_affiliation_root(creature)
     if root is None or root.storage is None:
         return default
     return float(root.storage.stored_food)
@@ -181,9 +181,9 @@ def nest_feed_satiety_gain_estimate(creature) -> float:
     colony = getattr(creature, "colony", None)
     if colony is None:
         return 0.0
-    from src.sim.utils.world_object_helpers import get_creature_colony_root
+    from src.sim.utils.world_object_helpers import get_creature_affiliation_root
 
-    root = get_creature_colony_root(creature)
+    root = get_creature_affiliation_root(creature)
     if root is None or root.storage is None or root.storage.stored_food <= 0:
         return 0.0
 

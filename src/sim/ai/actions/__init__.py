@@ -9,7 +9,7 @@ from src.sim.ai.actions.combat_actions import AttackHoleAction, CombatAction
 from src.sim.ai.actions.movement import FleeAction, WanderAction
 from src.sim.ai.actions.predation import ChaseAction, HuntAction
 from src.sim.ai.actions.reproduction import (
-    ColonyReproduceAction,
+    AffiliationReproduceAction,
     ReproductionAction,
     SpawnWorkerAction,
 )
@@ -27,7 +27,7 @@ ACTION_BY_NAME = {
     "ScavengeCarriedAction": ScavengeCarriedAction,
     "FeedAtNestAction": FeedAtNestAction,
     "NestPatrolAction": NestPatrolAction,
-    "ColonyReproduceAction": ColonyReproduceAction,
+    "AffiliationReproduceAction": AffiliationReproduceAction,
     "SpawnWorkerAction": SpawnWorkerAction,
 }
 
@@ -45,7 +45,7 @@ __all__ = [
     "ReproductionAction",
     "ReturnToNestAction",
     "ScavengeCarriedAction",
-    "ColonyReproduceAction",
+    "AffiliationReproduceAction",
     "SpawnWorkerAction",
     "WanderAction",
 ]

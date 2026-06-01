@@ -2,7 +2,7 @@
 from src.sim.bridge import SimBridge
 from src.sim.commands import (
     EnterCreatureShelter,
-    SetColonyCasteMind,
+    SetAffiliationCasteMind,
     SetCreatureMind,
     SetSpeciesMind,
     SimCommand,
@@ -10,7 +10,7 @@ from src.sim.commands import (
     SpawnCreature,
 )
 from src.sim.events import (
-    ColonyDefeatedEvent,
+    AffiliationDefeatedEvent,
     CombatStartedEvent,
     DeathEvent,
     ItemFoundEvent,
@@ -20,12 +20,12 @@ from src.sim.events import (
 from src.sim.systems.world import World
 
 __all__ = [
-    "ColonyDefeatedEvent",
+    "AffiliationDefeatedEvent",
     "CombatStartedEvent",
     "DeathEvent",
     "EnterCreatureShelter",
     "ItemFoundEvent",
-    "SetColonyCasteMind",
+    "SetAffiliationCasteMind",
     "SetCreatureMind",
     "SetSpeciesMind",
     "SimBridge",

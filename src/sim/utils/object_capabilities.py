@@ -273,10 +273,10 @@ def _merge_legacy_storage(caps: Dict[str, Any], raw: Mapping[str, Any], category
     if "storage" in caps:
         return
     if not any(key in raw for key in _LEGACY_STORAGE_KEYS):
-        if category != "colony" or raw.get("role") != "root":
+        if category != "affiliation" or raw.get("role") != "root":
             return
     block = {key: raw[key] for key in _LEGACY_STORAGE_KEYS if key in raw}
-    if block or (category == "colony" and str(raw.get("role", "")) == "root"):
+    if block or (category == "affiliation" and str(raw.get("role", "")) == "root"):
         caps.setdefault("storage", block)
 
 
@@ -284,7 +284,7 @@ def _merge_legacy_access(caps: Dict[str, Any], raw: Mapping[str, Any], category:
     if "access" in caps:
         return
     if not any(key in raw for key in _LEGACY_ACCESS_KEYS):
-        if not (category == "colony" and str(raw.get("role", "")) == "access"):
+        if not (category == "affiliation" and str(raw.get("role", "")) == "access"):
             return
     block: Dict[str, Any] = {}
     for key in _LEGACY_ACCESS_KEYS:
@@ -292,7 +292,7 @@ def _merge_legacy_access(caps: Dict[str, Any], raw: Mapping[str, Any], category:
             block[key] = raw[key]
     if "deposit" in block and "deposit_access" not in block:
         block["deposit_access"] = block.pop("deposit")
-    if block or (category == "colony" and str(raw.get("role", "")) == "access"):
+    if block or (category == "affiliation" and str(raw.get("role", "")) == "access"):
         caps.setdefault("access", block)
 
 

@@ -165,7 +165,7 @@ class HuntAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action
         "attack_power": 1.2,
         "pickup_on_kill": True,
         "bite_gain": 1.35,
-        "colony_hoard_strength": 0.8,
+        "affiliation_hoard_strength": 0.8,
         "territory_only": False,
         "territory_threat": False,
         "territory_approach_margin": 80.0,
@@ -384,12 +384,12 @@ class HuntAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action
         ns = creature.world.nest_system
         from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
 
-        colony_id = get_creature_affiliation_id(creature)
-        if not colony_id or ns.get_colony_root(colony_id) is None:
+        affiliation_id = get_creature_affiliation_id(creature)
+        if not affiliation_id or ns.get_affiliation_root(affiliation_id) is None:
             return 1.0
         if ns.distance_to_nest(creature) > float(self.params.get("nest_hunt_dampen_radius", 55.0)):
             return 1.0
-        if ns.colony_food_ratio(colony_id) < float(
+        if ns.affiliation_food_ratio(affiliation_id) < float(
             self.params.get("nest_hunt_dampen_food_ratio", 0.75)
         ):
             return 1.0
@@ -417,7 +417,7 @@ class HuntAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action
         if not get_creature_affiliation_id(creature):
             return 0.0
 
-        return float(self.params["colony_hoard_strength"])
+        return float(self.params["affiliation_hoard_strength"])
 
     def calculate_utility(self, creature) -> float:
         if is_flee_latch_active(creature):

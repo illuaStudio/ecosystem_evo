@@ -51,7 +51,7 @@ def apply_mind_profile_to_species(
     species_name: str,
     profile_id: str,
     *,
-    colony_id: str | None = None,
+    affiliation_id: str | None = None,
     mode: str = "replace",
 ) -> int:
     from src.sim.commands import SetSpeciesMind
@@ -64,30 +64,30 @@ def apply_mind_profile_to_species(
         SetSpeciesMind(
             species_name=species_name,
             actions=actions,
-            colony_id=colony_id,
+            affiliation_id=affiliation_id,
             mode=mode,  # type: ignore[arg-type]
         )
     )
     return result.count if result.ok else 0
 
 
-def apply_mind_profile_to_colony_caste(
+def apply_mind_profile_to_affiliation_caste(
     bridge: SimBridge,
-    colony_id: str,
+    affiliation_id: str,
     caste: str,
     profile_id: str,
     *,
     mode: str = "replace",
 ) -> int:
-    from src.sim.commands import SetColonyCasteMind
+    from src.sim.commands import SetAffiliationCasteMind
 
     profile = MindPolicy().get_profile(profile_id)
     if profile is None:
         return 0
     actions = tuple(profile.get("actions") or [])
     result = bridge.execute(
-        SetColonyCasteMind(
-            colony_id=colony_id,
+        SetAffiliationCasteMind(
+            affiliation_id=affiliation_id,
             caste=caste,  # type: ignore[arg-type]
             actions=actions,
             mode=mode,  # type: ignore[arg-type]
@@ -96,19 +96,19 @@ def apply_mind_profile_to_colony_caste(
     return result.count if result.ok else 0
 
 
-def apply_mind_actions_to_colony_caste(
+def apply_mind_actions_to_affiliation_caste(
     bridge: SimBridge,
-    colony_id: str,
+    affiliation_id: str,
     caste: str,
     actions: list[dict[str, Any]] | tuple[dict[str, Any], ...],
     *,
     mode: str = "replace",
 ) -> int:
-    from src.sim.commands import SetColonyCasteMind
+    from src.sim.commands import SetAffiliationCasteMind
 
     result = bridge.execute(
-        SetColonyCasteMind(
-            colony_id=colony_id,
+        SetAffiliationCasteMind(
+            affiliation_id=affiliation_id,
             caste=caste,  # type: ignore[arg-type]
             actions=tuple(actions),
             mode=mode,  # type: ignore[arg-type]

@@ -30,7 +30,7 @@
         }
       },
       {
-        "name": "ColonyReproduceAction",
+        "name": "AffiliationReproduceAction",
         "weight": 5.0,
         "params": {
           "offspring": [
@@ -40,7 +40,7 @@
             }
           ],
           "food_cost": 55.0,
-          "max_colony_members": 10,
+          "max_affiliation_members": 10,
           "member_species": [
             "red_ant"
           ],
@@ -66,7 +66,7 @@
         }
       },
       {
-        "name": "ColonyReproduceAction",
+        "name": "AffiliationReproduceAction",
         "weight": 5.0,
         "params": {
           "offspring": [
@@ -80,7 +80,7 @@
             }
           ],
           "food_cost": 55.0,
-          "max_colony_members": 15,
+          "max_affiliation_members": 15,
           "member_species": [
             "red_ant",
             "red_ant_soldier"
@@ -96,7 +96,7 @@
     "description": "働きアリのみを産む（解禁後）",
     "actions": [
       {
-        "name": "ColonyReproduceAction",
+        "name": "AffiliationReproduceAction",
         "weight": 5.0,
         "params": {
           "offspring": [
@@ -106,7 +106,7 @@
             }
           ],
           "food_cost": 55.0,
-          "max_colony_members": 10,
+          "max_affiliation_members": 10,
           "member_species": [
             "red_ant"
           ],
@@ -121,7 +121,7 @@
     "description": "働きアリと兵隊アリを産む（解禁後）",
     "actions": [
       {
-        "name": "ColonyReproduceAction",
+        "name": "AffiliationReproduceAction",
         "weight": 5.0,
         "params": {
           "offspring": [
@@ -135,7 +135,7 @@
             }
           ],
           "food_cost": 55.0,
-          "max_colony_members": 15,
+          "max_affiliation_members": 15,
           "member_species": [
             "red_ant",
             "red_ant_soldier"

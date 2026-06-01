@@ -66,7 +66,7 @@ class TestCompoundSystem(unittest.TestCase):
         cs = world.compound_system
         root = cs.get_root("dungeon_loot")
         self.assertIsNotNone(root)
-        self.assertFalse(root.is_colony_compound)
+        self.assertFalse(root.is_affiliation_compound)
         self.assertEqual(cs.count_active_access("dungeon_loot"), 2)
 
         chest_a = world.world_object_system.get("chest_a")
@@ -136,7 +136,7 @@ class TestCompoundSystem(unittest.TestCase):
             }
         )
         root = world.compound_system.get_root("red_ant")
-        self.assertTrue(root.is_colony_compound)
+        self.assertTrue(root.is_affiliation_compound)
 
 
 if __name__ == "__main__":

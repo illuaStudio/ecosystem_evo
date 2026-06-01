@@ -55,7 +55,7 @@
         "description": "テリトリー内の侵入した他勢力を排除（最優先）",
         "params": {
           "hostile_species": [],
-          "hostile_colony_ids": [
+          "hostile_affiliation_ids": [
             "red_ant",
             "yellow_ant"
           ],
@@ -80,7 +80,7 @@
           "attack_power": 3.0,
           "pickup_on_kill": false,
           "bite_gain": 1.2,
-          "colony_hoard_strength": 0.8,
+          "affiliation_hoard_strength": 0.8,
           "territory_only": false,
           "territory_threat": true,
           "territory_approach_margin": 90,

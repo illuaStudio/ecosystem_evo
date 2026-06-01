@@ -66,7 +66,7 @@
 
 ```json
 {
-  "id": "colony_site",
+  "id": "affiliation_site",
   "capabilities": {
     "storage": { "max_food": 5000, "initial_stored_food": 80 },
     "compound": { "role": "root" }
@@ -78,7 +78,7 @@
 
 ```json
 {
-  "id": "colony_access",
+  "id": "affiliation_access",
   "capabilities": {
     "access": { "role": "access", "shelter": true, "deposit": true },
     "combat": { "max_hp": 120 }

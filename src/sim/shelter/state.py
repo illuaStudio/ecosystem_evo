@@ -4,7 +4,7 @@
 SHELTER_ALLOWED_ACTION_NAMES = frozenset({
     "SeekShelterAction",
     "FeedAtNestAction",
-    "ColonyReproduceAction",
+    "AffiliationReproduceAction",
 })
 
 

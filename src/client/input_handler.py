@@ -60,7 +60,7 @@ class InputHandler:
         wx = event.pos[0] + self.engine.camera.x
         wy = event.pos[1] + self.engine.camera.y
         self.engine.selected_creature = None
-        self.engine.selected_colony_id = None
+        self.engine.selected_affiliation_id = None
 
         from src.sim.shelter.state import is_creature_sheltered
 
@@ -85,9 +85,9 @@ class InputHandler:
 
         nest_system = getattr(self.engine.world, "nest_system", None)
         if nest_system is not None:
-            colony_id = nest_system.find_colony_at(wx, wy)
-            if colony_id is not None:
-                self.engine.selected_colony_id = colony_id
+            affiliation_id = nest_system.find_affiliation_at(wx, wy)
+            if affiliation_id is not None:
+                self.engine.selected_affiliation_id = affiliation_id
 
     def _handle_keydown(self, event):
         """キー操作"""
@@ -100,9 +100,9 @@ class InputHandler:
         elif event.key == pygame.K_s:
             self.engine.debug_spawn_creature("Spider")
         elif event.key == pygame.K_p:
-            self.engine.debug_spawn_colony_member("red_ant")
+            self.engine.debug_spawn_affiliation_member("red_ant")
         elif event.key == pygame.K_h:
-            self._add_colony_access_at_cursor()
+            self._add_affiliation_access_at_cursor()
         elif event.key == pygame.K_d:
             self.engine.show_debug = not getattr(self.engine, 'show_debug', False)
         elif event.key == pygame.K_t:
@@ -119,7 +119,7 @@ class InputHandler:
         elif event.key == pygame.K_ESCAPE:
             return False
 
-    def _add_colony_access_at_cursor(self) -> None:
+    def _add_affiliation_access_at_cursor(self) -> None:
         """マウス位置に colony_access を追加（選択中の巣、なければカーソル付近の巣）。"""
         world = self.engine.world
         nest_system = getattr(world, "nest_system", None)
@@ -130,12 +130,12 @@ class InputHandler:
         wx = mx + self.engine.camera.x
         wy = my + self.engine.camera.y
 
-        colony_id = self.engine.selected_colony_id
-        if colony_id is None:
-            colony_id = nest_system.find_colony_at(wx, wy, pick_radius=80.0)
-        if colony_id is None:
+        affiliation_id = self.engine.selected_affiliation_id
+        if affiliation_id is None:
+            affiliation_id = nest_system.find_affiliation_at(wx, wy, pick_radius=80.0)
+        if affiliation_id is None:
             return
 
-        _ok, msg = nest_system.try_place_hole(colony_id, wx, wy)
+        _ok, msg = nest_system.try_place_hole(affiliation_id, wx, wy)
         self.engine.notify(msg, source="game")
-        self.engine.selected_colony_id = colony_id
+        self.engine.selected_affiliation_id = affiliation_id

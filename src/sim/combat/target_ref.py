@@ -19,18 +19,18 @@ class TargetRef:
     kind: TargetKind
     creature: object | None = None
     world_object: Optional["WorldObject"] = None
-    colony_id: str | None = None
+    affiliation_id: str | None = None
 
     @staticmethod
     def from_creature(creature) -> TargetRef:
         return TargetRef(kind=TargetKind.CREATURE, creature=creature)
 
     @staticmethod
-    def from_world_object(obj: "WorldObject", colony_id: str) -> TargetRef:
+    def from_world_object(obj: "WorldObject", affiliation_id: str) -> TargetRef:
         return TargetRef(
             kind=TargetKind.WORLD_OBJECT,
             world_object=obj,
-            colony_id=str(colony_id),
+            affiliation_id=str(affiliation_id),
         )
 
     def as_creature(self):

@@ -8,9 +8,9 @@ from src.sim.utils.world_object_helpers import (
     resolve_deposit_target,
     resolve_shelter_from_parents,
     set_creature_nest_parent_ids,
-    iter_colony_access_xy,
-    colony_food_ratio,
-    colony_access_count,
+    iter_affiliation_access_xy,
+    affiliation_food_ratio,
+    affiliation_access_count,
 )
 from tests.sim.test_hole_combat_helpers import damage_colony_access, list_colony_access, primary_access
 
@@ -39,7 +39,7 @@ def _object_world(**overrides):
                 "y": 200,
             },
         ],
-        "colony": {
+        "affiliation": {
             "min_food_reserve": 72,
             "profiles": {
                 "red_ant": {
@@ -78,7 +78,7 @@ class TestWorldObjectSystem(unittest.TestCase):
         root = world.world_object_system.get("red_ant")
         self.assertIsNotNone(root)
         self.assertAlmostEqual(root.storage.stored_food, 100.0)
-        nest = world.nest_system.get_colony_nest("red_ant")
+        nest = world.nest_system.get_affiliation_root("red_ant")
         self.assertIsNotNone(nest)
         self.assertAlmostEqual(nest.stored_food, 100.0)
         self.assertEqual(len(list_colony_access(world, "red_ant")), 1)
@@ -104,7 +104,7 @@ class TestWorldObjectSystem(unittest.TestCase):
         self.assertAlmostEqual(deposited, 25.0)
         root = world.world_object_system.get("red_ant")
         self.assertAlmostEqual(root.storage.stored_food, 125.0)
-        nest = world.nest_system.get_colony_nest("red_ant")
+        nest = world.nest_system.get_affiliation_root("red_ant")
         self.assertAlmostEqual(nest.stored_food, 125.0)
 
     def test_shelter_resolves_child_access(self):
@@ -135,7 +135,7 @@ class TestWorldObjectSystem(unittest.TestCase):
         self.assertAlmostEqual(access.hp, 120.0)
 
         damage_colony_access(
-            world, "red_ant", access, 30.0, attacker_colony_id="blue_ant"
+            world, "red_ant", access, 30.0, attacker_affiliation_id="blue_ant"
         )
         access = primary_access(world, "red_ant")
         self.assertIsNotNone(access)
@@ -147,30 +147,30 @@ class TestWorldObjectSystem(unittest.TestCase):
         access = primary_access(world, "red_ant")
         access.hp = 0.8
         damage_colony_access(
-            world, "red_ant", access, 1.0, attacker_colony_id="blue_ant"
+            world, "red_ant", access, 1.0, attacker_affiliation_id="blue_ant"
         )
         self.assertEqual(world.world_object_system.count_active_access("red_ant"), 0)
 
-    def test_defeat_colony_clears_all_access(self):
+    def test_defeat_affiliation_clears_all_access(self):
         world = _object_world()
         world.affiliation_species = {"red_ant": ("red_ant",), "blue_ant": ("blue_ant",)}
         ws = world.world_object_system
         ws.add_access_point("red_ant", 210, 210)
         self.assertEqual(ws.count_active_access("red_ant"), 2)
 
-        world.nest_system.defeat_colony("red_ant")
+        world.nest_system.defeat_affiliation("red_ant")
         self.assertEqual(ws.count_active_access("red_ant"), 0)
-        self.assertIn("red_ant", world.defeated_colonies)
-        self.assertIsNone(world.nest_system.get_colony_nest("red_ant"))
+        self.assertIn("red_ant", world.defeated_affiliations)
+        self.assertIsNone(world.nest_system.get_affiliation_root("red_ant"))
         self.assertIsNotNone(ws.get("red_ant"))
 
     def test_try_place_hole_deducts_parent_storage(self):
         world = _object_world()
-        nest = world.nest_system.get_colony_nest("red_ant")
+        nest = world.nest_system.get_affiliation_root("red_ant")
         root = world.world_object_system.get("red_ant")
         root.storage.stored_food = 1000.0
         nest.stored_food = 1000.0
-        cost = float(world.colony_settings.get("access_food_cost", world.colony_settings.get("hole_food_cost", 250)))
+        cost = float(world.affiliation_settings.get("access_food_cost", world.affiliation_settings.get("hole_food_cost", 250)))
 
         ok, _msg = world.nest_system.try_place_hole(nest, 360, 200)
         self.assertTrue(ok)
@@ -180,15 +180,15 @@ class TestWorldObjectSystem(unittest.TestCase):
 
     def test_colony_display_helpers(self):
         world = _object_world()
-        nest = world.nest_system.get_colony_nest("red_ant")
+        nest = world.nest_system.get_affiliation_root("red_ant")
         root = world.world_object_system.get("red_ant")
         root.storage.stored_food = 250.0
         root.storage.max_food = 500.0
 
-        pts = iter_colony_access_xy(world, "red_ant")
+        pts = iter_affiliation_access_xy(world, "red_ant")
         self.assertEqual(len(pts), 1)
-        self.assertAlmostEqual(colony_food_ratio(world, "red_ant"), 0.5)
-        self.assertEqual(colony_access_count(world, "red_ant"), 1)
+        self.assertAlmostEqual(affiliation_food_ratio(world, "red_ant"), 0.5)
+        self.assertEqual(affiliation_access_count(world, "red_ant"), 1)
 
     def test_obstacle_instances_load_geometry(self):
         world = World.from_json(

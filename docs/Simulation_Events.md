@@ -16,7 +16,7 @@
 | `SpawnEvent` | 個体がワールドに追加されたとき | `creature`, `source`, `parent` |
 | `ItemFoundEvent` | 死骸からバイオマスを拾ったとき | `carrier`, `item_kind`, `amount` |
 | `CombatStartedEvent` | 個体同士／巣穴への初回攻撃 | `attacker`, `target_kind`, `target_creature` 等 |
-| `ColonyDefeatedEvent` | 勢力の全巣穴が破壊されたとき | `colony_id`, `message` |
+| `AffiliationDefeatedEvent` | 勢力の全巣穴が破壊されたとき | `colony_id`, `message` |
 
 ### DeathEvent.cause
 
@@ -33,7 +33,7 @@
 | 値 | 意味 |
 |----|------|
 | `initial` | ワールド初期配置 |
-| `reproduction` | `ColonyReproduceAction`（女王など） |
+| `reproduction` | `AffiliationReproduceAction`（女王など） |
 | `spawn` | その他（既定） |
 
 ## API
@@ -62,11 +62,11 @@ events = world.events.drain()     # キューを取り出してクリア
 for event in world.events.drain():
     if isinstance(event, SpawnEvent) and event.source == "reproduction":
         ...
-    if isinstance(event, ColonyDefeatedEvent):
+    if isinstance(event, AffiliationDefeatedEvent):
         ui.show_message(event.message)
 ```
 
-`GameApp` は `ColonyDefeatedEvent` を `drain()` して UI メッセージを表示する（Phase 1）。
+`GameApp` は `AffiliationDefeatedEvent` を `drain()` して UI メッセージを表示する（Phase 1）。
 
 ## 戦闘開始の重複抑制
 

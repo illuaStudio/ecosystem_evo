@@ -79,6 +79,6 @@
 
 **Next Actions (提案)**
 
-- 現在の World クラスから、明らかにゲーム寄りの属性（colony_profiles, faction_* など）を洗い出す。
+- 現在の World クラスから、明らかにゲーム寄りの属性（affiliation_profiles, faction_* など）を洗い出す。
 - WorldObject の「薄い版」と「意味を持たせた解釈レイヤー」の境界を明確にする設計案を作成。
 - イベントの種類を整理し、「Sim が事実だけを通知する」形に近づける。

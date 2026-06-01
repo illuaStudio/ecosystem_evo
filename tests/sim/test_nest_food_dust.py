@@ -5,7 +5,7 @@ from src.sim.ai.actions.colony import FeedAtNestAction
 from src.sim.entities.creature_factory import CreatureFactory
 from src.sim.systems.world import World
 from src.sim.utils.nutrition_helpers import nest_has_usable_food
-from tests.sim.world_fixtures import set_colony_stored_food
+from tests.sim.world_fixtures import set_affiliation_stored_food
 
 
 class TestNestFoodCleanup(unittest.TestCase):
@@ -16,7 +16,7 @@ class TestNestFoodCleanup(unittest.TestCase):
         world.add_creature(ant, spawn_source="initial")
         ant.satiety = ant.max_satiety * 0.10
         nest = world.nest_system.get_creature_nest(ant)
-        set_colony_stored_food(world, nest.colony_id, 8.0)
+        set_affiliation_stored_food(world, nest.affiliation_id, 8.0)
 
         self.assertTrue(nest_has_usable_food(ant))
         self.assertGreater(FeedAtNestAction().calculate_utility(ant), 0.0)
@@ -28,7 +28,7 @@ class TestNestFoodCleanup(unittest.TestCase):
         world.add_creature(ant, spawn_source="initial")
         ant.satiety = 0.0
         nest = world.nest_system.get_creature_nest(ant)
-        set_colony_stored_food(world, nest.colony_id, 49.0)
+        set_affiliation_stored_food(world, nest.affiliation_id, 49.0)
 
         self.assertTrue(nest_has_usable_food(ant))
         while nest.stored_food > 0 and ant.satiety < ant.max_satiety:
@@ -37,7 +37,7 @@ class TestNestFoodCleanup(unittest.TestCase):
 
     def test_no_dust_flush_on_update(self):
         world = World()
-        nest = world.nest_system.get_colony_nest("red_ant")
+        nest = world.nest_system.get_affiliation_root("red_ant")
         self.assertIsNotNone(nest)
         root = world.world_object_system.get("red_ant")
         self.assertIsNotNone(root)

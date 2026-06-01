@@ -83,7 +83,7 @@ class TestTerritoryAndCastes(unittest.TestCase):
         )
         self.assertGreater(action.calculate_utility(soldier), 0.0)
 
-    def test_soldier_combat_via_hostile_colony_ids(self):
+    def test_soldier_combat_via_hostile_affiliation_ids(self):
         world = _colony_world()
         world.affiliation_species = {
             "red_ant": ["red_ant", "red_ant_soldier"],
@@ -99,7 +99,7 @@ class TestTerritoryAndCastes(unittest.TestCase):
         world.add_creature(intruder)
 
         action = CombatAction(
-            hostile_colony_ids=["blue_ant", "yellow_ant"],
+            hostile_affiliation_ids=["blue_ant", "yellow_ant"],
             territory_only=True,
         )
         foes = action._enemies(soldier)
@@ -162,12 +162,12 @@ class TestTerritoryAndCastes(unittest.TestCase):
         world.add_creature(soldier)
 
         nest = world.nest_system.get_creature_nest(soldier)
-        territory_r = float(world.colony_profiles["red_ant"]["territory_radius"])
+        territory_r = float(world.affiliation_profiles["red_ant"]["territory_radius"])
         vision = soldier.get_current_vision()
         sx, sy = entity_xy(soldier)
-        from src.sim.utils.world_object_helpers import iter_colony_access_xy
+        from src.sim.utils.world_object_helpers import iter_affiliation_access_xy
 
-        tcx, _tcy = iter_colony_access_xy(world, nest.colony_id)[0]
+        tcx, _tcy = iter_affiliation_access_xy(world, nest.affiliation_id)[0]
         min_outside_x = tcx + territory_r + 5
         max_in_vision_x = sx + vision * 0.92
         self.assertGreater(

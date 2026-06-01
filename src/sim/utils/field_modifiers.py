@@ -4,8 +4,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from src.sim.utils.colony_helpers import get_creature_colony_id
-from src.sim.utils.creature_helpers import is_point_in_colony_territory
+from src.sim.utils.affiliation_group_helpers import get_creature_affiliation_id
+from src.sim.utils.creature_helpers import is_point_in_affiliation_territory
 from src.sim.utils.position_helpers import entity_xy
 
 
@@ -41,8 +41,8 @@ def _biome_modifiers(world: Any, x: float, y: float) -> FieldModifiers:
 
 
 def _territory_modifiers(world: Any, creature: Any, x: float, y: float) -> FieldModifiers:
-    colony_settings = getattr(world, "colony_settings", None) or {}
-    effects = colony_settings.get("territory_effects") or {}
+    affiliation_settings = getattr(world, "affiliation_settings", None) or {}
+    effects = affiliation_settings.get("territory_effects") or {}
     if not effects:
         return FieldModifiers()
 
@@ -51,10 +51,10 @@ def _territory_modifiers(world: Any, creature: Any, x: float, y: float) -> Field
     if regen == 0.0 and drain == 0.0:
         return FieldModifiers()
 
-    requires_match = bool(effects.get("requires_colony_match", True))
+    requires_match = bool(effects.get("requires_affiliation_match", True))
     if requires_match:
-        colony_id = get_creature_colony_id(creature)
-        if not colony_id or not is_point_in_colony_territory(world, colony_id, x, y):
+        affiliation_id = get_creature_affiliation_id(creature)
+        if not affiliation_id or not is_point_in_affiliation_territory(world, affiliation_id, x, y):
             return FieldModifiers()
 
     return FieldModifiers(hp_regen_per_dt=regen, hp_drain_per_dt=drain)

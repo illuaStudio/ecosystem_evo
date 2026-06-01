@@ -118,7 +118,7 @@ class TestWorldInstances(unittest.TestCase):
         self.assertFalse(uses_instances_format({"obstacles": {"sources": []}}))
         self.assertTrue(uses_instances_format({"instances": []}))
 
-    def test_build_test_world_adds_colony_instances(self):
+    def test_build_test_world_adds_affiliation_instances(self):
         from tests.sim.world_fixtures import build_test_world
 
         data = build_test_world(name="FixtureTest")
@@ -126,7 +126,7 @@ class TestWorldInstances(unittest.TestCase):
         self.assertIn("affiliation_site", layers)
         self.assertIn("affiliation_access", layers)
         world = World.from_json(data)
-        self.assertTrue(world.world_object_system.has_colony_root("red_ant"))
+        self.assertTrue(world.world_object_system.has_affiliation_root("red_ant"))
 
 
 if __name__ == "__main__":

@@ -480,7 +480,7 @@ _PARAM_META: dict[str, tuple[str, str, ValueType, float | None, float | None]] =
     "camera_pan_extra": ("カメラ余白", "ワールド端から見える余白（px）。", "int", 0, 800),
     "camera_width": ("カメラ幅", "ゲーム画面の描画幅（px）。", "int", 600, 2400),
     "carcass_utility_mult": ("死骸優先倍率", "死骸を選ぶときの utility 倍率。", "float", 0.5, 3.0),
-    "colony_hoard_strength": ("巣へ貯蔵優先度", "満腹時に巣へ運ぶ行動の強さ。", "float", 0, 2.0),
+    "affiliation_hoard_strength": ("巣へ貯蔵優先度", "満腹時に巣へ運ぶ行動の強さ。", "float", 0, 2.0),
     "contact_padding": ("接触余白", "攻撃・接触判定の追加距離（px）。", "float", 0, 30),
     "corpse_decompose_rate": ("死骸分解率", "死骸が自然分解する速さ。", "float", 0, 0.1),
     "debug_events": ("シミュイベントログ", "シミュ内部イベントをログ出力。", "bool", None, None),
@@ -510,7 +510,7 @@ _PARAM_META: dict[str, tuple[str, str, ValueType, float | None, float | None]] =
     "initial_stored_food": ("初期備蓄", "開始時の巣食料。", "float", 0, 10000),
     "living_only": ("生きた個体のみ", "死骸ではなく生きた獲物のみ対象。", "bool", None, None),
     "low_food_ratio": ("低備蓄アラート", "この備蓄率未満で警告。", "float", 0.01, 0.5),
-    "max_colony_members": ("コロニー個体上限", "この数以上で産卵停止。", "int", 1, 100),
+    "max_affiliation_members": ("コロニー個体上限", "この数以上で産卵停止。", "int", 1, 100),
     "max_food": ("巣食料上限", "巣に貯められる食料の最大量。", "float", 100, 50000),
     "max_access_points": ("接続点数上限", "コロニーが持てる接続点の最大数。", "int", 1, 20),
     "max_hp": ("最大 HP", "体力上限。", "float", 10, 3000),
@@ -549,7 +549,7 @@ _PARAM_META: dict[str, tuple[str, str, ValueType, float | None, float | None]] =
 }
 
 _ACTION_LABELS: dict[str, str] = {
-    "ColonyReproduceAction": "産卵",
+    "AffiliationReproduceAction": "産卵",
     "CombatAction": "戦闘",
     "FeedAtNestAction": "食事",
     "HuntAction": "狩り",
@@ -572,7 +572,7 @@ _SKIP_JSON_PATHS: set[tuple[str, ...]] = {
     ("colony", "enabled"),
     ("inventory", "slot_count"),
     ("life_cycle", "death"),
-    ("colony", "territory_effects", "requires_colony_match"),
+    ("colony", "territory_effects", "requires_affiliation_match"),
     ("affiliation", "enabled"),
     ("affiliation", "territory_effects", "requires_affiliation_match"),
 }
@@ -981,7 +981,7 @@ def _discover_trait_specs(
             paths.append(("traits", key))
     colony = data.get("colony") or {}
     for key, value in colony.items():
-        if key in ("colony_id", "join_species"):
+        if key in ("affiliation_id", "join_species"):
             continue
         if isinstance(value, (int, float, bool)):
             paths.append(("colony", key))
@@ -1232,7 +1232,7 @@ _BASE_FIELD_SPECS: list[FieldSpec] = [
         "働きアリ 1 匹を産むたびに巣備蓄から差し引く食料量。",
         "game/reproduction_profiles.json",
         "float",
-        action_name="ColonyReproduceAction",
+        action_name="AffiliationReproduceAction",
         param_name="food_cost",
         profile_id="queen_feed_and_workers",
         min_val=10,
@@ -1256,8 +1256,8 @@ _BASE_FIELD_SPECS: list[FieldSpec] = [
         "member_species に数えた個体がこの数以上だと、女王は産卵しません。",
         "game/reproduction_profiles.json",
         "int",
-        action_name="ColonyReproduceAction",
-        param_name="max_colony_members",
+        action_name="AffiliationReproduceAction",
+        param_name="max_affiliation_members",
         profile_id="queen_feed_and_workers",
         min_val=1,
         max_val=50,
@@ -1269,7 +1269,7 @@ _BASE_FIELD_SPECS: list[FieldSpec] = [
         "1 匹産んだあと、次の産卵まで待つティック数。小さいほど増殖が速い。",
         "game/reproduction_profiles.json",
         "int",
-        action_name="ColonyReproduceAction",
+        action_name="AffiliationReproduceAction",
         param_name="spawn_cooldown",
         profile_id="queen_feed_and_workers",
         min_val=60,
@@ -1282,7 +1282,7 @@ _BASE_FIELD_SPECS: list[FieldSpec] = [
         "巣の中心から、産まれた子個体が出現する距離（px）。",
         "game/reproduction_profiles.json",
         "float",
-        action_name="ColonyReproduceAction",
+        action_name="AffiliationReproduceAction",
         param_name="spawn_radius",
         profile_id="queen_feed_and_workers",
         min_val=10,

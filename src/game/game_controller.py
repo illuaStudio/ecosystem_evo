@@ -9,7 +9,7 @@ from src.game.game_monitor import GameMonitor
 from src.game.game_state import GameState
 from src.sim.bridge import SimBridge
 from src.sim.events import (
-    ColonyDefeatedEvent,
+    AffiliationDefeatedEvent,
     CombatStartedEvent,
     DeathEvent,
     ItemFoundEvent,
@@ -34,8 +34,8 @@ class GameController:
 
             game_config = config.game_player
         self._config = dict(game_config)
-        colony_id = str(self._config.get("player_colony_id", "red_ant"))
-        self.state = GameState(player_colony_id=colony_id)
+        affiliation_id = str(self._config.get("player_affiliation_id", "red_ant"))
+        self.state = GameState(player_affiliation_id=affiliation_id)
         self.monitor = GameMonitor(self._config.get("monitor"))
         self.bridge = bridge
         self.director = GameDirector(self.state, bridge)
@@ -49,8 +49,8 @@ class GameController:
         if bridge is not None:
             self.bridge = bridge
             self.director.set_bridge(bridge)
-        colony_id = str(self._config.get("player_colony_id", "red_ant"))
-        self.state = GameState(player_colony_id=colony_id)
+        affiliation_id = str(self._config.get("player_affiliation_id", "red_ant"))
+        self.state = GameState(player_affiliation_id=affiliation_id)
         self.director = GameDirector(self.state, self.bridge)
         self.pending_messages.clear()
         self.user_message = ""
@@ -86,7 +86,7 @@ class GameController:
         species_name: str,
         profile_id: str,
         *,
-        colony_id: str | None = None,
+        affiliation_id: str | None = None,
         mode: str = "replace",
     ) -> int:
         from src.game.command_builder import apply_mind_profile_to_species
@@ -97,25 +97,25 @@ class GameController:
             self.bridge,
             species_name,
             profile_id,
-            colony_id=colony_id,
+            affiliation_id=affiliation_id,
             mode=mode,
         )
 
-    def apply_mind_profile_to_colony_caste(
+    def apply_mind_profile_to_affiliation_caste(
         self,
-        colony_id: str,
+        affiliation_id: str,
         caste: str,
         profile_id: str,
         *,
         mode: str = "replace",
     ) -> int:
-        from src.game.command_builder import apply_mind_profile_to_colony_caste
+        from src.game.command_builder import apply_mind_profile_to_affiliation_caste
 
         if self.bridge is None:
             return 0
-        return apply_mind_profile_to_colony_caste(
+        return apply_mind_profile_to_affiliation_caste(
             self.bridge,
-            colony_id,
+            affiliation_id,
             caste,
             profile_id,
             mode=mode,
@@ -160,13 +160,13 @@ class GameController:
         elif isinstance(event, CombatStartedEvent):
             target = event.target_creature
             target_name = (
-                target.species.name if target is not None else event.target_colony_id
+                target.species.name if target is not None else event.target_affiliation_id
             )
             print(
                 f"[sim] {name} {event.attacker_species} -> {target_name}",
                 flush=True,
             )
-        elif isinstance(event, ColonyDefeatedEvent):
-            print(f"[sim] {name} {event.colony_id}", flush=True)
+        elif isinstance(event, AffiliationDefeatedEvent):
+            print(f"[sim] {name} {event.affiliation_id}", flush=True)
         else:
             print(f"[sim] {name}", flush=True)
