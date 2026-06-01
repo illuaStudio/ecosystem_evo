@@ -20,7 +20,7 @@
 |------|------|----------------|
 | `collision` | 当たり判定 | `shape` (`circle`/`rect`), `radius`, `width`, `height` |
 | `zone` | エリア効果 | 上記形状 + `hp_regen_per_dt`, `hp_drain_per_dt`, `field_tags`, `spawn_rate_multiplier` |
-| `storage` | 貯蔵（現状: 食料スカラー） | `max_food`, `initial_stored_food` |
+| `storage` | 貯蔵（ItemStack） | `max_food`, `initial_stored_food`, `slot_count`, `slots[]` |
 | `access` | 接続点（隠れ・預け入れ・取出） | `role`, `shelter`, `deposit` / `deposit_access`, `withdraw` / `withdraw_access` |
 | `combat` | 破壊可能 | `max_hp`, `hp` |
 | `compound` | 親子 compound | `role`, `profile` (`colony`/`generic`), `default_access_type`, `visible` |
@@ -133,3 +133,14 @@
 `chest_a` / `chest_b` は同じ `dungeon_loot.storage` を参照する。
 
 コロニーは `compound.profile: "colony"` 付き `colony_site` として同じ仕組みを使う（敗北・テリトリーは `NestSystem`）。
+
+## Phase 4: ItemStack（バイオマスのアイテム化）
+
+- `ObjectStorage` は内部で `ItemStack`（スロット列）を持つ
+- 生物 `InventoryComponent` と同型の `InventorySlot` / `InventoryItem`
+- バイオマス = `BiomassItem`（`kind: "biomass"`）。将来の剣等 = `StackItem`（`kind: "item"`）
+- `stored_food` / `max_food` はバイオマス量の**互換 API**（中身は ItemStack）
+- 移動 API: `src/sim/utils/item_stack_helpers.py`
+  - `transfer_biomass_creature_to_storage`
+  - `transfer_biomass_storage_to_creature`
+- 配置 API: `deposit_carried_to_parent` / `withdraw_biomass_from_parent`

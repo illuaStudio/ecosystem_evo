@@ -8,7 +8,7 @@ from typing import Any
 
 @dataclass
 class InventoryItem:
-    """アイテム基底（Phase 1 は BiomassItem のみ）。"""
+    """アイテム基底（BiomassItem / StackItem 等）。"""
 
     kind: str
 
@@ -24,6 +24,19 @@ class BiomassItem(InventoryItem):
 
     def weight(self, *, biomass_weight_per_unit: float) -> float:
         return max(0.0, float(self.amount)) * max(0.0, float(biomass_weight_per_unit))
+
+
+@dataclass
+class StackItem(InventoryItem):
+    """汎用スタックアイテム（剣・道具など将来用）。"""
+
+    kind: str = "item"
+    item_type: str = ""
+    quantity: int = 1
+    mass_per_unit: float = 1.0
+
+    def weight(self, *, biomass_weight_per_unit: float) -> float:
+        return max(0.0, float(self.quantity)) * max(0.0, float(self.mass_per_unit))
 
 
 @dataclass

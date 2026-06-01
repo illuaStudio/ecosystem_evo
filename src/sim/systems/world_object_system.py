@@ -89,16 +89,20 @@ class WorldObjectSystem:
                         ),
                     )
                 )
+                storage = ObjectStorage.from_config(
+                    {
+                        **storage,
+                        "max_food": max_food,
+                        "initial_stored_food": initial,
+                    }
+                )
                 self.objects[obj_id] = WorldObject(
                     id=obj_id,
                     type_ref=type_ref,
                     x=float(raw.get("x", profile.get("nest_x", 0.0))),
                     y=float(raw.get("y", profile.get("nest_y", 0.0))),
                     role=str(raw.get("role", compound.get("role", "root"))),
-                    storage=ObjectStorage(
-                        stored_food=max(0.0, min(initial, max_food)),
-                        max_food=max_food,
-                    ),
+                    storage=storage,
                     label=str(raw.get("label", type_def.get("label", obj_id))),
                     compound_profile=str(
                         raw.get(
@@ -463,7 +467,9 @@ class WorldObjectSystem:
             x=float(x),
             y=float(y),
             role="root",
-            storage=ObjectStorage(stored_food=food, max_food=cap),
+            storage=ObjectStorage.from_config(
+                {"max_food": cap, "initial_stored_food": food}
+            ),
             label=str(colony_id),
             compound_profile="colony",
         )

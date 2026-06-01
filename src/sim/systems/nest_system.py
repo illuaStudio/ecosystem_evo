@@ -558,12 +558,12 @@ class NestSystem:
         if not colony_id:
             return 0.0
 
-        amount = clear_inventory_biomass(creature)
-        if amount <= 0:
-            return 0.0
-
         root = get_colony_root(self.world, colony_id)
         if root is None or root.storage is None:
+            return 0.0
+
+        amount = clear_inventory_biomass(creature)
+        if amount <= 0:
             return 0.0
         return root.storage.deposit(amount)
 

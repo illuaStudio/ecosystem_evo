@@ -112,7 +112,12 @@ class CompoundSystem:
             x=float(x),
             y=float(y),
             role="root",
-            storage=ObjectStorage(stored_food=food, max_food=cap),
+            storage=ObjectStorage.from_config(
+                {
+                    "max_food": cap,
+                    "initial_stored_food": food,
+                }
+            ),
             label=str(compound_id),
             compound_profile=compound_profile or profile_for_type(type_ref),
         )

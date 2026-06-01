@@ -1,31 +1,52 @@
-"""ワールドオブジェクト（親拠点）の備蓄。将来 ItemStack に移行。"""
+"""ワールドオブジェクト（親拠点）の ItemStack 備蓄。"""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from src.sim.components.item_stack import ItemStack
 
 
-@dataclass
 class ObjectStorage:
-    stored_food: float = 0.0
-    max_food: float = 400.0
+    """スロット型 storage。stored_food / max_food はバイオマス量の互換 API。"""
+
+    stack: ItemStack
+
+    def __init__(
+        self,
+        stored_food: float = 0.0,
+        max_food: float = 400.0,
+        *,
+        stack: ItemStack | None = None,
+    ) -> None:
+        if stack is not None:
+            self.stack = stack
+        else:
+            self.stack = ItemStack.from_biomass_capacity(max_food, stored_food)
+
+    @classmethod
+    def from_config(cls, config: dict) -> ObjectStorage:
+        return cls(stack=ItemStack.from_storage_config(config))
+
+    @property
+    def stored_food(self) -> float:
+        return self.stack.biomass_amount()
+
+    @stored_food.setter
+    def stored_food(self, amount: float) -> None:
+        self.stack.set_biomass_amount(amount)
+
+    @property
+    def max_food(self) -> float:
+        return self.stack.biomass_capacity()
+
+    @max_food.setter
+    def max_food(self, cap: float) -> None:
+        self.stack.set_biomass_capacity(cap)
 
     def deposit(self, amount: float) -> float:
-        if amount <= 0 or self.max_food <= 0:
-            return 0.0
-        space = max(0.0, self.max_food - self.stored_food)
-        added = min(float(amount), space)
-        self.stored_food += added
-        return added
+        return self.stack.deposit_biomass(amount)
 
     def withdraw(self, amount: float) -> float:
-        if amount <= 0 or self.stored_food <= 0:
-            return 0.0
-        taken = min(float(amount), self.stored_food)
-        self.stored_food -= taken
-        return taken
+        return self.stack.withdraw_biomass(amount)
 
     @property
     def food_ratio(self) -> float:
-        if self.max_food <= 0:
-            return 0.0
-        return max(0.0, min(1.0, self.stored_food / self.max_food))
+        return self.stack.food_ratio

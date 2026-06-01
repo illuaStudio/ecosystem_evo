@@ -5,7 +5,8 @@ import math
 from typing import Optional, Sequence, Tuple
 
 from src.sim.shelter.types import ShelterRef
-from src.sim.utils.inventory_helpers import clear_inventory_biomass, inventory_is_loaded
+from src.sim.utils.inventory_helpers import inventory_is_loaded
+from src.sim.utils.item_stack_helpers import transfer_biomass_storage_to_creature
 from src.sim.utils.position_helpers import entity_xy
 
 
@@ -171,25 +172,33 @@ def resolve_withdraw_target(creature) -> Tuple[Optional[object], Optional[object
 
 
 def deposit_carried_to_parent(creature) -> float:
-    """インベントリ内バイオマスを親オブジェクト備蓄へ。移した量を返す。"""
+    """インベントリ内バイオマスを親オブジェクト ItemStack へ。移した量を返す。"""
+    from src.sim.utils.inventory_helpers import clear_inventory_biomass
+
     if not inventory_is_loaded(creature):
         return 0.0
     world = getattr(creature, "world", None)
     if world is None:
         return 0.0
     parent, _access = resolve_deposit_target(creature)
-    if parent is None:
+    if parent is None or parent.storage is None:
         return 0.0
 
     amount = clear_inventory_biomass(creature)
     if amount <= 0:
         return 0.0
+    return parent.storage.deposit(amount)
 
-    cs = _compound_system(world)
-    if cs is None:
+
+def withdraw_biomass_from_parent(creature, amount: float) -> float:
+    """親 storage からバイオマスを取出してインベントリへ。"""
+    world = getattr(creature, "world", None)
+    if world is None or amount <= 0:
         return 0.0
-    deposited = cs.deposit_to_parent(parent.id, amount)
-    return deposited
+    _parent, _access = resolve_withdraw_target(creature)
+    if _parent is None or _parent.storage is None:
+        return 0.0
+    return transfer_biomass_storage_to_creature(creature, _parent.storage, amount)
 
 
 def resolve_shelter_from_parents(creature, threat=None) -> Optional[ShelterRef]:
