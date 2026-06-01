@@ -1,0 +1,20 @@
+{
+  "id": "linked_chest",
+  "category": "compound",
+  "label": "リンク宝箱",
+  "capabilities": {
+    "collision": {
+      "shape": "rect",
+      "width": 24,
+      "height": 16
+    },
+    "access": {
+      "role": "access",
+      "deposit": true,
+      "withdraw": true
+    },
+    "render": {
+      "color": [160, 120, 60]
+    }
+  }
+}

@@ -79,6 +79,14 @@ class Creature(BaseEntity):
         self.corpse.remaining_biomass = value
 
     @property
+    def compound_parent_object_ids(self) -> tuple[str, ...]:
+        return self.nest_parent_object_ids
+
+    @compound_parent_object_ids.setter
+    def compound_parent_object_ids(self, value) -> None:
+        self.nest_parent_object_ids = tuple(str(x) for x in value if x)
+
+    @property
     def initial_biomass(self) -> float:
         return self.corpse.initial_biomass
 

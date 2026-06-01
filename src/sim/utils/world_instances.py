@@ -4,8 +4,12 @@ from __future__ import annotations
 import copy
 from typing import Any, Dict, List, MutableMapping, Optional
 
-INSTANCE_LAYERS = frozenset({"obstacle", "zone", "spawn", "nest", "colony_site", "colony_access"})
-SITE_LAYERS = frozenset({"colony_site", "nest"})
+from src.sim.utils.compound_layers import ACCESS_LAYERS, ROOT_LAYERS
+
+INSTANCE_LAYERS = frozenset(
+    {"obstacle", "zone", "spawn", "nest", "colony_site", "colony_access", "compound_root", "compound_access"}
+)
+COLONY_PROFILE_LAYERS = frozenset({"colony_site", "nest"})
 RESERVED_INSTANCE_KEYS = frozenset({"id", "layer", "type", "x", "y", "parent", "role"})
 
 
@@ -121,7 +125,7 @@ def expand_instances_to_legacy(world_data: MutableMapping[str, Any]) -> None:
         layer = str(raw.get("layer", ""))
         if layer not in INSTANCE_LAYERS:
             continue
-        if layer in SITE_LAYERS:
+        if layer in COLONY_PROFILE_LAYERS:
             colony_id = str(raw.get("id", raw.get("type", "")))
             if not colony_id:
                 continue
@@ -134,7 +138,7 @@ def expand_instances_to_legacy(world_data: MutableMapping[str, Any]) -> None:
             profile["nest_x"] = float(raw.get("x", profile.get("nest_x", 0.0)))
             profile["nest_y"] = float(raw.get("y", profile.get("nest_y", 0.0)))
             continue
-        if layer == "colony_access":
+        if layer in ACCESS_LAYERS:
             continue
 
         entry = instance_to_source_entry(raw)

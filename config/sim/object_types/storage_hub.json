@@ -1,0 +1,17 @@
+{
+  "id": "storage_hub",
+  "category": "compound",
+  "label": "共有倉庫（論理親）",
+  "capabilities": {
+    "storage": {
+      "max_food": 1000,
+      "initial_stored_food": 0
+    },
+    "compound": {
+      "role": "root",
+      "profile": "generic",
+      "visible": false,
+      "default_access_type": "linked_chest"
+    }
+  }
+}

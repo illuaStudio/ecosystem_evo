@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-ShelterKind = Literal["colony_access"]
+ShelterKind = Literal["compound_access", "colony_access"]
 
 
 @dataclass(frozen=True)

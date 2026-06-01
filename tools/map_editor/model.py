@@ -35,7 +35,9 @@ class MapObject:
         return default
 
 
-SITE_LAYERS = frozenset({"nest", "colony_site"})
+from src.sim.utils.compound_layers import ACCESS_LAYERS, ROOT_LAYERS
+
+SITE_LAYERS = ROOT_LAYERS
 ACCESS_LAYER = "colony_access"
 
 
@@ -250,7 +252,7 @@ class WorldMapDocument:
         return [
             o
             for o in self.objects
-            if o.layer == ACCESS_LAYER and str(o.props.get("parent", "")) == colony_id
+            if o.layer in ACCESS_LAYERS and str(o.props.get("parent", "")) == colony_id
         ]
 
     def move_site_with_access(self, site: MapObject, x: float, y: float) -> None:
@@ -349,7 +351,7 @@ class WorldMapDocument:
                 self.colony_id_for_site(obj)
             ) or {}
             return float(profile.get("territory_radius", 180.0))
-        if obj.layer == ACCESS_LAYER:
+        if obj.layer in ACCESS_LAYERS:
             return 18.0
         return 24.0
 
@@ -401,7 +403,16 @@ class WorldMapDocument:
         self.objects = [o for o in self.objects if o.uid != uid]
 
     def find_at(self, layer: str, wx: float, wy: float, *, all_layers: bool = False) -> Optional[MapObject]:
-        layers = [layer] if not all_layers else ["colony_site", "colony_access", "nest", "spawn", "zone", "obstacle"]
+        layers = [layer] if not all_layers else [
+            "compound_root",
+            "compound_access",
+            "colony_site",
+            "colony_access",
+            "nest",
+            "spawn",
+            "zone",
+            "obstacle",
+        ]
         best: Optional[MapObject] = None
         best_dist = float("inf")
         for obj in self.objects:

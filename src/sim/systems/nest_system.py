@@ -184,14 +184,14 @@ class NestSystem:
 
     def add_hole(self, colony_id: str, x: float, y: float) -> None:
         x, y = self._clamp_to_world(float(x), float(y))
-        ws = self.world.world_object_system
+        cs = self.world.compound_system
         root = get_colony_root(self.world, colony_id)
         if root is None:
             self._register_colony_site(
                 colony_id, x, y, max_food=400.0, stored_food=0.0, with_default_access=False
             )
-        if ws.find_access_at(colony_id, x, y) is None:
-            ws.add_access_point(colony_id, x, y)
+        if cs.find_access_at(colony_id, x, y) is None:
+            cs.add_access_point(colony_id, x, y)
         invalidate_field_effect_cache(self.world)
 
     def damage_access(
@@ -212,23 +212,18 @@ class NestSystem:
             return 0.0
         if not is_rival_colony(self.world, attacker_colony_id, colony_id):
             return 0.0
-        if float(getattr(access, "max_hp", 0)) <= 0 or float(access.hp) <= 0:
-            return 0.0
 
-        dealt = min(float(access.hp), float(amount))
-        access.hp = max(0.0, access.hp - dealt)
+        root = get_colony_root(self.world, colony_id)
+        on_all_removed = None
+        if root is not None and root.is_colony_compound:
+            on_all_removed = self.defeat_colony
 
-        if access.hp <= HOLE_DESTROY_HP:
-            access.hp = 0.0
-            self._remove_access(colony_id, access)
-        return dealt
-
-    def _remove_access(self, colony_id: str, access) -> None:
-        ws = self.world.world_object_system
-        if access is not None:
-            ws.remove_access_point(access.id)
-        if self._colony_access_exhausted(colony_id):
-            self.defeat_colony(colony_id)
+        return self.world.compound_system.damage_access(
+            access,
+            colony_id,
+            float(amount),
+            on_all_access_removed=on_all_removed,
+        )
 
     def defeat_colony(self, colony_id: str) -> None:
         if not colony_id:
@@ -239,8 +234,7 @@ class NestSystem:
         if colony_id in self.world.defeated_colonies:
             return
 
-        ws = self.world.world_object_system
-        ws.clear_colony_access(colony_id)
+        self.world.compound_system.clear_access_points(colony_id)
 
         self.world.defeated_colonies.add(colony_id)
 

@@ -2,9 +2,13 @@
   "id": "poison_belt",
   "category": "zone",
   "label": "毒帯（矩形）",
-  "shape": "rect",
-  "width": 200,
-  "height": 60,
-  "hp_drain_per_dt": 0.08,
-  "field_tags": ["poison"]
+  "capabilities": {
+    "zone": {
+      "shape": "rect",
+      "width": 200,
+      "height": 60,
+      "hp_drain_per_dt": 0.08,
+      "field_tags": ["poison"]
+    }
+  }
 }

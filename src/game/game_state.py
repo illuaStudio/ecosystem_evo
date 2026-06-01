@@ -17,6 +17,14 @@ class GameState:
 
     nest_parent_object_ids: tuple[str, ...] = field(default_factory=tuple)
 
+    @property
+    def compound_parent_object_ids(self) -> tuple[str, ...]:
+        return self.nest_parent_object_ids
+
+    @compound_parent_object_ids.setter
+    def compound_parent_object_ids(self, value: tuple[str, ...]) -> None:
+        self.nest_parent_object_ids = tuple(str(x) for x in value if x)
+
     def set_flag(self, name: str, value: bool = True) -> bool:
         """フラグを更新し、False→True への変化なら True（初回トリガー用）。"""
         was = self.flags.get(name, False)

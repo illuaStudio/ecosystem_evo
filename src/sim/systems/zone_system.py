@@ -163,6 +163,68 @@ class ZoneSystem:
         if colony_profiles:
             self._add_colony_clearing_zones(colony_profiles)
 
+    def init_from_layout(self, layout: Dict | None) -> None:
+        """instances 由来の WorldObject を優先し、なければ legacy zones.sources。"""
+        layout = layout or {}
+        self.zones.clear()
+        self._next_id = 1
+        self._type_defaults.clear()
+
+        loaded_from_objects = self.bootstrap_from_world_objects()
+        if not loaded_from_objects:
+            from src.sim.utils.object_type_loader import merge_zone_config
+
+            cfg = merge_zone_config(layout.get("zones"))
+            if cfg:
+                defaults = dict(cfg.get("defaults") or {})
+                for key, value in (cfg.get("types") or {}).items():
+                    if isinstance(value, dict):
+                        self._type_defaults[str(key)] = dict(value)
+                for entry in cfg.get("sources") or []:
+                    if isinstance(entry, dict):
+                        self._add_from_entry(entry, defaults)
+
+        legacy_field_emitters = layout.get("field_emitters")
+        if legacy_field_emitters:
+            legacy_defaults = dict(legacy_field_emitters.get("defaults") or {})
+            for entry in legacy_field_emitters.get("sources") or legacy_field_emitters.get(
+                "emitters"
+            ) or []:
+                if isinstance(entry, dict):
+                    self._add_from_legacy_field_emitter(entry, legacy_defaults)
+
+        colony_profiles = getattr(self.world, "colony_profiles", None) or (
+            (layout.get("colony") or {}).get("profiles")
+        )
+        if colony_profiles:
+            self._add_colony_clearing_zones(colony_profiles)
+
+    def bootstrap_from_world_objects(self) -> bool:
+        """WorldObjectSystem の zone 配置から Zone キャッシュを構築。"""
+        ws = getattr(self.world, "world_object_system", None)
+        if ws is None:
+            return False
+
+        zone_objects = ws.iter_zones()
+        if not zone_objects:
+            return False
+
+        for obj in zone_objects:
+            if obj.zone_effects is None:
+                continue
+            self._add_zone(
+                x=float(obj.x),
+                y=float(obj.y),
+                zone_type=str(obj.type_ref),
+                effects=obj.zone_effects,
+                shape=str(obj.shape or "circle"),
+                radius=float(obj.radius),
+                half_w=float(obj.half_w),
+                half_h=float(obj.half_h),
+                label=str(obj.label or obj.type_ref),
+            )
+        return True
+
     def _resolve_entry(self, entry: Dict, global_defaults: Dict) -> Dict:
         zone_type = str(entry.get("type", global_defaults.get("type", "custom")))
         merged = dict(global_defaults)

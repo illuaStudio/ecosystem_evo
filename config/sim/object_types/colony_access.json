@@ -2,8 +2,14 @@
   "id": "colony_access",
   "category": "colony",
   "label": "拠点接続点",
-  "role": "access",
-  "shelter": true,
-  "deposit_access": true,
-  "max_hp": 120
+  "capabilities": {
+    "access": {
+      "role": "access",
+      "shelter": true,
+      "deposit": true
+    },
+    "combat": {
+      "max_hp": 120
+    }
+  }
 }

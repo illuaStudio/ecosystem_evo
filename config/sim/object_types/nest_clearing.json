@@ -2,6 +2,11 @@
   "id": "nest_clearing",
   "category": "zone",
   "label": "巣周辺クリアリング",
-  "spawn_rate_multiplier": 0.0,
-  "radius": 150.0
+  "capabilities": {
+    "zone": {
+      "shape": "circle",
+      "radius": 150,
+      "spawn_rate_multiplier": 0.0
+    }
+  }
 }

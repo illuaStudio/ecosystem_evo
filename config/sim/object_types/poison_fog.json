@@ -2,6 +2,12 @@
   "id": "poison_fog",
   "category": "zone",
   "label": "毒霧",
-  "hp_drain_per_dt": 0.07,
-  "field_tags": ["poison"]
+  "capabilities": {
+    "zone": {
+      "shape": "circle",
+      "radius": 95,
+      "hp_drain_per_dt": 0.07,
+      "field_tags": ["poison"]
+    }
+  }
 }

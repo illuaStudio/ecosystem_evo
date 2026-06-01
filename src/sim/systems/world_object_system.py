@@ -9,14 +9,27 @@ from src.sim.components.object_storage import ObjectStorage
 from src.sim.entities.world_object import WorldObject
 from src.config import config
 from src.sim.utils.colony_config_helpers import get_access_max_hp
-from src.sim.systems.obstacle_system import _parse_color
+from src.sim.utils.compound_layers import (
+    ACCESS_LAYERS,
+    ROOT_LAYERS,
+    default_access_type_for_root,
+    profile_for_type,
+)
+from src.sim.utils.object_capabilities import (
+    capability_block,
+    merge_type_with_instance,
+    resolve_geometry,
+    resolve_render_color,
+    zone_effects_from_data,
+)
 
 if TYPE_CHECKING:
     from src.sim.systems.world import World
 
-SITE_LAYERS = frozenset({"colony_site", "nest"})
-ACCESS_LAYERS = frozenset({"colony_access"})
+SITE_LAYERS = ROOT_LAYERS
 OBSTACLE_LAYERS = frozenset({"obstacle"})
+ZONE_LAYERS = frozenset({"zone"})
+RESERVED_INSTANCE_KEYS = frozenset({"id", "layer", "type", "x", "y", "parent", "role"})
 
 
 class WorldObjectSystem:
@@ -37,6 +50,7 @@ class WorldObjectSystem:
     def _load_from_instances(self, instances: List[Dict], layout: Dict) -> None:
         colony_settings = (layout.get("colony") or {})
         access_max_hp = get_access_max_hp(colony_settings)
+        zone_defaults = dict((layout.get("zones") or {}).get("defaults") or {})
 
         for raw in instances:
             if not isinstance(raw, dict):
@@ -51,25 +65,47 @@ class WorldObjectSystem:
                     continue
                 profiles = (layout.get("colony") or {}).get("profiles") or {}
                 profile = dict(profiles.get(obj_id) or {})
-                type_def = config.get_object_type(str(raw.get("type", "colony_site")))
-                max_food = float(raw.get("max_food", profile.get("max_food", type_def.get("max_food", 400.0))))
+                type_ref = str(raw.get("type", "colony_site"))
+                type_def = config.get_object_type(type_ref)
+                merged = merge_type_with_instance(
+                    type_def,
+                    raw,
+                    reserved_keys=RESERVED_INSTANCE_KEYS,
+                )
+                storage = capability_block(merged, "storage")
+                compound = capability_block(merged, "compound")
+                max_food = float(
+                    raw.get(
+                        "max_food",
+                        profile.get("max_food", storage.get("max_food", 400.0)),
+                    )
+                )
                 initial = float(
                     raw.get(
                         "initial_stored_food",
-                        profile.get("initial_stored_food", type_def.get("initial_stored_food", 0.0)),
+                        profile.get(
+                            "initial_stored_food",
+                            storage.get("initial_stored_food", 0.0),
+                        ),
                     )
                 )
                 self.objects[obj_id] = WorldObject(
                     id=obj_id,
-                    type_ref=str(raw.get("type", "colony_site")),
+                    type_ref=type_ref,
                     x=float(raw.get("x", profile.get("nest_x", 0.0))),
                     y=float(raw.get("y", profile.get("nest_y", 0.0))),
-                    role=str(raw.get("role", "root")),
+                    role=str(raw.get("role", compound.get("role", "root"))),
                     storage=ObjectStorage(
                         stored_food=max(0.0, min(initial, max_food)),
                         max_food=max_food,
                     ),
-                    label=str(raw.get("label", obj_id)),
+                    label=str(raw.get("label", type_def.get("label", obj_id))),
+                    compound_profile=str(
+                        raw.get(
+                            "compound_profile",
+                            compound.get("profile", profile_for_type(type_ref)),
+                        )
+                    ),
                 )
                 continue
 
@@ -77,19 +113,46 @@ class WorldObjectSystem:
                 parent_id = str(raw.get("parent", ""))
                 if not parent_id:
                     continue
-                type_def = config.get_object_type(str(raw.get("type", "colony_access")))
-                max_hp = float(raw.get("max_hp", type_def.get("max_hp", access_max_hp)))
+                type_ref = str(raw.get("type", "colony_access"))
+                type_def = config.get_object_type(type_ref)
+                merged = merge_type_with_instance(
+                    type_def,
+                    raw,
+                    reserved_keys=RESERVED_INSTANCE_KEYS,
+                )
+                access = capability_block(merged, "access")
+                combat = capability_block(merged, "combat")
+                max_hp = float(
+                    raw.get("max_hp", combat.get("max_hp", access_max_hp))
+                )
                 hp = float(raw.get("hp", max_hp))
                 child_id = obj_id or f"{parent_id}_access_{uuid.uuid4().hex[:6]}"
                 self.objects[child_id] = WorldObject(
                     id=child_id,
-                    type_ref=str(raw.get("type", "colony_access")),
+                    type_ref=type_ref,
                     x=float(raw.get("x", 0.0)),
                     y=float(raw.get("y", 0.0)),
                     parent_id=parent_id,
-                    role=str(raw.get("role", "access")),
-                    shelter=bool(raw.get("shelter", type_def.get("shelter", True))),
-                    deposit_access=bool(raw.get("deposit_access", type_def.get("deposit_access", True))),
+                    role=str(raw.get("role", access.get("role", "access"))),
+                    shelter=bool(raw.get("shelter", access.get("shelter", True))),
+                    deposit_access=bool(
+                        raw.get(
+                            "deposit_access",
+                            access.get(
+                                "deposit_access",
+                                access.get("deposit", True),
+                            ),
+                        )
+                    ),
+                    withdraw_access=bool(
+                        raw.get(
+                            "withdraw_access",
+                            access.get(
+                                "withdraw_access",
+                                access.get("withdraw", False),
+                            ),
+                        )
+                    ),
                     hp=hp,
                     max_hp=max_hp,
                     label=str(raw.get("label", child_id)),
@@ -101,20 +164,21 @@ class WorldObjectSystem:
                     continue
                 type_ref = str(raw.get("type", "rock"))
                 type_def = config.get_object_type(type_ref)
-                merged = dict(type_def)
-                for key, value in raw.items():
-                    if key not in ("id", "layer", "type", "x", "y"):
-                        merged[key] = value
-                shape = str(merged.get("shape", "circle")).lower()
+                merged = merge_type_with_instance(
+                    type_def,
+                    raw,
+                    reserved_keys=RESERVED_INSTANCE_KEYS,
+                )
+                shape, radius, half_w, half_h = resolve_geometry(
+                    merged,
+                    capability="collision",
+                )
                 x = float(raw.get("x", merged.get("x", 0.0)))
                 y = float(raw.get("y", merged.get("y", 0.0)))
-                render = merged.get("render") or {}
                 default_color = (92, 64, 40) if shape == "rect" else (120, 118, 110)
-                color = _parse_color(render.get("color"), default_color)
+                color = resolve_render_color(merged, default_color)
                 label = str(raw.get("label", type_def.get("label", type_ref)))
                 if shape == "rect":
-                    width = float(merged.get("width", 40.0))
-                    height = float(merged.get("height", 16.0))
                     self.objects[obj_id] = WorldObject(
                         id=obj_id,
                         type_ref=type_ref,
@@ -123,12 +187,11 @@ class WorldObjectSystem:
                         role=str(raw.get("role", "obstacle")),
                         label=label,
                         shape="rect",
-                        half_w=max(1.0, width * 0.5),
-                        half_h=max(1.0, height * 0.5),
+                        half_w=half_w,
+                        half_h=half_h,
                         color=color,
                     )
                 else:
-                    radius = float(merged.get("radius", 20.0))
                     self.objects[obj_id] = WorldObject(
                         id=obj_id,
                         type_ref=type_ref,
@@ -140,6 +203,40 @@ class WorldObjectSystem:
                         radius=max(1.0, radius),
                         color=color,
                     )
+                continue
+
+            if layer in ZONE_LAYERS:
+                if obj_id in self.objects:
+                    continue
+                type_ref = str(raw.get("type", "custom"))
+                type_def = config.get_object_type(type_ref)
+                merged = merge_type_with_instance(
+                    type_def,
+                    raw,
+                    reserved_keys=RESERVED_INSTANCE_KEYS,
+                )
+                shape, radius, half_w, half_h = resolve_geometry(
+                    merged,
+                    capability="zone",
+                    global_defaults=zone_defaults,
+                )
+                effects = zone_effects_from_data(merged)
+                x = float(raw.get("x", merged.get("x", 0.0)))
+                y = float(raw.get("y", merged.get("y", 0.0)))
+                label = str(raw.get("label", type_def.get("label", type_ref)))
+                self.objects[obj_id] = WorldObject(
+                    id=obj_id,
+                    type_ref=type_ref,
+                    x=x,
+                    y=y,
+                    role=str(raw.get("role", "zone")),
+                    label=label,
+                    shape=shape,
+                    radius=radius,
+                    half_w=half_w,
+                    half_h=half_h,
+                    zone_effects=effects,
+                )
 
     def _ensure_default_access_children(self, layout: Dict) -> None:
         colony_settings = (layout.get("colony") or {})
@@ -147,20 +244,34 @@ class WorldObjectSystem:
         for obj_id, parent in list(self.objects.items()):
             if not parent.is_root:
                 continue
+            if not parent.is_colony_compound:
+                continue
             if self.get_children(obj_id):
                 continue
+            access_type = default_access_type_for_root(parent.type_ref)
+            type_def = config.get_object_type(access_type)
+            access = capability_block(type_def, "access")
+            combat = capability_block(type_def, "combat")
+            max_hp = float(access_max_hp)
+            if not parent.is_colony_compound and combat.get("max_hp") is not None:
+                max_hp = float(combat["max_hp"])
             child_id = f"{obj_id}_access_main"
             self.objects[child_id] = WorldObject(
                 id=child_id,
-                type_ref="colony_access",
+                type_ref=access_type,
                 x=parent.x,
                 y=parent.y,
                 parent_id=obj_id,
-                role="access",
-                shelter=True,
-                deposit_access=True,
-                hp=access_max_hp,
-                max_hp=access_max_hp,
+                role=str(access.get("role", "access")),
+                shelter=bool(access.get("shelter", True)),
+                deposit_access=bool(
+                    access.get("deposit_access", access.get("deposit", True))
+                ),
+                withdraw_access=bool(
+                    access.get("withdraw_access", access.get("withdraw", False))
+                ),
+                hp=max_hp,
+                max_hp=max_hp,
                 label=f"{obj_id}_access",
             )
 
@@ -179,6 +290,9 @@ class WorldObjectSystem:
     def iter_obstacles(self) -> List[WorldObject]:
         return [obj for obj in self.objects.values() if obj.is_obstacle]
 
+    def iter_zones(self) -> List[WorldObject]:
+        return [obj for obj in self.objects.values() if obj.is_zone]
+
     def get_children(self, parent_id: str) -> List[WorldObject]:
         return [
             self.objects[cid]
@@ -191,6 +305,7 @@ class WorldObjectSystem:
         parent_id: str,
         *,
         require_deposit: bool = False,
+        require_withdraw: bool = False,
         require_shelter: bool = False,
     ) -> List[WorldObject]:
         out: List[WorldObject] = []
@@ -198,6 +313,8 @@ class WorldObjectSystem:
             if child.is_destroyed:
                 continue
             if require_deposit and not child.deposit_access:
+                continue
+            if require_withdraw and not child.withdraw_access:
                 continue
             if require_shelter and not child.shelter:
                 continue
@@ -217,16 +334,29 @@ class WorldObjectSystem:
             return None
         colony_settings = getattr(self.world, "colony_settings", {}) or {}
         hp_cap = float(max_hp if max_hp is not None else get_access_max_hp(colony_settings))
+        access_type = default_access_type_for_root(parent.type_ref)
+        type_def = config.get_object_type(access_type)
+        access = capability_block(type_def, "access")
+        if not parent.is_colony_compound:
+            combat = capability_block(type_def, "combat")
+            type_hp = combat.get("max_hp")
+            if type_hp is not None and max_hp is None:
+                hp_cap = float(type_hp)
         child_id = f"{parent_id}_access_{uuid.uuid4().hex[:6]}"
         child = WorldObject(
             id=child_id,
-            type_ref="colony_access",
+            type_ref=access_type,
             x=float(x),
             y=float(y),
             parent_id=parent_id,
-            role="access",
-            shelter=True,
-            deposit_access=True,
+            role=str(access.get("role", "access")),
+            shelter=bool(access.get("shelter", True)),
+            deposit_access=bool(
+                access.get("deposit_access", access.get("deposit", True))
+            ),
+            withdraw_access=bool(
+                access.get("withdraw_access", access.get("withdraw", False))
+            ),
             hp=hp_cap,
             max_hp=hp_cap,
             label=child_id,
@@ -242,6 +372,7 @@ class WorldObjectSystem:
         y: float,
         *,
         require_deposit: bool = False,
+        require_withdraw: bool = False,
         require_shelter: bool = False,
     ) -> tuple[Optional[WorldObject], Optional[WorldObject]]:
         """(親, 最寄りの子) を返す。"""
@@ -256,6 +387,7 @@ class WorldObjectSystem:
             for child in self.iter_access_points(
                 pid,
                 require_deposit=require_deposit,
+                require_withdraw=require_withdraw,
                 require_shelter=require_shelter,
             ):
                 dist = math.hypot(child.x - x, child.y - y)
@@ -333,6 +465,7 @@ class WorldObjectSystem:
             role="root",
             storage=ObjectStorage(stored_food=food, max_food=cap),
             label=str(colony_id),
+            compound_profile="colony",
         )
         self.objects[colony_id] = root
         self._children.setdefault(colony_id, [])

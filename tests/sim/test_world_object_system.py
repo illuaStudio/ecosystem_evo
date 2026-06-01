@@ -114,7 +114,7 @@ class TestWorldObjectSystem(unittest.TestCase):
         set_creature_nest_parent_ids(ant, ("red_ant",))
         ref = resolve_shelter_from_parents(ant)
         self.assertIsNotNone(ref)
-        self.assertEqual(ref.kind, "colony_access")
+        self.assertEqual(ref.kind, "compound_access")
         self.assertEqual(ref.parent_id, "red_ant")
 
     def test_resolve_deposit_target(self):
@@ -237,6 +237,47 @@ class TestWorldObjectSystem(unittest.TestCase):
         self.assertAlmostEqual(log.half_h, 8.0)
         self.assertFalse(world.is_valid_position(500, 500, body_radius=0))
         self.assertFalse(world.is_valid_position(200, 300, body_radius=3))
+
+    def test_zone_instances_load_into_world_objects(self):
+        world = World.from_json(
+            {
+                "name": "ZoneObjectWorld",
+                "world_width": 1000,
+                "world_height": 1000,
+                "initial_entities": {},
+                "instances": [
+                    {
+                        "id": "poison_a",
+                        "layer": "zone",
+                        "type": "poison_fog",
+                        "x": 300,
+                        "y": 300,
+                    }
+                ],
+                "zones": {"defaults": {"radius": 95.0}, "sources": []},
+                "world": {
+                    "biome_map_cell_size": 64,
+                    "biomes": [{"name": "rich", "color": "#2E8B57", "spawn_rate_multiplier": 1.0}],
+                    "biome_noise": {
+                        "scale": 0.003,
+                        "octaves": 2,
+                        "persistence": 0.55,
+                        "lacunarity": 2.2,
+                        "threshold": 0.5,
+                        "seed": 1,
+                    },
+                },
+            }
+        )
+        ws = world.world_object_system
+        zone_obj = ws.get("poison_a")
+        self.assertIsNotNone(zone_obj)
+        self.assertTrue(zone_obj.is_zone)
+        self.assertAlmostEqual(zone_obj.radius, 95.0)
+        sample = world.zone_system.sample_at(300, 300)
+        self.assertAlmostEqual(sample.hp_drain_per_dt, 0.07)
+        self.assertIn("poison", sample.field_tags)
+        self.assertAlmostEqual(world.zone_system.sample_at(900, 900).hp_drain_per_dt, 0.0)
 
 
 if __name__ == "__main__":

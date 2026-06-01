@@ -2,9 +2,13 @@
   "id": "rock",
   "category": "obstacle",
   "label": "岩",
-  "shape": "circle",
-  "radius": 22,
-  "render": {
-    "color": [118, 112, 102]
+  "capabilities": {
+    "collision": {
+      "shape": "circle",
+      "radius": 22
+    },
+    "render": {
+      "color": [118, 112, 102]
+    }
   }
 }

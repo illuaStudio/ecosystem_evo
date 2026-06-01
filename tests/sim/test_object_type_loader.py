@@ -28,7 +28,10 @@ class TestObjectTypeLoader(unittest.TestCase):
             "radius": 22,
         }
         payload = type_definition(raw)
-        self.assertEqual(payload, {"shape": "circle", "radius": 22})
+        self.assertNotIn("id", payload)
+        self.assertIn("capabilities", payload)
+        self.assertEqual(payload["shape"], "circle")
+        self.assertEqual(payload["radius"], 22)
 
     def test_merge_obstacle_config_includes_global_types(self):
         merged = merge_obstacle_config({"sources": []})

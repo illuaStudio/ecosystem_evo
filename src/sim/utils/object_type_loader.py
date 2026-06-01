@@ -4,6 +4,8 @@ from __future__ import annotations
 import copy
 from typing import Any, Dict, List, Optional
 
+from src.sim.utils.object_capabilities import normalize_capabilities, type_definition
+
 _META_KEYS = frozenset({"id", "category", "label"})
 
 
@@ -11,11 +13,6 @@ def _get_registry() -> Dict[str, Dict[str, Any]]:
     from src.config import config
 
     return config.object_types
-
-
-def type_definition(raw: Dict[str, Any]) -> Dict[str, Any]:
-    """メタキーを除いた型定義ペイロード。"""
-    return {key: copy.deepcopy(value) for key, value in raw.items() if key not in _META_KEYS}
 
 
 def merged_types_for_category(
@@ -33,7 +30,7 @@ def merged_types_for_category(
 
     for key, value in (inline_types or {}).items():
         if isinstance(value, dict):
-            merged[str(key)] = dict(value)
+            merged[str(key)] = normalize_capabilities(value)
     return merged
 
 
@@ -72,4 +69,4 @@ def get_object_type(type_id: str) -> Dict[str, Any]:
     raw = _get_registry().get(type_id)
     if not isinstance(raw, dict):
         return {}
-    return dict(raw)
+    return normalize_capabilities(raw)

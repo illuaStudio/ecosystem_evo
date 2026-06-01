@@ -16,8 +16,8 @@ from src.sim.systems.nest_system import NestSystem
 from src.sim.event_bus import EventBus
 from src.sim.systems.spawn_system import SpawnSystem
 from src.sim.systems.world_spawner import WorldSpawner
-from src.sim.utils.object_type_loader import merge_zone_config
 from src.sim.systems.world_object_system import WorldObjectSystem
+from src.sim.systems.compound_system import CompoundSystem
 from src.sim.utils.world_instances import normalize_world_layout
 
 
@@ -113,13 +113,10 @@ class World:
         self.nest_system = NestSystem(self)
         self.world_object_system = WorldObjectSystem(self)
         self.world_object_system.init_from_layout(layout)
+        self.compound_system = CompoundSystem(self)
         self.nest_system.bootstrap_from_world_objects()
         self.zone_system = ZoneSystem(self)
-        self.zone_system.init_from_config(
-            merge_zone_config(layout.get("zones")),
-            legacy_field_emitters=layout.get("field_emitters"),
-            colony_profiles=self.colony_profiles,
-        )
+        self.zone_system.init_from_layout(layout)
         self.obstacle_system = ObstacleSystem(self)
         self.obstacle_system.init_from_layout(layout)
         self.spawner = WorldSpawner(self)
