@@ -8,7 +8,7 @@ from src.sim.utils.creature_helpers import (
     is_point_in_nest_territory,
     resolve_colony_id,
 )
-from tests.sim.world_fixtures import colony_settings, set_colony_stored_food
+from tests.sim.world_fixtures import affiliation_settings, set_colony_stored_food
 
 
 def _colony_world(**overrides) -> World:
@@ -23,11 +23,11 @@ def _colony_world(**overrides) -> World:
             "blue_ant": 20,
             "yellow_ant": 20,
         },
-        "colony": {
+        "affiliation": {
             "access_food_cost": 250,
             "max_access_points": 8,
             "min_access_spacing": 120,
-            **colony_settings(),
+            **affiliation_settings(),
         },
     }
     data.update(overrides)
@@ -43,8 +43,10 @@ class TestNestHolesAndColonyId(unittest.TestCase):
         soldier = factory.create("red_ant_soldier", world=world, x=110, y=100)
         world.add_creature(soldier)
 
-        self.assertEqual(worker.colony.colony_id, "red_ant")
-        self.assertEqual(soldier.colony.colony_id, "red_ant")
+        from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
+
+        self.assertEqual(get_creature_affiliation_id(worker), "red_ant")
+        self.assertEqual(get_creature_affiliation_id(soldier), "red_ant")
         self.assertIs(
             world.nest_system.get_creature_nest(soldier),
             world.nest_system.get_creature_nest(worker),

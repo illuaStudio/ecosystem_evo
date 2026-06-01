@@ -30,7 +30,7 @@ def get_colony_root(world, colony_id: str):
     """colony_site 親 WorldObject（存在しなければ None）。"""
     if world is None or not colony_id:
         return None
-    defeated = getattr(world, "defeated_colonies", None) or set()
+    defeated = getattr(world, "defeated_affiliations", None) or getattr(world, "defeated_colonies", None) or set()
     if str(colony_id) in defeated:
         return None
     return get_compound_root(world, colony_id)
@@ -38,10 +38,10 @@ def get_colony_root(world, colony_id: str):
 
 def get_creature_colony_root(creature):
     """個体の所属 colony_site 親 WorldObject。"""
-    from src.sim.utils.colony_helpers import get_creature_colony_id
+    from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
 
     world = getattr(creature, "world", None)
-    cid = get_creature_colony_id(creature)
+    cid = get_creature_affiliation_id(creature)
     if world is None or not cid:
         return None
     return get_colony_root(world, cid)
@@ -62,8 +62,8 @@ def colony_max_food(world, colony_id: str, default: float = 0.0) -> float:
 
 
 def owner_species_for_colony(world, colony_id: str) -> str:
-    factions = getattr(world, "faction_species", {}) or {}
-    pool = factions.get(colony_id) or ()
+    groups = getattr(world, "affiliation_species", {}) or getattr(world, "faction_species", {}) or {}
+    pool = groups.get(colony_id) or ()
     if pool:
         return str(pool[0])
     return str(colony_id)
@@ -73,21 +73,21 @@ def _colony_has_living_members(world, colony_id: str) -> bool:
     for creature in getattr(world, "creatures", ()) or ():
         if not getattr(creature, "alive", True):
             continue
-        colony = getattr(creature, "colony", None)
-        if colony is not None and str(colony.colony_id) == str(colony_id):
+        aff = getattr(creature, "affiliation", None)
+        if aff is not None and str(getattr(aff, "affiliation_id", "") or "") == str(colony_id):
             return True
     return False
 
 
 def _colony_is_active(world, colony_id: str) -> bool:
     """faction 所属・接続点・生存メンバーのいずれかがあれば稼働中。"""
-    defeated = getattr(world, "defeated_colonies", None) or set()
+    defeated = getattr(world, "defeated_affiliations", None) or getattr(world, "defeated_colonies", None) or set()
     cid = str(colony_id)
     if cid in defeated:
         return False
-    factions = getattr(world, "faction_species", {}) or {}
-    if factions:
-        if cid in factions:
+    groups = getattr(world, "affiliation_species", {}) or getattr(world, "faction_species", {}) or {}
+    if groups:
+        if cid in groups:
             return True
         return _colony_has_living_members(world, cid)
     ws = getattr(world, "world_object_system", None)

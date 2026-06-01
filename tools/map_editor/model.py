@@ -205,7 +205,7 @@ class WorldMapDocument:
             )
 
     def _load_nests(self) -> None:
-        profiles = (self.data.get("colony") or {}).get("profiles") or {}
+        profiles = (self.data.get("affiliation") or self.data.get("colony") or {}).get("profiles") or {}
         for colony_id, profile in profiles.items():
             if not isinstance(profile, dict):
                 continue
@@ -236,13 +236,16 @@ class WorldMapDocument:
             )
 
     def _flush_nests(self, objects: List[MapObject]) -> None:
-        colony = self.data.setdefault("colony", {})
-        profiles = colony.setdefault("profiles", {})
+        aff_block = self.data.setdefault("affiliation", {})
+        col_block = self.data.setdefault("colony", {})
+        profiles = aff_block.setdefault("profiles", {})
+        col_profiles = col_block.setdefault("profiles", profiles)
         for obj in objects:
             profile_key = str(obj.source_id or obj.type_ref)
             profile = profiles.setdefault(profile_key, {})
             profile["nest_x"] = float(obj.x)
             profile["nest_y"] = float(obj.y)
+            col_profiles.setdefault(profile_key, profile)
 
     def colony_id_for_site(self, obj: MapObject) -> str:
         return str(obj.source_id or obj.type_ref)
@@ -322,7 +325,7 @@ class WorldMapDocument:
             types = (self.data.get("spawn_emitters") or {}).get("types") or {}
             return list(types.keys()) or ["micro_fauna_mixed"]
         if layer in SITE_LAYERS:
-            profiles = (self.data.get("colony") or {}).get("profiles") or {}
+            profiles = (self.data.get("affiliation") or self.data.get("colony") or {}).get("profiles") or {}
             return list(profiles.keys()) or ["red_ant"]
         return []
 
@@ -347,7 +350,7 @@ class WorldMapDocument:
             tdef = types.get(obj.type_ref) or {}
             return float(obj.get("radius", tdef.get("radius", defaults.get("radius", 85.0))))
         if obj.layer in SITE_LAYERS:
-            profile = ((self.data.get("colony") or {}).get("profiles") or {}).get(
+            profile = ((self.data.get("affiliation") or self.data.get("colony") or {}).get("profiles") or {}).get(
                 self.colony_id_for_site(obj)
             ) or {}
             return float(profile.get("territory_radius", 180.0))

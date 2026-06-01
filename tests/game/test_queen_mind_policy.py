@@ -8,7 +8,7 @@ from src.game.mind_policy import MindPolicy
 from src.sim.bridge import SimBridge
 from src.sim.shelter.state import is_creature_sheltered
 from src.sim.systems.world import World
-from tests.sim.world_fixtures import colony_settings
+from tests.sim.world_fixtures import affiliation_settings
 
 
 class TestQueenAndMindPolicy(unittest.TestCase):
@@ -19,7 +19,7 @@ class TestQueenAndMindPolicy(unittest.TestCase):
                 "world_width": 500,
                 "world_height": 500,
                 "initial_entities": {},
-                "colony": colony_settings(),
+                "affiliation": affiliation_settings(),
             }
         )
         factory = CreatureFactory()
@@ -38,7 +38,7 @@ class TestQueenAndMindPolicy(unittest.TestCase):
                 "world_width": 500,
                 "world_height": 500,
                 "initial_entities": {},
-                "colony": colony_settings(),
+                "affiliation": affiliation_settings(),
             }
         )
         factory = CreatureFactory()
@@ -57,7 +57,7 @@ class TestQueenAndMindPolicy(unittest.TestCase):
                 "world_width": 500,
                 "world_height": 500,
                 "initial_entities": {},
-                "colony": colony_settings(),
+                "affiliation": affiliation_settings(),
             }
         )
         factory = CreatureFactory()
@@ -92,7 +92,7 @@ class TestQueenAndMindPolicy(unittest.TestCase):
                 "world_height": 500,
                 "initial_entities": {},
                 "population_limits": {"red_ant": 20, "red_ant_queen": 3},
-                "colony": colony_settings(),
+                "affiliation": affiliation_settings(),
             }
         )
         factory = CreatureFactory()
@@ -113,7 +113,7 @@ class TestQueenAndMindPolicy(unittest.TestCase):
             for a in profile["actions"]
             if a["name"] == "ColonyReproduceAction"
         )
-        from src.sim.utils.colony_config_helpers import get_min_food_reserve
+        from src.sim.utils.affiliation_config_helpers import get_min_food_reserve
 
         nest.stored_food = get_min_food_reserve(world) + float(params["food_cost"]) + 10
 

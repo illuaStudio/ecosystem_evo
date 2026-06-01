@@ -16,9 +16,9 @@ class TestWorldStart(unittest.TestCase):
 
     def test_faction_species_single_faction(self):
         world = World()
-        self.assertIn("red_ant", world.faction_species)
-        self.assertNotIn("blue_ant", world.faction_species)
-        self.assertNotIn("yellow_ant", world.faction_species)
+        self.assertIn("red_ant", world.affiliation_species)
+        self.assertNotIn("blue_ant", world.affiliation_species)
+        self.assertNotIn("yellow_ant", world.affiliation_species)
         self.assertIn("red_ant", world.faction_styles)
 
     def test_initial_population(self):

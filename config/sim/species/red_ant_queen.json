@@ -9,9 +9,9 @@
   "life_cycle": {
     "death": -1
   },
-  "colony": {
+  "affiliation": {
     "enabled": true,
-    "colony_id": "red_ant",
+    "affiliation_id": "red_ant",
     "hide_radius": 35.0
   },
   "traits": {

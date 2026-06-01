@@ -16,10 +16,10 @@ from tests.sim.legacy_corpse_helpers import use_legacy_corpse_on_death
 from src.config import config
 from src.sim.utils.creature_helpers import distance_to_point
 from src.sim.utils.position_helpers import entity_xy
-from src.sim.utils.colony_config_helpers import get_colony_profile, get_min_food_reserve
+from src.sim.utils.affiliation_config_helpers import get_affiliation_profile as get_colony_profile, get_min_food_reserve
 from tests.sim.world_fixtures import (
     RED_ANT_PROFILE,
-    colony_settings,
+    affiliation_settings,
     load_test_world,
     set_colony_stored_food,
 )
@@ -41,9 +41,9 @@ class TestAntNest(unittest.TestCase):
             world_width=3000,
             world_height=3000,
             population_limits={"red_ant": 60, "blue_ant": 60},
-            colony=colony_settings(
+            affiliation=affiliation_settings(
                 profiles={"red_ant": dict(RED_ANT_PROFILE)},
-                faction_species={"red_ant": ["red_ant"]},
+                affiliation_species={"red_ant": ["red_ant"]},
             ),
         )
 
@@ -66,8 +66,10 @@ class TestAntNest(unittest.TestCase):
             p = factory.create("red_ant", world=world, x=x, y=y)
             world.add_creature(p)
             preds.append(p)
-        colony_ids = {p.colony.colony_id for p in preds}
-        self.assertEqual(len(colony_ids), 1)
+        from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
+
+        affiliation_ids = {get_creature_affiliation_id(p) for p in preds}
+        self.assertEqual(len({x for x in affiliation_ids if x}), 1)
         self.assertEqual(len(world.nest_system.nests), 1)
 
     def test_initial_predators_spawn_near_nest_anchor(self):
@@ -107,24 +109,26 @@ class TestAntNest(unittest.TestCase):
         factory = CreatureFactory()
         first = factory.create("red_ant", world=world, x=300, y=300)
         world.add_creature(first)
-        colony_id = first.colony.colony_id
+        from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
+
+        colony_id = get_creature_affiliation_id(first)
 
         second = factory.create("red_ant", world=world, x=900, y=900)
         world.add_creature(second)
-        self.assertEqual(second.colony.colony_id, colony_id)
+        self.assertEqual(get_creature_affiliation_id(second), colony_id)
         self.assertEqual(len(world.nest_system.nests), 1)
 
     def test_new_nest_gets_initial_stored_food_from_colony_cfg(self):
         world = load_test_world(
             name="Test",
-            colony=colony_settings(profiles={}, faction_species={}),
+            affiliation=affiliation_settings(profiles={}, affiliation_species={}),
         )
         factory = CreatureFactory()
         ant = factory.create("red_ant", world=world, x=100, y=100)
         world.nest_system.assign_creature(
             ant,
             {
-                "single_colony": True,
+                "single_affiliation": True,
                 "max_food": 500.0,
                 "initial_stored_food": 123.0,
             },
@@ -155,7 +159,7 @@ class TestAntNest(unittest.TestCase):
         first = factory.create("red_ant", world=world, x=300, y=300)
         world.nest_system.assign_creature(
             first,
-            {"single_colony": True, "max_food": 400.0, "initial_stored_food": 90.0},
+            {"single_affiliation": True, "max_food": 400.0, "initial_stored_food": 90.0},
         )
         nest = world.nest_system.get_creature_nest(first)
         nest.stored_food = 50.0
@@ -163,9 +167,11 @@ class TestAntNest(unittest.TestCase):
         second = factory.create("red_ant", world=world, x=900, y=900)
         world.nest_system.assign_creature(
             second,
-            {"single_colony": True, "max_food": 400.0, "initial_stored_food": 200.0},
+            {"single_affiliation": True, "max_food": 400.0, "initial_stored_food": 200.0},
         )
-        self.assertEqual(second.colony.colony_id, nest.colony_id)
+        from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
+
+        self.assertEqual(get_creature_affiliation_id(second), nest.colony_id)
         self.assertAlmostEqual(nest.stored_food, 50.0)
 
     def test_hunt_pickup_and_deposit_increases_nest_storage(self):

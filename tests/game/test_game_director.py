@@ -8,7 +8,7 @@ from src.sim.bridge import SimBridge
 from src.sim.emitters import emit_colony_defeated, emit_combat_started_creature
 from src.sim.systems.world import World
 from src.sim.entities.creature_factory import CreatureFactory
-from tests.sim.world_fixtures import colony_settings
+from tests.sim.world_fixtures import affiliation_settings
 
 
 def _player_world(**overrides) -> World:
@@ -18,12 +18,12 @@ def _player_world(**overrides) -> World:
         "world_height": 800,
         "initial_entities": {},
         "population_limits": {"red_ant": 20, "red_ant_queen": 3, "blue_ant": 10},
-        "colony": colony_settings(
+        "affiliation": affiliation_settings(
             factions={
                 "red_ant": {"label": "R"},
                 "blue_ant": {"label": "B"},
             },
-            faction_species={
+            affiliation_species={
                 "red_ant": ["red_ant", "red_ant_soldier", "red_ant_queen"],
                 "blue_ant": ["blue_ant"],
             },

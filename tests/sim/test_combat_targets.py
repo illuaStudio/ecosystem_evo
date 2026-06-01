@@ -10,7 +10,7 @@ from src.sim.combat.target_ref import TargetKind, TargetRef
 from src.sim.combat.target_damage import apply_damage_to_target
 from src.sim.entities.creature_factory import CreatureFactory
 from src.sim.systems.world import World
-from tests.sim.world_fixtures import RED_ANT_PROFILE, BLUE_ANT_PROFILE, colony_settings, load_test_world
+from tests.sim.world_fixtures import RED_ANT_PROFILE, BLUE_ANT_PROFILE, affiliation_settings, load_test_world
 
 
 def _combat_colony_settings():
@@ -20,10 +20,10 @@ def _combat_colony_settings():
     blue = dict(BLUE_ANT_PROFILE)
     blue["nest_x"] = 200
     blue["nest_y"] = 200
-    return colony_settings(
+    return affiliation_settings(
         access_max_hp=100,
         profiles={"red_ant": red, "blue_ant": blue},
-        faction_species={
+        affiliation_species={
             "red_ant": ["red_ant", "red_ant_soldier"],
             "blue_ant": ["blue_ant"],
         },
@@ -38,7 +38,7 @@ def _world():
             "red_ant_soldier": 6,
             "blue_ant": 10,
         },
-        colony=_combat_colony_settings(),
+        affiliation=_combat_colony_settings(),
     )
 
 
@@ -147,9 +147,9 @@ class TestCombatTargets(unittest.TestCase):
                         "y": 500,
                     },
                 ],
-                "colony": colony_settings(
+                "affiliation": affiliation_settings(
                     access_max_hp=100,
-                    faction_species={
+                    affiliation_species={
                         "red_ant": ["red_ant", "red_ant_soldier"],
                         "blue_ant": ["blue_ant"],
                     },

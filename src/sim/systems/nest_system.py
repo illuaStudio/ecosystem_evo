@@ -6,16 +6,15 @@ import math
 import random
 from typing import TYPE_CHECKING
 
-from src.sim.utils.colony_config_helpers import (
+from src.sim.utils.affiliation_config_helpers import (
     get_min_food_reserve,
     get_access_food_cost,
     get_max_access_points,
     get_min_access_spacing,
-    resolve_colony_runtime_cfg,
+    resolve_affiliation_runtime_cfg as _resolve_affiliation_runtime_cfg,
 )
 from src.sim.utils.creature_helpers import (
     is_point_in_colony_territory,
-    resolve_colony_id,
 )
 from src.sim.utils.position_helpers import entity_xy
 from src.sim.utils.field_effect_cache import invalidate_field_effect_cache
@@ -34,13 +33,13 @@ HOLE_DESTROY_HP = 1.0
 
 
 def resolve_affiliation_id(species_name: str, cfg: dict | None = None) -> str:
-    """互換: affiliation_id は現状 colony_id と同一の解決ルールを使う。"""
-    return resolve_colony_id(species_name, cfg or {})
+    from src.sim.utils.territory_helpers import resolve_affiliation_id as _resolve
+
+    return _resolve(species_name, cfg or {})
 
 
 def resolve_affiliation_runtime_cfg(world, affiliation_id: str, cfg: dict | None = None) -> dict:
-    """互換: affiliation の拠点 runtime cfg は colony と同じ profiles を用いる。"""
-    return resolve_colony_runtime_cfg(world, affiliation_id, cfg or {})
+    return _resolve_affiliation_runtime_cfg(world, affiliation_id, cfg or {})
 
 
 def is_affiliation_defeated(world, affiliation_id: str) -> bool:
@@ -54,7 +53,13 @@ def _sync_legacy_colony(creature, affiliation_id: str, *, defeated: bool = False
     """段階移行用: affiliation の値を legacy colony にも写す（あれば）。"""
     colony = getattr(creature, "colony", None)
     if colony is None:
-        return
+        try:
+            from src.sim.components.colony import ColonyComponent
+
+            colony = ColonyComponent()
+            creature.colony = colony
+        except Exception:
+            return
     colony.colony_id = str(affiliation_id) if affiliation_id else None
     if defeated:
         colony.defeated = True
@@ -229,7 +234,10 @@ class NestSystem:
         *,
         attacker_colony_id: str,
     ) -> float:
-        from src.sim.utils.colony_helpers import is_colony_defeated, is_rival_colony
+        from src.sim.utils.affiliation_group_helpers import (
+            is_affiliation_defeated as is_colony_defeated,
+            is_rival_affiliation as is_rival_colony,
+        )
 
         if access is None or amount <= 0 or not colony_id:
             return 0.0
@@ -299,7 +307,7 @@ class NestSystem:
         if not is_point_in_colony_territory(self.world, colony_id, x, y):
             return False, "既存テリトリー外です"
 
-        from src.sim.utils.colony_helpers import is_point_in_rival_territory
+        from src.sim.utils.affiliation_group_helpers import is_point_in_rival_territory
 
         if is_point_in_rival_territory(self.world, colony_id, x, y):
             return False, "敵テリトリーと重なります"
@@ -362,9 +370,9 @@ class NestSystem:
             if _parent is not None:
                 return float(_parent.x), float(_parent.y)
 
-        from src.sim.utils.colony_helpers import get_creature_colony_id
+        from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
 
-        colony_id = get_creature_colony_id(creature)
+        colony_id = get_creature_affiliation_id(creature)
         if not colony_id:
             return entity_xy(creature)
         cx, cy = entity_xy(creature)
@@ -417,11 +425,11 @@ class NestSystem:
         )
 
         cfg = colony_cfg or {}
-        colony_id = resolve_colony_id(species_name, cfg)
-        runtime_cfg = resolve_colony_runtime_cfg(self.world, colony_id, cfg)
+        affiliation_id = resolve_affiliation_id(species_name, cfg)
+        runtime_cfg = resolve_affiliation_runtime_cfg(self.world, affiliation_id, cfg)
         spread = float(runtime_cfg["spawn_spread"])
         resolver = SpawnPlacementResolver(self.world)
-        anchor = SpawnAnchor(type="nest", colony_id=colony_id, spread=spread)
+        anchor = SpawnAnchor(type="nest", colony_id=affiliation_id, spread=spread)
         pos = resolver.pick(
             anchor,
             SpawnPlacementOptions(
@@ -469,7 +477,7 @@ class NestSystem:
         affiliation_id = resolve_affiliation_id(species_name, cfg)
         join_species = cfg.get("join_species")
 
-        from src.sim.utils.colony_helpers import is_colony_defeated
+        from src.sim.utils.affiliation_group_helpers import is_affiliation_defeated as is_colony_defeated
 
         if affiliation_id and is_affiliation_defeated(self.world, affiliation_id):
             affiliation.affiliation_id = str(affiliation_id)
@@ -492,6 +500,9 @@ class NestSystem:
                 return
 
         if join_species is not None:
+            # join 種は新規拠点を作らないが、所属 ID 自体は確定させる
+            affiliation.affiliation_id = str(affiliation_id) if affiliation_id else None
+            _sync_legacy_colony(creature, affiliation_id)
             return
 
         cx, cy = entity_xy(creature)
@@ -514,7 +525,7 @@ class NestSystem:
         for root in iter_active_colony_roots(self.world):
             if root.storage is None:
                 continue
-            runtime_cfg = resolve_colony_runtime_cfg(self.world, root.id, {})
+            runtime_cfg = resolve_affiliation_runtime_cfg(self.world, root.id, {})
             if root.storage.stored_food > 0:
                 self._leak_food_storage(root.storage, runtime_cfg, dt)
 
@@ -556,8 +567,8 @@ class NestSystem:
                 continue
             if c.species.name not in names:
                 continue
-            colony = getattr(c, "colony", None)
-            if colony is not None and colony.colony_id == colony_id:
+            aff = getattr(c, "affiliation", None)
+            if aff is not None and str(getattr(aff, "affiliation_id", "") or "") == colony_id:
                 count += 1
         return count
 
@@ -581,7 +592,7 @@ class NestSystem:
             deposit_carried_to_parent,
             get_creature_nest_parent_ids,
         )
-        from src.sim.utils.colony_helpers import get_creature_colony_id
+        from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
 
         if not inventory_is_loaded(creature):
             return 0.0
@@ -589,7 +600,7 @@ class NestSystem:
         if get_creature_nest_parent_ids(creature):
             return deposit_carried_to_parent(creature)
 
-        colony_id = get_creature_colony_id(creature)
+        colony_id = get_creature_affiliation_id(creature)
         if not colony_id:
             return 0.0
 
@@ -613,7 +624,7 @@ class NestSystem:
             feed_creature_from_parent,
             get_creature_nest_parent_ids,
         )
-        from src.sim.utils.colony_helpers import get_creature_colony_id
+        from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
 
         if get_creature_nest_parent_ids(creature):
             return feed_creature_from_parent(
@@ -622,7 +633,7 @@ class NestSystem:
                 feed_per_tick=feed_per_tick,
             )
 
-        colony_id = get_creature_colony_id(creature)
+        colony_id = get_creature_affiliation_id(creature)
         root = get_colony_root(self.world, colony_id) if colony_id else None
         if root is None or root.storage is None:
             return 0.0
@@ -655,8 +666,8 @@ class NestSystem:
         for c in self.world.creatures:
             if not getattr(c, "alive", True):
                 continue
-            colony = getattr(c, "colony", None)
-            if colony is not None and colony.colony_id == colony_id:
+            aff = getattr(c, "affiliation", None)
+            if aff is not None and str(getattr(aff, "affiliation_id", "") or "") == colony_id:
                 count += 1
         return count
 

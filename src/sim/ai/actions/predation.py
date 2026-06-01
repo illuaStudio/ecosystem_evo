@@ -284,9 +284,8 @@ class HuntAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action
         return self.completed
 
     def execute(self, creature) -> bool:
-        if not creature.world or getattr(creature, "colony", None) is None:
+        if not creature.world or getattr(creature, "affiliation", None) is None:
             return False
-        colony = creature.colony
         if inventory_is_loaded(creature):
             self.completed = True
             return False
@@ -383,9 +382,9 @@ class HuntAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action
         if needs_self_feed(creature) or not creature.world:
             return 1.0
         ns = creature.world.nest_system
-        from src.sim.utils.colony_helpers import get_creature_colony_id
+        from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
 
-        colony_id = get_creature_colony_id(creature)
+        colony_id = get_creature_affiliation_id(creature)
         if not colony_id or ns.get_colony_root(colony_id) is None:
             return 1.0
         if ns.distance_to_nest(creature) > float(self.params.get("nest_hunt_dampen_radius", 55.0)):
@@ -413,9 +412,9 @@ class HuntAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action
         if not creature.world:
             return 0.0
 
-        from src.sim.utils.colony_helpers import get_creature_colony_id
+        from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
 
-        if not get_creature_colony_id(creature):
+        if not get_creature_affiliation_id(creature):
             return 0.0
 
         return float(self.params["colony_hoard_strength"])
@@ -423,10 +422,9 @@ class HuntAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action
     def calculate_utility(self, creature) -> float:
         if is_flee_latch_active(creature):
             return 0.0
-        colony = getattr(creature, "colony", None)
         if inventory_is_loaded(creature):
             return 0.0
-        if not self._territory_only() and colony is None:
+        if not self._territory_only() and getattr(creature, "affiliation", None) is None:
             return 0.0
         if not self._defense_hunt() and is_beyond_nest_leash(creature, self._nest_leash()):
             return 0.0

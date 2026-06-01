@@ -63,7 +63,7 @@ from src.sim.utils.territory_helpers import (
     is_point_in_creature_territory,
     is_point_in_nest_territory,
     iter_territory_centers,
-    resolve_colony_id,
+    resolve_colony_id,  # legacy: use territory_helpers.resolve_affiliation_id instead
 )
 from src.sim.utils.target_helpers import (
     carcass_on_field,

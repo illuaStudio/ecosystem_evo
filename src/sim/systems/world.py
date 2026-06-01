@@ -98,8 +98,23 @@ class World:
             layout.get("population_limits", {})
         )
 
-        # 所属（affiliation）設定。旧 colony ブロックは後方互換として読み取りのみ行う。
-        affiliation_block = dict(layout.get("affiliation") or layout.get("colony") or {})
+        # 所属（affiliation）設定。
+        # - 新: layout["affiliation"]
+        # - 旧: layout["colony"]
+        # instances 展開が affiliation.profiles だけ部分的に生成することがあるため、
+        # colony 側の共通設定（min_food_reserve 等）とマージして扱う。
+        legacy_colony_block = dict(layout.get("colony") or {})
+        raw_affiliation_block = dict(layout.get("affiliation") or {})
+
+        affiliation_block = dict(legacy_colony_block)
+        affiliation_block.update(raw_affiliation_block)
+
+        if legacy_colony_block.get("profiles") and not raw_affiliation_block.get("profiles"):
+            affiliation_block["profiles"] = legacy_colony_block.get("profiles")
+        elif legacy_colony_block.get("profiles") and raw_affiliation_block.get("profiles"):
+            merged_profiles = dict(legacy_colony_block.get("profiles") or {})
+            merged_profiles.update(raw_affiliation_block.get("profiles") or {})
+            affiliation_block["profiles"] = merged_profiles
 
         self.affiliation_styles = dict(affiliation_block.pop("factions", {}))
         self.affiliation_species = dict(affiliation_block.pop("affiliation_species", {}))

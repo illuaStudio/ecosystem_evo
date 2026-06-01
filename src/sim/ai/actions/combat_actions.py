@@ -14,11 +14,11 @@ from src.sim.combat.target_query import (
     target_closeness,
     target_position,
 )
-from src.sim.utils.colony_helpers import (
-    get_creature_colony_id,
-    get_rival_colony_ids,
-    is_creature_colony_defeated,
+from src.sim.utils.affiliation_group_helpers import (
+    get_rival_affiliation_ids as get_rival_colony_ids,
+    is_creature_affiliation_defeated as is_creature_colony_defeated,
 )
+from src.sim.utils.affiliation_helpers import get_creature_affiliation_id as get_creature_colony_id
 from src.sim.utils.creature_helpers import (
     closeness_ratio,
     contact_range,
@@ -75,7 +75,6 @@ class CombatAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Acti
     def execute(self, creature) -> bool:
         if not creature.world or is_creature_colony_defeated(creature):
             return False
-        colony = getattr(creature, "colony", None)
         from src.sim.utils.inventory_helpers import inventory_is_loaded
 
         if inventory_is_loaded(creature):
@@ -111,7 +110,6 @@ class CombatAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Acti
     def calculate_utility(self, creature) -> float:
         if is_creature_colony_defeated(creature):
             return 0.0
-        colony = getattr(creature, "colony", None)
         from src.sim.utils.inventory_helpers import inventory_is_loaded
 
         if inventory_is_loaded(creature):

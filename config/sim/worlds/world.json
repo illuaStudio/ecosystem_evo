@@ -275,7 +275,7 @@
     "yellow_ant_vanguard": 10,
     "Spider": 30
   },
-  "colony": {
+  "affiliation": {
     "access_food_cost": 250.0,
     "max_access_points": 8,
     "min_access_spacing": 120.0,
@@ -318,9 +318,9 @@
     },
     "territory_effects": {
       "hp_regen_per_dt": 0.012,
-      "requires_colony_match": true
+      "requires_affiliation_match": true
     },
-    "faction_species": {
+    "affiliation_species": {
       "red_ant": [
         "red_ant",
         "red_ant_soldier",

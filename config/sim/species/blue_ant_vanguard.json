@@ -6,7 +6,7 @@
     100,
     240
   ],
-  "colony": {
+  "affiliation": {
     "enabled": true,
     "join_species": "blue_ant",
     "spawn_spread": 28

@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence
 from src.sim.components.object_storage import ObjectStorage
 from src.sim.entities.world_object import WorldObject
 from src.config import config
-from src.sim.utils.colony_config_helpers import get_access_max_hp
+from src.sim.utils.affiliation_config_helpers import get_access_max_hp
 from src.sim.utils.compound_layers import (
     ACCESS_LAYERS,
     ROOT_LAYERS,
@@ -48,7 +48,8 @@ class WorldObjectSystem:
         self._rebuild_child_index()
 
     def _load_from_instances(self, instances: List[Dict], layout: Dict) -> None:
-        colony_settings = (layout.get("colony") or {})
+        colony_settings = dict(layout.get("colony") or {})
+        colony_settings.update(dict(layout.get("affiliation") or {}))
         access_max_hp = get_access_max_hp(colony_settings)
         zone_defaults = dict((layout.get("zones") or {}).get("defaults") or {})
 
@@ -63,8 +64,10 @@ class WorldObjectSystem:
             if layer in SITE_LAYERS:
                 if obj_id in self.objects:
                     continue
-                profiles = (layout.get("colony") or {}).get("profiles") or {}
-                profile = dict(profiles.get(obj_id) or {})
+                aff_profiles = (layout.get("affiliation") or {}).get("profiles") or {}
+                legacy_profiles = (layout.get("colony") or {}).get("profiles") or {}
+                profile = dict(legacy_profiles.get(obj_id) or {})
+                profile.update(dict(aff_profiles.get(obj_id) or {}))
                 type_ref = str(raw.get("type", "colony_site"))
                 type_def = config.get_object_type(type_ref)
                 merged = merge_type_with_instance(
@@ -243,7 +246,8 @@ class WorldObjectSystem:
                 )
 
     def _ensure_default_access_children(self, layout: Dict) -> None:
-        colony_settings = (layout.get("colony") or {})
+        colony_settings = dict(layout.get("colony") or {})
+        colony_settings.update(dict(layout.get("affiliation") or {}))
         access_max_hp = get_access_max_hp(colony_settings)
         for obj_id, parent in list(self.objects.items()):
             if not parent.is_root:

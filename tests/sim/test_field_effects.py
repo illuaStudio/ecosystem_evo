@@ -9,14 +9,14 @@ from src.sim.utils.field_modifiers import (
     sample_field_modifiers,
     FieldModifiers,
 )
-from tests.sim.world_fixtures import colony_settings
+from tests.sim.world_fixtures import affiliation_settings
 
 
 def _colony_world(**colony_overrides) -> World:
-    colony = colony_settings(
+    colony = affiliation_settings(
         territory_effects={
             "hp_regen_per_dt": 0.05,
-            "requires_colony_match": True,
+            "requires_affiliation_match": True,
         },
     )
     colony.update(colony_overrides)
@@ -27,7 +27,7 @@ def _colony_world(**colony_overrides) -> World:
             "world_height": 1000,
             "initial_entities": {},
             "population_limits": {"red_ant": 20, "blue_ant": 20, "springtail": 50},
-            "colony": colony,
+            "affiliation": colony,
         }
     )
 
@@ -169,7 +169,7 @@ class TestFieldEffects(unittest.TestCase):
 
 
 from src.sim.systems.world import World
-from tests.sim.world_fixtures import colony_settings
+from tests.sim.world_fixtures import affiliation_settings
 
 
 def _fog_world(drain: float = 0.1, radius: float = 120.0) -> World:
@@ -180,7 +180,7 @@ def _fog_world(drain: float = 0.1, radius: float = 120.0) -> World:
             "world_height": 1000,
             "initial_entities": {},
             "population_limits": {"red_ant": 20, "springtail": 50, "Spider": 10},
-            "colony": colony_settings(),
+            "affiliation": affiliation_settings(),
             "field_emitters": {
                 "sources": [
                     {

@@ -148,7 +148,11 @@ def read_field_value(spec: FieldSpec) -> Any:
         if action is None:
             return None
         return (action.get("params") or {}).get(spec.param_name)
-    return _get_nested(data, spec.json_path)
+    val = _get_nested(data, spec.json_path)
+    if val is None and spec.json_path and spec.json_path[0] == "colony":
+        alt = ("affiliation",) + tuple(spec.json_path[1:])
+        val = _get_nested(data, alt)
+    return val
 
 
 def write_field_value(spec: FieldSpec, value: Any) -> None:
@@ -163,7 +167,10 @@ def write_field_value(spec: FieldSpec, value: Any) -> None:
             )
         action.setdefault("params", {})[spec.param_name] = value
     else:
-        _set_nested(data, spec.json_path, value)
+        path = spec.json_path
+        if path and path[0] == "colony":
+            path = ("affiliation",) + tuple(path[1:])
+        _set_nested(data, path, value)
     save_json(spec.config_relpath, data)
 
 
@@ -566,6 +573,8 @@ _SKIP_JSON_PATHS: set[tuple[str, ...]] = {
     ("inventory", "slot_count"),
     ("life_cycle", "death"),
     ("colony", "territory_effects", "requires_colony_match"),
+    ("affiliation", "enabled"),
+    ("affiliation", "territory_effects", "requires_affiliation_match"),
 }
 
 _SKIP_ACTION_PARAMS: set[tuple[str, str]] = {
@@ -732,6 +741,8 @@ def main_sections_for_category(category: str) -> list[str]:
     for sec in seen:
         if sec not in ordered:
             ordered.append(sec)
+    if category == "ワールド" and "赤コロニー（巣）" not in ordered:
+        ordered.append("赤コロニー（巣）")
     return ordered
 
 

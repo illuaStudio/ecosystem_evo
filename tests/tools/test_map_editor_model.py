@@ -30,7 +30,7 @@ def _minimal_world():
             "types": {"patch": {}},
             "sources": [{"type": "patch", "x": 200, "y": 300, "radius": 60}],
         },
-        "colony": {
+        "affiliation": {
             "profiles": {
                 "red_ant": {"nest_x": 120, "nest_y": 120, "territory_radius": 100},
             }

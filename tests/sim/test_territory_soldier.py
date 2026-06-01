@@ -12,7 +12,7 @@ from src.sim.utils.creature_helpers import (
     needs_self_feed,
 )
 from src.sim.utils.position_helpers import entity_xy
-from tests.sim.world_fixtures import colony_settings, load_test_world
+from tests.sim.world_fixtures import affiliation_settings, load_test_world
 
 
 def _colony_world() -> World:
@@ -27,8 +27,8 @@ def _colony_world() -> World:
             "yellow_ant_soldier": 10,
             "Spider": 10,
         },
-        colony=colony_settings(
-            faction_species={
+        affiliation=affiliation_settings(
+            affiliation_species={
                 "red_ant": ["red_ant", "red_ant_soldier"],
                 "blue_ant": ["blue_ant", "blue_ant_soldier"],
                 "yellow_ant": ["yellow_ant", "yellow_ant_soldier"],
@@ -85,7 +85,7 @@ class TestTerritoryAndCastes(unittest.TestCase):
 
     def test_soldier_combat_via_hostile_colony_ids(self):
         world = _colony_world()
-        world.faction_species = {
+        world.affiliation_species = {
             "red_ant": ["red_ant", "red_ant_soldier"],
             "blue_ant": ["blue_ant", "blue_ant_soldier"],
             "yellow_ant": ["yellow_ant", "yellow_ant_soldier"],

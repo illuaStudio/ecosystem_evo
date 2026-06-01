@@ -28,8 +28,7 @@ class WanderAction(Action):
         return False
 
     def calculate_utility(self, creature) -> float:
-        colony = getattr(creature, "colony", None)
-        if colony is not None and needs_self_feed(creature):
+        if getattr(creature, "affiliation", None) is not None and needs_self_feed(creature):
             return 0.0
         return 0.6
 

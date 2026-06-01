@@ -61,7 +61,7 @@ MINIMAL_TEST_BIOME = {
 }
 
 
-def colony_settings(**extra) -> dict:
+def affiliation_settings(**extra) -> dict:
     """巣穴・産卵共通 + 全コロニー profiles。"""
     base = {
         "min_food_reserve": 72,
@@ -76,12 +76,12 @@ def colony_settings(**extra) -> dict:
 
 
 def colony_instances_from_colony(colony_block: dict) -> List[Dict[str, Any]]:
-    """colony.profiles から colony_site + colony_access instances を生成。"""
+    """legacy: colony.profiles から colony_site + colony_access instances を生成。"""
     from src.sim.utils.world_instances import nest_profile_to_instance
 
     instances: List[Dict[str, Any]] = []
     profiles = colony_block.get("profiles") or {}
-    factions = colony_block.get("faction_species") or {}
+    factions = colony_block.get("affiliation_species") or colony_block.get("faction_species") or {}
     allowed = set(factions.keys()) if factions else None
     for colony_id, profile in profiles.items():
         if allowed is not None and str(colony_id) not in allowed:
@@ -119,7 +119,7 @@ def ensure_colony_instances(world_data: dict) -> None:
         world_data["instances"] = existing
         return
 
-    colony_inst = colony_instances_from_colony(world_data.get("colony") or {})
+    colony_inst = colony_instances_from_colony(world_data.get("affiliation") or world_data.get("colony") or {})
     world_data["instances"] = existing + colony_inst
 
 
@@ -129,6 +129,7 @@ def build_test_world(**overrides) -> dict:
     world_width = overrides.pop("world_width", 1000)
     world_height = overrides.pop("world_height", 1000)
     initial_entities = overrides.pop("initial_entities", {})
+    affiliation = overrides.pop("affiliation", None)
     colony = overrides.pop("colony", None)
 
     data: Dict[str, Any] = {
@@ -136,7 +137,7 @@ def build_test_world(**overrides) -> dict:
         "world_width": world_width,
         "world_height": world_height,
         "initial_entities": initial_entities,
-        "colony": colony if colony is not None else colony_settings(),
+        "affiliation": affiliation if affiliation is not None else (colony if colony is not None else affiliation_settings()),
     }
     if "world" not in overrides:
         data["world"] = dict(MINIMAL_TEST_BIOME)

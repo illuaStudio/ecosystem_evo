@@ -6,7 +6,7 @@
     200,
     50
   ],
-  "colony": {
+  "affiliation": {
     "enabled": true
   },
   "traits": {

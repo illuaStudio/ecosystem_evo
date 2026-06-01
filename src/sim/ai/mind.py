@@ -39,7 +39,6 @@ class UtilityMind(Mind):
         self.action_defs = list(self._base_action_defs)
 
     def decide_next_action(self, creature):
-        colony = getattr(creature, "colony", None)
         current = creature.current_action
         if inventory_is_loaded(creature):
             if not needs_self_feed(creature) and isinstance(current, ReturnToNestAction):

@@ -66,8 +66,8 @@ class GameMonitor:
 
     @staticmethod
     def _colony_member_species(world: "World", colony_id: str) -> list[str]:
-        factions = getattr(world, "faction_species", {}) or {}
-        names = list(factions.get(colony_id, []))
+        groups = getattr(world, "affiliation_species", {}) or getattr(world, "faction_species", {}) or {}
+        names = list(groups.get(colony_id, []))
         if names:
             return [s for s in names if not s.endswith("_queen")]
         return []

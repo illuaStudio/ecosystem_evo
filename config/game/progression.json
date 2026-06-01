@@ -6,7 +6,7 @@
       "commands": [
         {
           "type": "ApplyMindProfile",
-          "target": { "colony": "player", "caste": "queen" },
+          "target": { "affiliation": "player", "caste": "queen" },
           "profile": "queen_feed_and_workers",
           "mode": "replace"
         }
@@ -21,7 +21,7 @@
       "commands": [
         {
           "type": "ApplyMindProfile",
-          "target": { "colony": "player", "caste": "queen" },
+          "target": { "affiliation": "player", "caste": "queen" },
           "profile": "queen_feed_and_soldiers",
           "mode": "replace"
         }

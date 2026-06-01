@@ -52,11 +52,11 @@ class ColonyReproduceAction(ReproductionAction):
     }
 
     def _min_food_reserve(self, creature) -> float:
-        """最低備蓄は world.json colony.min_food_reserve（巣穴設置と共通）。"""
+        """最低備蓄は world.json affiliation.min_food_reserve（拠点設置と共通）。"""
         world = getattr(creature, "world", None)
         if world is None:
             raise RuntimeError("ColonyReproduceAction: world が未設定です")
-        from src.sim.utils.colony_config_helpers import get_min_food_reserve
+        from src.sim.utils.affiliation_config_helpers import get_min_food_reserve
 
         return get_min_food_reserve(world)
 
@@ -88,16 +88,17 @@ class ColonyReproduceAction(ReproductionAction):
         return str(sp)
 
     def _creature_colony_id(self, creature) -> str | None:
-        from src.sim.utils.colony_helpers import get_creature_colony_id
+        # legacy method name: 中身は affiliation を返す
+        from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
 
-        return get_creature_colony_id(creature)
+        return get_creature_affiliation_id(creature)
 
     def reproduction_readiness(self, creature) -> tuple[bool, str]:
         """繁殖可否と理由（UI・テスト用）。"""
         if not creature.alive or creature.world is None:
             return False, "無効"
-        if getattr(creature, "colony", None) is None:
-            return False, "コロニー未所属"
+        if getattr(creature, "affiliation", None) is None:
+            return False, "所属なし"
 
         colony_id = self._creature_colony_id(creature)
         if not colony_id:
@@ -149,7 +150,7 @@ class ColonyReproduceAction(ReproductionAction):
             return False
         if self._blocked_by_population_cap(creature):
             return False
-        if getattr(creature, "colony", None) is None:
+        if getattr(creature, "affiliation", None) is None:
             return False
         from src.sim.utils.inventory_helpers import inventory_is_loaded
 
@@ -187,7 +188,8 @@ class ColonyReproduceAction(ReproductionAction):
                 root.storage.deposit(cost)
             return None
 
-        offspring_cfg = config.get_species(offspring_species).get("colony", {})
+        data = config.get_species(offspring_species) or {}
+        offspring_cfg = data.get("affiliation") or data.get("colony") or {}
         x, y = ns.spawn_position(offspring_species, offspring_cfg)
         return CreatureFactory.create(offspring_species, world=creature.world, x=x, y=y)
 

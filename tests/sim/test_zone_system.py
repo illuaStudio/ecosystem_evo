@@ -15,7 +15,7 @@ def _zone_world(**overrides):
         "world_height": 1000,
         "initial_entities": {},
         "population_limits": {name: 50 for name in DEFAULT_MICRO_FAUNA_SPECIES},
-        "colony": {
+        "affiliation": {
             "profiles": {
                 "red_ant": {
                     "nest_x": 200,

@@ -19,7 +19,7 @@ def _placement_world(**overrides):
         "world_width": 1000,
         "world_height": 1000,
         "population_limits": {name: 50 for name in DEFAULT_MICRO_FAUNA_SPECIES},
-        "colony": {
+        "affiliation": {
             "profiles": {
                 "red_ant": {
                     "nest_x": 200,

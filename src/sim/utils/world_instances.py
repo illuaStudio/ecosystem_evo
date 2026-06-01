@@ -87,7 +87,7 @@ def collapse_legacy_to_instances(world_data: Dict[str, Any]) -> List[Dict[str, A
         if isinstance(entry, dict):
             instances.append(source_entry_to_instance("spawn", entry))
 
-    profiles = (world_data.get("colony") or {}).get("profiles") or {}
+    profiles = (world_data.get("affiliation") or world_data.get("colony") or {}).get("profiles") or {}
     for colony_id, profile in profiles.items():
         if not isinstance(profile, dict):
             continue
@@ -129,8 +129,8 @@ def expand_instances_to_legacy(world_data: MutableMapping[str, Any]) -> None:
             colony_id = str(raw.get("id", raw.get("type", "")))
             if not colony_id:
                 continue
-            colony = world_data.setdefault("colony", {})
-            profiles = colony.setdefault("profiles", {})
+            affiliation = world_data.setdefault("affiliation", {})
+            profiles = affiliation.setdefault("profiles", {})
             profile = profiles.setdefault(colony_id, {})
             if not isinstance(profile, dict):
                 profile = {}

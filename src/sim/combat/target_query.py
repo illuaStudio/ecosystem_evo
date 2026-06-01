@@ -4,7 +4,10 @@ from __future__ import annotations
 import math
 
 from src.sim.combat.target_ref import TargetKind, TargetRef
-from src.sim.utils.colony_helpers import can_attack_colony_access, is_colony_defeated
+from src.sim.utils.affiliation_group_helpers import (
+    can_attack_affiliation_access as can_attack_colony_access,
+    is_affiliation_defeated as is_colony_defeated,
+)
 from src.sim.utils.creature_helpers import (
     closeness_ratio,
     is_edible_prey,

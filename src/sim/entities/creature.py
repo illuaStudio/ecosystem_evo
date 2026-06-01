@@ -71,9 +71,12 @@ class Creature(BaseEntity):
         if affiliation_cfg.get("enabled") or self.species.colony_data.get("enabled"):
             self.affiliation = AffiliationComponent()
 
-        # legacy: colony（段階撤去用）。新規ロジックは affiliation を使う。
+        # legacy: colony（後方互換）。多くの既存AI/ゲーム層が colony 存在を前提にするため、
+        # affiliation.enabled の個体には colony も常に用意して同期する。
         self.colony: ColonyComponent | None = None
         if self.species.colony_data.get("enabled"):
+            self.colony = ColonyComponent()
+        elif self.affiliation is not None:
             self.colony = ColonyComponent()
 
     def sync_derived_stats(self) -> None:

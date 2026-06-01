@@ -48,9 +48,9 @@ def _matches_species(creature, species_name: str, colony_id: str | None) -> bool
         return False
     if colony_id is None:
         return True
-    from src.sim.utils.colony_helpers import get_creature_colony_id
+    from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
 
-    return get_creature_colony_id(creature) == colony_id
+    return get_creature_affiliation_id(creature) == colony_id
 
 
 class SimBridge:

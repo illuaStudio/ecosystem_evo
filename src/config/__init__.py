@@ -90,12 +90,20 @@ class Config:
 
     def get_species(self, name: str = "springtail") -> Dict:
         if name in self.species:
-            return self.species[name]
+            data = self.species[name]
+            if "colony" not in data and "affiliation" in data:
+                data["colony"] = data["affiliation"]
+            return data
         lower = name.lower()
         for key, value in self.species.items():
             if key.lower() == lower:
+                if "colony" not in value and "affiliation" in value:
+                    value["colony"] = value["affiliation"]
                 return value
-        return self.species.get("springtail", next(iter(self.species.values()), {}))
+        fallback = self.species.get("springtail", next(iter(self.species.values()), {}))
+        if "colony" not in fallback and "affiliation" in fallback:
+            fallback["colony"] = fallback["affiliation"]
+        return fallback
 
     def get_object_type(self, type_id: str) -> Dict:
         if type_id in self.object_types:

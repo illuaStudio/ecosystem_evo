@@ -30,7 +30,7 @@ def _minimal_world_data(**overrides):
                 "margin": 80,
             },
         },
-        "colony": {
+        "affiliation": {
             "profiles": {
                 "red_ant": {
                     "nest_x": 120,

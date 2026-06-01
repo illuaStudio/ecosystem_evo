@@ -1,11 +1,11 @@
-"""colony_config_helpers の単体テスト。"""
+"""affiliation_config_helpers の単体テスト。"""
 import unittest
 
 from src.sim.systems.world import World
-from src.sim.utils.colony_config_helpers import (
-    get_colony_profile,
+from src.sim.utils.affiliation_config_helpers import (
+    get_affiliation_profile as get_colony_profile,
     get_min_food_reserve,
-    resolve_colony_runtime_cfg,
+    resolve_affiliation_runtime_cfg as resolve_colony_runtime_cfg,
 )
 
 
@@ -20,7 +20,7 @@ class TestColonyConfigHelpers(unittest.TestCase):
                 "name": "Legacy",
                 "world_width": 500,
                 "world_height": 500,
-                "colony": {"min_food_reserve": 55},
+                "affiliation": {"min_food_reserve": 55},
             }
         )
         self.assertEqual(get_min_food_reserve(world), 55.0)

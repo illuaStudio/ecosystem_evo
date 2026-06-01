@@ -18,15 +18,18 @@ ACTION_LABELS = {
 
 
 def find_colony_queen(world: "World", colony_id: str):
-    from src.sim.utils.caste_helpers import creature_matches_colony_caste
-
     alive = None
     for creature in world.creatures:
-        if creature_matches_colony_caste(creature, colony_id, "queen"):
-            if creature.alive:
-                return creature
-            if alive is None:
-                alive = creature
+        from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
+
+        if get_creature_affiliation_id(creature) != colony_id:
+            continue
+        if not creature.species.name.endswith("_queen"):
+            continue
+        if creature.alive:
+            return creature
+        if alive is None:
+            alive = creature
     return alive
 
 
@@ -78,8 +81,8 @@ def _worker_count(world: "World", colony_id: str) -> int | None:
     nest = world.nest_system.get_colony_nest(colony_id)
     if nest is None:
         return None
-    factions = getattr(world, "faction_species", {}) or {}
-    names = [s for s in factions.get(colony_id, []) if not s.endswith("_queen")]
+    groups = getattr(world, "affiliation_species", {}) or {}
+    names = [s for s in groups.get(colony_id, []) if not str(s).endswith("_queen")]
     if not names:
         return None
     return world.nest_system.count_colony_members(nest.id, names)

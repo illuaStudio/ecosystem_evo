@@ -19,18 +19,18 @@ if TYPE_CHECKING:
 
 
 def _is_colony_defeated(creature) -> bool:
-    from src.sim.utils.colony_helpers import is_creature_colony_defeated
+    from src.sim.utils.affiliation_group_helpers import is_creature_affiliation_defeated
 
-    return is_creature_colony_defeated(creature)
+    return is_creature_affiliation_defeated(creature)
 
 
 def get_hide_radius(creature) -> float:
     """巣に「入った」とみなす半径（colony.hide_radius → deposit_radius）。"""
-    colony_data = getattr(creature.species, "colony_data", None) or {}
-    if "hide_radius" in colony_data:
-        return float(colony_data["hide_radius"])
-    if "deposit_radius" in colony_data:
-        return float(colony_data["deposit_radius"])
+    aff_data = getattr(creature.species, "affiliation_data", None) or {}
+    if "hide_radius" in aff_data:
+        return float(aff_data["hide_radius"])
+    if "deposit_radius" in aff_data:
+        return float(aff_data["deposit_radius"])
     return 30.0
 
 
@@ -66,15 +66,15 @@ def _threat_blocks_approach(
 
 def resolve_nest_shelter(creature, threat=None) -> ShelterRef | None:
     """所属コロニーの colony_access から最寄り避難所を解決。"""
-    colony = getattr(creature, "colony", None)
+    affiliation = getattr(creature, "affiliation", None)
     world = getattr(creature, "world", None)
-    if world is None or colony is None:
+    if world is None or affiliation is None:
         return None
     if _is_colony_defeated(creature):
         return None
     from src.sim.utils.world_object_helpers import resolve_shelter_from_colony
 
-    return resolve_shelter_from_colony(world, colony.colony_id, creature, threat)
+    return resolve_shelter_from_colony(world, affiliation.affiliation_id, creature, threat)
 
 
 def resolve_creature_shelter(creature, threat=None) -> ShelterRef | None:
@@ -88,10 +88,10 @@ def resolve_creature_shelter(creature, threat=None) -> ShelterRef | None:
     if ref is not None:
         return ref
 
-    colony = getattr(creature, "colony", None)
+    colony = getattr(creature, "affiliation", None)
     world = getattr(creature, "world", None)
     if colony is not None and world is not None:
-        return resolve_shelter_from_colony(world, colony.colony_id, creature, threat)
+        return resolve_shelter_from_colony(world, colony.affiliation_id, creature, threat)
     return None
 
 

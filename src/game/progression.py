@@ -87,6 +87,12 @@ def _unlock_ready(unlock: UnlockDef, state: GameState) -> bool:
 
 
 def _resolve_colony_id(target: dict[str, Any], state: GameState) -> str | None:
+    # legacy function name: 現在は affiliation を優先して解決する
+    affiliation = target.get("affiliation")
+    if affiliation == "player":
+        return state.player_colony_id
+    if affiliation:
+        return str(affiliation)
     colony = target.get("colony")
     if colony == "player":
         return state.player_colony_id
@@ -134,9 +140,9 @@ def execute_progression_command(
             )
         if colony_id:
             for creature in world.creatures:
-                from src.sim.utils.colony_helpers import get_creature_colony_id
+                from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
 
-                if get_creature_colony_id(creature) == colony_id:
+                if get_creature_affiliation_id(creature) == colony_id:
                     if apply_mind_profile(bridge, creature, cmd.profile, mode=cmd.mode):
                         return True
             return False

@@ -43,7 +43,7 @@ class TestWorldInstances(unittest.TestCase):
             obstacles={"sources": [{"type": "rock", "x": 10, "y": 20}]},
             zones={"sources": [{"type": "poison_fog", "x": 30, "y": 40, "radius": 80}]},
             spawn_emitters={"sources": [{"type": "patch", "x": 50, "y": 60}]},
-            colony={"profiles": {"red_ant": {"nest_x": 100, "nest_y": 110}}},
+            affiliation={"profiles": {"red_ant": {"nest_x": 100, "nest_y": 110}}},
         )
         instances = collapse_legacy_to_instances(data)
         layers = {inst["layer"] for inst in instances}
@@ -57,16 +57,16 @@ class TestWorldInstances(unittest.TestCase):
                 {"layer": "spawn", "type": "patch", "x": 50, "y": 60, "radius": 70},
                 {"id": "red_ant", "layer": "nest", "type": "red_ant", "x": 100, "y": 110},
             ],
-            colony={"profiles": {"red_ant": {"territory_radius": 180}}},
+            affiliation={"profiles": {"red_ant": {"territory_radius": 180}}},
         )
         expand_instances_to_legacy(data)
         self.assertEqual(len(data["obstacles"]["sources"]), 1)
         self.assertEqual(data["obstacles"]["sources"][0]["type"], "rock")
         self.assertEqual(len(data["spawn_emitters"]["sources"]), 1)
         self.assertAlmostEqual(data["spawn_emitters"]["sources"][0]["radius"], 70.0)
-        self.assertAlmostEqual(data["colony"]["profiles"]["red_ant"]["nest_x"], 100.0)
-        self.assertAlmostEqual(data["colony"]["profiles"]["red_ant"]["nest_y"], 110.0)
-        self.assertEqual(data["colony"]["profiles"]["red_ant"]["territory_radius"], 180)
+        self.assertAlmostEqual(data["affiliation"]["profiles"]["red_ant"]["nest_x"], 100.0)
+        self.assertAlmostEqual(data["affiliation"]["profiles"]["red_ant"]["nest_y"], 110.0)
+        self.assertEqual(data["affiliation"]["profiles"]["red_ant"]["territory_radius"], 180)
 
     def test_roundtrip_entry_conversion(self):
         inst = source_entry_to_instance("zone", {"type": "poison_fog", "x": 1, "y": 2, "radius": 95})

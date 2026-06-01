@@ -27,9 +27,9 @@ def creature_matches_colony_caste(creature, colony_id: str, caste: ColonyCaste) 
     """個体が指定コロニー・種別に該当するか。"""
     if not colony_id or creature is None:
         return False
-    from src.sim.utils.colony_helpers import get_creature_colony_id
+    from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
 
-    if get_creature_colony_id(creature) != colony_id:
+    if get_creature_affiliation_id(creature) != colony_id:
         return False
 
     name = creature.species.name
@@ -54,19 +54,19 @@ def list_colony_caste_species(world, colony_id: str, caste: ColonyCaste) -> tupl
         return ()
 
     names: set[str] = set()
-    faction_species = getattr(world, "faction_species", {}) or {}
-    for name in faction_species.get(colony_id, ()):
+    affiliation_species = getattr(world, "affiliation_species", {}) or {}
+    for name in affiliation_species.get(colony_id, ()):
         names.add(str(name))
 
     from src.config import config
 
     for species_name, data in config.species.items():
-        colony_cfg = (data or {}).get("colony", {})
-        if not colony_cfg.get("enabled"):
+        aff_cfg = (data or {}).get("affiliation") or (data or {}).get("colony") or {}
+        if not aff_cfg.get("enabled"):
             continue
-        from src.sim.utils.territory_helpers import resolve_colony_id
+        from src.sim.utils.territory_helpers import resolve_affiliation_id
 
-        if resolve_colony_id(species_name, colony_cfg) == colony_id:
+        if resolve_affiliation_id(species_name, aff_cfg) == colony_id:
             names.add(species_name)
 
     matched = [

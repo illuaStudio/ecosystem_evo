@@ -15,7 +15,7 @@ from src.sim.systems.world import World
 from src.sim.utils.creature_helpers import try_attack_only, try_pickup_carcass
 from src.sim.utils.loot_helpers import try_pickup_loot
 from tests.sim.legacy_corpse_helpers import loot_after_death
-from tests.sim.world_fixtures import colony_settings
+from tests.sim.world_fixtures import affiliation_settings
 
 
 class TestSimEvents(unittest.TestCase):
@@ -31,7 +31,7 @@ class TestSimEvents(unittest.TestCase):
                     "red_ant": 20,
                     "red_ant_queen": 3,
                 },
-                "colony": colony_settings(),
+                "affiliation": affiliation_settings(),
             }
         )
 
@@ -136,7 +136,7 @@ class TestSimEvents(unittest.TestCase):
         nest = world.nest_system.get_colony_nest("red_ant")
         world.events.drain()
 
-        world.faction_species = {"red_ant": ["red_ant"], "blue_ant": ["blue_ant"]}
+        world.affiliation_species = {"red_ant": ["red_ant"], "blue_ant": ["blue_ant"]}
         ws = world.world_object_system
         for access in list(ws.iter_access_points("red_ant")):
             access.hp = 0.8

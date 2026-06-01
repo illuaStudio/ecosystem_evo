@@ -6,7 +6,7 @@ import random
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple
 
-from src.sim.utils.territory_helpers import resolve_colony_id
+from src.sim.utils.territory_helpers import resolve_affiliation_id
 
 if TYPE_CHECKING:
     from src.sim.systems.world import World
@@ -92,10 +92,10 @@ def _colony_anchor_for_species(
     *,
     prefer_profile: bool = False,
 ) -> SpawnAnchor:
-    colony_id = resolve_colony_id(species_name, colony_cfg)
-    from src.sim.utils.colony_config_helpers import resolve_colony_runtime_cfg
+    colony_id = resolve_affiliation_id(species_name, colony_cfg)
+    from src.sim.utils.affiliation_config_helpers import resolve_affiliation_runtime_cfg
 
-    runtime_cfg = resolve_colony_runtime_cfg(world, colony_id, colony_cfg)
+    runtime_cfg = resolve_affiliation_runtime_cfg(world, colony_id, colony_cfg)
     spread = float(runtime_cfg.get("spawn_spread", 28.0))
     anchor_type = "profile_nest" if prefer_profile else "nest"
     return SpawnAnchor(type=anchor_type, colony_id=colony_id, spread=spread)
@@ -118,9 +118,9 @@ def expand_initial_entities(world_data: Dict, world: "World") -> List[InitialSpa
         if n <= 0:
             continue
         species_data = config.get_species(species_name) or {}
-        colony_cfg = species_data.get("colony", {})
-        if colony_cfg.get("enabled"):
-            anchor = _colony_anchor_for_species(world, species_name, colony_cfg)
+        aff_cfg = species_data.get("affiliation") or species_data.get("colony") or {}
+        if aff_cfg.get("enabled"):
+            anchor = _colony_anchor_for_species(world, species_name, aff_cfg)
             options = SpawnPlacementOptions(
                 respect_zones=False,
                 use_biome_weight=False,

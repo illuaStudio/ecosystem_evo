@@ -5,7 +5,7 @@ from src.client.queen_status import build_queen_panel_lines, find_colony_queen
 from src.game.game_state import GameState
 from src.sim.entities.creature_factory import CreatureFactory
 from src.sim.systems.world import World
-from tests.sim.world_fixtures import colony_settings
+from tests.sim.world_fixtures import affiliation_settings
 
 
 def _player_world(**overrides) -> World:
@@ -15,9 +15,9 @@ def _player_world(**overrides) -> World:
         "world_height": 800,
         "initial_entities": {},
         "population_limits": {"red_ant": 20, "red_ant_queen": 3},
-        "colony": colony_settings(
+        "affiliation": affiliation_settings(
             factions={"red_ant": {"label": "R"}},
-            faction_species={
+            affiliation_species={
                 "red_ant": ["red_ant", "red_ant_soldier", "red_ant_queen"],
             },
         ),

@@ -16,7 +16,7 @@ from src.sim.events import (
     SimEvent,
     SpawnEvent,
 )
-from src.sim.utils.colony_helpers import is_rival_colony
+from src.sim.utils.affiliation_group_helpers import is_rival_affiliation as is_rival_colony
 
 if TYPE_CHECKING:
     from src.sim.bridge import SimBridge
@@ -54,7 +54,7 @@ class GameDirector:
             parent_ids = (self.state.player_colony_id,)
 
         for creature in world.creatures:
-            colony_data = getattr(creature.species, "colony_data", None) or {}
+            colony_data = getattr(creature.species, "affiliation_data", None) or {}
             inv = getattr(creature, "inventory", None)
             if colony_data.get("enabled") or (inv is not None and inv.slot_count > 0):
                 set_creature_nest_parent_ids(creature, parent_ids)
@@ -177,9 +177,9 @@ class GameDirector:
 
         player_attacked = False
         if event.target_kind == "creature" and event.target_creature is not None:
-            from src.sim.utils.colony_helpers import get_creature_colony_id
+            from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
 
-            target_cid = get_creature_colony_id(event.target_creature)
+            target_cid = get_creature_affiliation_id(event.target_creature)
             player_attacked = target_cid == player_id
         elif event.target_kind == "world_object":
             player_attacked = event.target_colony_id == player_id

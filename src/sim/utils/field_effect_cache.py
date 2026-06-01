@@ -56,7 +56,7 @@ class FieldEffectCache:
     def _colony_ids_for_territory(self) -> tuple[str, ...]:
         world = self._world
         ids: set[str] = set()
-        for cid in (getattr(world, "faction_species", {}) or {}):
+        for cid in (getattr(world, "affiliation_species", {}) or {}):
             if cid:
                 ids.add(str(cid))
         from src.sim.utils.world_object_helpers import iter_active_colony_roots
@@ -67,15 +67,15 @@ class FieldEffectCache:
         return tuple(sorted(ids))
 
     def _resolve_territory_modifiers(self) -> FieldModifiers:
-        colony_settings = getattr(self._world, "colony_settings", None) or {}
-        effects = colony_settings.get("territory_effects") or {}
+        affiliation_settings = getattr(self._world, "affiliation_settings", None) or {}
+        effects = affiliation_settings.get("territory_effects") or {}
         if not effects:
             return FieldModifiers()
         regen = float(effects.get("hp_regen_per_dt", 0.0))
         drain = float(effects.get("hp_drain_per_dt", 0.0))
         if regen == 0.0 and drain == 0.0:
             return FieldModifiers()
-        if bool(effects.get("requires_colony_match", True)):
+        if bool(effects.get("requires_affiliation_match", effects.get("requires_colony_match", True))):
             return FieldModifiers(hp_regen_per_dt=regen, hp_drain_per_dt=drain)
         return FieldModifiers(hp_regen_per_dt=regen, hp_drain_per_dt=drain)
 

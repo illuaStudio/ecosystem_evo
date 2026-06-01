@@ -8,16 +8,11 @@ from src.sim.entities.creature_factory import CreatureFactory
 
 from src.sim.systems.world import World
 
-from src.sim.utils.colony_helpers import (
-
-    can_attack_colony_access,
-
+from src.sim.utils.affiliation_group_helpers import (
+    can_attack_affiliation_access as can_attack_colony_access,
     find_nearest_attackable_access,
-
     is_point_in_rival_territory,
-
-    is_colony_defeated,
-
+    is_affiliation_defeated as is_colony_defeated,
 )
 
 from tests.sim.test_hole_combat_helpers import (
@@ -36,7 +31,7 @@ from tests.sim.world_fixtures import (
 
     RED_ANT_PROFILE,
 
-    colony_settings,
+    affiliation_settings,
 
     load_test_world,
 
@@ -60,13 +55,13 @@ def _hole_colony_settings():
 
     blue["nest_y"] = 500
 
-    return colony_settings(
+    return affiliation_settings(
 
         access_max_hp=100,
 
         profiles={"red_ant": red, "blue_ant": blue},
 
-        faction_species={
+        affiliation_species={
 
             "red_ant": ["red_ant", "red_ant_soldier", "red_ant_vanguard"],
 
@@ -102,7 +97,7 @@ def _hole_world(**overrides) -> World:
 
         },
 
-        colony=overrides.pop("colony", _hole_colony_settings()),
+        affiliation=overrides.pop("affiliation", _hole_colony_settings()),
 
         **overrides,
 

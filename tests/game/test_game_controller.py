@@ -12,7 +12,7 @@ from src.sim.systems.world import World
 from tests.sim.world_fixtures import (
     BLUE_ANT_PROFILE,
     RED_ANT_PROFILE,
-    colony_settings,
+    affiliation_settings,
     load_test_world,
     set_colony_stored_food,
 )
@@ -24,7 +24,7 @@ def _player_world(**overrides) -> World:
         world_width=800,
         world_height=800,
         population_limits={"red_ant": 20, "red_ant_queen": 3, "blue_ant": 10},
-        colony=colony_settings(
+        affiliation=affiliation_settings(
             profiles={
                 "red_ant": {
                     **RED_ANT_PROFILE,
@@ -36,7 +36,7 @@ def _player_world(**overrides) -> World:
                 "red_ant": {"label": "R"},
                 "blue_ant": {"label": "B"},
             },
-            faction_species={
+            affiliation_species={
                 "red_ant": ["red_ant", "red_ant_soldier", "red_ant_queen"],
                 "blue_ant": ["blue_ant"],
             },
