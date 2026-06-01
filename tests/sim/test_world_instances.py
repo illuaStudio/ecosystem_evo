@@ -47,7 +47,7 @@ class TestWorldInstances(unittest.TestCase):
         )
         instances = collapse_legacy_to_instances(data)
         layers = {inst["layer"] for inst in instances}
-        self.assertEqual(layers, {"obstacle", "zone", "spawn", "colony_site", "colony_access"})
+        self.assertEqual(layers, {"obstacle", "zone", "spawn", "affiliation_site", "affiliation_access"})
         self.assertEqual(len(instances), 5)
 
     def test_expand_instances_to_legacy(self):
@@ -123,8 +123,8 @@ class TestWorldInstances(unittest.TestCase):
 
         data = build_test_world(name="FixtureTest")
         layers = {inst["layer"] for inst in data["instances"]}
-        self.assertIn("colony_site", layers)
-        self.assertIn("colony_access", layers)
+        self.assertIn("affiliation_site", layers)
+        self.assertIn("affiliation_access", layers)
         world = World.from_json(data)
         self.assertTrue(world.world_object_system.has_colony_root("red_ant"))
 

@@ -115,8 +115,8 @@ class TestCompoundSystem(unittest.TestCase):
                 "instances": [
                     {
                         "id": "red_ant",
-                        "layer": "colony_site",
-                        "type": "colony_site",
+                        "layer": "affiliation_site",
+                        "type": "affiliation_site",
                         "x": 50,
                         "y": 50,
                     }

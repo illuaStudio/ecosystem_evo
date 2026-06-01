@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Callable, List, Optional, Sequence
 from src.config import config
 from src.sim.components.object_storage import ObjectStorage
 from src.sim.entities.world_object import WorldObject
-from src.sim.utils.colony_config_helpers import get_access_max_hp
+from src.sim.utils.affiliation_config_helpers import get_access_max_hp
 from src.sim.utils.compound_layers import default_access_type_for_root, profile_for_type
 from src.sim.utils.object_capabilities import capability_block
 
@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 
 HOLE_DESTROY_HP = 1.0
 DEFAULT_ACCESS_TYPE = "colony_access"
+DEFAULT_ACCESS_TYPE = "affiliation_access"
 
 
 class CompoundSystem:
@@ -96,7 +97,7 @@ class CompoundSystem:
         x: float,
         y: float,
         *,
-        type_ref: str = "colony_site",
+        type_ref: str = "affiliation_site",
         max_food: float = 400.0,
         stored_food: float = 0.0,
         compound_profile: str = "",
@@ -149,8 +150,8 @@ class CompoundSystem:
         if max_hp is not None:
             hp_cap = float(max_hp)
         elif parent.is_colony_compound:
-            colony_settings = getattr(self.world, "colony_settings", {}) or {}
-            hp_cap = float(get_access_max_hp(colony_settings))
+            settings = getattr(self.world, "affiliation_settings", None) or getattr(self.world, "colony_settings", {}) or {}
+            hp_cap = float(get_access_max_hp(settings))
         else:
             hp_cap = float(combat.get("max_hp", 0.0))
         child_id = f"{parent_id}_access_{uuid.uuid4().hex[:6]}"

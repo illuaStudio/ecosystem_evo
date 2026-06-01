@@ -1,7 +1,7 @@
 {
-  "id": "colony_access",
-  "category": "colony",
-  "label": "拠点接続点",
+  "id": "affiliation_access",
+  "category": "affiliation",
+  "label": "所属拠点接続点",
   "capabilities": {
     "access": {
       "role": "access",
@@ -13,3 +13,4 @@
     }
   }
 }
+

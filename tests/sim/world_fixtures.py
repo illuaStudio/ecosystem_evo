@@ -96,8 +96,8 @@ def colony_instances_from_colony(colony_block: dict) -> List[Dict[str, Any]]:
         instances.append(
             {
                 "id": f"{cid}_access_main",
-                "layer": "colony_access",
-                "type": "colony_access",
+                "layer": "affiliation_access",
+                "type": "affiliation_access",
                 "parent": cid,
                 "role": "access",
                 "x": inst["x"],
@@ -112,7 +112,7 @@ def ensure_colony_instances(world_data: dict) -> None:
     existing = list(world_data.get("instances") or []) if "instances" in world_data else []
     has_colony_layer = any(
         isinstance(entry, dict)
-        and str(entry.get("layer", "")) in ("colony_site", "nest", "colony_access")
+        and str(entry.get("layer", "")) in ("affiliation_site", "nest", "affiliation_access")
         for entry in existing
     )
     if has_colony_layer:

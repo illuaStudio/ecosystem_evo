@@ -24,16 +24,16 @@ def _object_world(**overrides):
         "instances": [
             {
                 "id": "red_ant",
-                "layer": "colony_site",
-                "type": "colony_site",
+                "layer": "affiliation_site",
+                "type": "affiliation_site",
                 "role": "root",
                 "x": 200,
                 "y": 200,
             },
             {
                 "id": "red_ant_access_main",
-                "layer": "colony_access",
-                "type": "colony_access",
+                "layer": "affiliation_access",
+                "type": "affiliation_access",
                 "parent": "red_ant",
                 "x": 200,
                 "y": 200,

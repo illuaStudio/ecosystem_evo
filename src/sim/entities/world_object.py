@@ -66,7 +66,12 @@ class WorldObject:
 
     @property
     def is_colony_compound(self) -> bool:
-        return self.compound_profile == "colony"
+        # legacy name: affiliation compound root
+        return self.compound_profile in ("affiliation", "colony")
+
+    @property
+    def is_affiliation_compound(self) -> bool:
+        return self.compound_profile == "affiliation"
 
     @property
     def is_destroyed(self) -> bool:

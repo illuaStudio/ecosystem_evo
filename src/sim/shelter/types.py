@@ -1,10 +1,10 @@
-"""避難所参照（colony_access WorldObject）。"""
+"""避難所参照（affiliation_access WorldObject）。"""
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Literal
 
-ShelterKind = Literal["compound_access", "colony_access"]
+ShelterKind = Literal["compound_access", "affiliation_access"]
 
 
 @dataclass(frozen=True)

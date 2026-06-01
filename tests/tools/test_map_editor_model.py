@@ -61,12 +61,12 @@ class TestWorldMapDocument(unittest.TestCase):
     def test_loads_all_layers_from_legacy(self):
         doc = WorldMapDocument(_minimal_world())
         layers = {o.layer for o in doc.objects}
-        self.assertEqual(layers, {"obstacle", "zone", "spawn", "colony_site", "colony_access"})
+        self.assertEqual(layers, {"obstacle", "zone", "spawn", "affiliation_site", "affiliation_access"})
 
     def test_loads_all_layers_from_instances(self):
         doc = WorldMapDocument(_instances_world())
         layers = {o.layer for o in doc.objects}
-        self.assertIn("colony_site", layers)
+        self.assertIn("affiliation_site", layers)
         self.assertIn("obstacle", layers)
 
     def test_roundtrip_flush_writes_instances(self):
@@ -93,22 +93,22 @@ class TestWorldMapDocument(unittest.TestCase):
 
     def test_nest_move_updates_profile_and_instances(self):
         doc = WorldMapDocument(_instances_world())
-        nest = next(o for o in doc.objects if o.layer == "colony_site")
+        nest = next(o for o in doc.objects if o.layer == "affiliation_site")
         doc.move_site_with_access(nest, 999, 888)
         doc._flush_objects()
         profile = doc.data["colony"]["profiles"]["red_ant"]
         self.assertAlmostEqual(profile["nest_x"], 999)
         self.assertAlmostEqual(profile["nest_y"], 888)
-        nest_inst = next(i for i in doc.data["instances"] if i["layer"] == "colony_site")
+        nest_inst = next(i for i in doc.data["instances"] if i["layer"] == "affiliation_site")
         self.assertAlmostEqual(nest_inst["x"], 999)
-        access_inst = next(i for i in doc.data["instances"] if i["layer"] == "colony_access")
+        access_inst = next(i for i in doc.data["instances"] if i["layer"] == "affiliation_access")
         self.assertAlmostEqual(access_inst["x"], 999)
         self.assertAlmostEqual(access_inst["y"], 888)
 
     def test_move_site_drags_access_children(self):
         doc = WorldMapDocument(_instances_world())
-        site = next(o for o in doc.objects if o.layer == "colony_site")
-        access = next(o for o in doc.objects if o.layer == "colony_access")
+        site = next(o for o in doc.objects if o.layer == "affiliation_site")
+        access = next(o for o in doc.objects if o.layer == "affiliation_access")
         doc.move_site_with_access(site, site.x + 50, site.y + 30)
         self.assertAlmostEqual(access.x, site.x)
         self.assertAlmostEqual(access.y, site.y)

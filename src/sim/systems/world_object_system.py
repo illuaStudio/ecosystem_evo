@@ -68,7 +68,7 @@ class WorldObjectSystem:
                 legacy_profiles = (layout.get("colony") or {}).get("profiles") or {}
                 profile = dict(legacy_profiles.get(obj_id) or {})
                 profile.update(dict(aff_profiles.get(obj_id) or {}))
-                type_ref = str(raw.get("type", "colony_site"))
+                type_ref = str(raw.get("type", "affiliation_site"))
                 type_def = config.get_object_type(type_ref)
                 merged = merge_type_with_instance(
                     type_def,
@@ -120,7 +120,7 @@ class WorldObjectSystem:
                 parent_id = str(raw.get("parent", ""))
                 if not parent_id:
                     continue
-                type_ref = str(raw.get("type", "colony_access"))
+                type_ref = str(raw.get("type", "affiliation_access"))
                 type_def = config.get_object_type(type_ref)
                 merged = merge_type_with_instance(
                     type_def,
@@ -443,7 +443,7 @@ class WorldObjectSystem:
         child.hp = max(0.0, float(hp))
 
     def count_active_access(self, parent_id: str) -> int:
-        """破壊されていない colony_access の数。"""
+        """破壊されていない access の数。"""
         return len(self.iter_access_points(parent_id))
 
     def has_colony_root(self, colony_id: str) -> bool:
@@ -459,7 +459,7 @@ class WorldObjectSystem:
         max_food: float = 400.0,
         stored_food: float = 0.0,
     ) -> WorldObject:
-        """runtime Nest から colony_site を生成（legacy 合流用）。"""
+        """runtime Nest から affiliation_site を生成。"""
         existing = self.get(colony_id)
         if existing is not None and existing.is_root:
             return existing
@@ -467,7 +467,7 @@ class WorldObjectSystem:
         food = max(0.0, min(float(stored_food), cap))
         root = WorldObject(
             id=str(colony_id),
-            type_ref="colony_site",
+            type_ref="affiliation_site",
             x=float(x),
             y=float(y),
             role="root",
@@ -475,7 +475,7 @@ class WorldObjectSystem:
                 {"max_food": cap, "initial_stored_food": food}
             ),
             label=str(colony_id),
-            compound_profile="colony",
+            compound_profile="affiliation",
         )
         self.objects[colony_id] = root
         self._children.setdefault(colony_id, [])

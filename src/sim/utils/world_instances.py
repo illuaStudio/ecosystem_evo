@@ -7,9 +7,9 @@ from typing import Any, Dict, List, MutableMapping, Optional
 from src.sim.utils.compound_layers import ACCESS_LAYERS, ROOT_LAYERS
 
 INSTANCE_LAYERS = frozenset(
-    {"obstacle", "zone", "spawn", "nest", "colony_site", "colony_access", "compound_root", "compound_access"}
+    {"obstacle", "zone", "spawn", "nest", "affiliation_site", "affiliation_access", "compound_root", "compound_access"}
 )
-COLONY_PROFILE_LAYERS = frozenset({"colony_site", "nest"})
+COLONY_PROFILE_LAYERS = frozenset({"affiliation_site", "nest"})
 RESERVED_INSTANCE_KEYS = frozenset({"id", "layer", "type", "x", "y", "parent", "role"})
 
 
@@ -60,8 +60,8 @@ def nest_profile_to_instance(colony_id: str, profile: Dict[str, Any]) -> Optiona
         return None
     return {
         "id": str(colony_id),
-        "layer": "colony_site",
-        "type": "colony_site",
+        "layer": "affiliation_site",
+        "type": "affiliation_site",
         "role": "root",
         "x": float(profile["nest_x"]),
         "y": float(profile["nest_y"]),
@@ -98,8 +98,8 @@ def collapse_legacy_to_instances(world_data: Dict[str, Any]) -> List[Dict[str, A
             instances.append(
                 {
                     "id": f"{cid}_access_main",
-                    "layer": "colony_access",
-                    "type": "colony_access",
+                    "layer": "affiliation_access",
+                    "type": "affiliation_access",
                     "parent": cid,
                     "role": "access",
                     "x": inst["x"],

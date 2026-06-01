@@ -4,9 +4,9 @@ from __future__ import annotations
 from src.config import config
 from src.sim.utils.object_capabilities import capability_block
 
-ROOT_LAYERS = frozenset({"compound_root", "colony_site", "nest"})
-ACCESS_LAYERS = frozenset({"compound_access", "colony_access"})
-DEFAULT_ACCESS_TYPE = "colony_access"
+ROOT_LAYERS = frozenset({"compound_root", "affiliation_site", "nest"})
+ACCESS_LAYERS = frozenset({"compound_access", "affiliation_access"})
+DEFAULT_ACCESS_TYPE = "affiliation_access"
 
 
 def profile_for_type(type_ref: str) -> str:
@@ -15,8 +15,8 @@ def profile_for_type(type_ref: str) -> str:
     profile = compound.get("profile")
     if profile:
         return str(profile)
-    if type_ref in ("colony_site",):
-        return "colony"
+    if type_ref in ("affiliation_site",):
+        return "affiliation"
     return "generic"
 
 

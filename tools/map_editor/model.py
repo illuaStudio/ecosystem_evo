@@ -38,7 +38,7 @@ class MapObject:
 from src.sim.utils.compound_layers import ACCESS_LAYERS, ROOT_LAYERS
 
 SITE_LAYERS = ROOT_LAYERS
-ACCESS_LAYER = "colony_access"
+ACCESS_LAYER = "affiliation_access"
 
 
 class WorldMapDocument:
@@ -120,7 +120,7 @@ class WorldMapDocument:
 
     def _flush_objects(self) -> None:
         self._flush_instances()
-        site_objects = self.objects_in_layer("nest") + self.objects_in_layer("colony_site")
+        site_objects = self.objects_in_layer("nest") + self.objects_in_layer("affiliation_site")
         self._flush_nests(site_objects)
         self._clear_legacy_sources()
 
@@ -214,8 +214,8 @@ class WorldMapDocument:
             self.objects.append(
                 MapObject(
                     uid=self._new_uid("nest"),
-                    layer="colony_site",
-                    type_ref="colony_site",
+                    layer="affiliation_site",
+                    type_ref="affiliation_site",
                     x=float(profile["nest_x"]),
                     y=float(profile["nest_y"]),
                     props={"role": "root"},
@@ -227,7 +227,7 @@ class WorldMapDocument:
                 MapObject(
                     uid=self._new_uid("acc"),
                     layer=ACCESS_LAYER,
-                    type_ref="colony_access",
+                    type_ref="affiliation_access",
                     x=float(profile["nest_x"]),
                     y=float(profile["nest_y"]),
                     props={"parent": cid, "role": "access"},
@@ -371,8 +371,8 @@ class WorldMapDocument:
                 return existing[0]
             obj = MapObject(
                 uid=self._new_uid("site"),
-                layer="colony_site",
-                type_ref="colony_site",
+                layer="affiliation_site",
+                type_ref="affiliation_site",
                 x=float(x),
                 y=float(y),
                 props={"role": "root"},
@@ -383,7 +383,7 @@ class WorldMapDocument:
                 MapObject(
                     uid=self._new_uid("acc"),
                     layer=ACCESS_LAYER,
-                    type_ref="colony_access",
+                    type_ref="affiliation_access",
                     x=float(x),
                     y=float(y),
                     props={"parent": colony_id, "role": "access"},
@@ -409,8 +409,8 @@ class WorldMapDocument:
         layers = [layer] if not all_layers else [
             "compound_root",
             "compound_access",
-            "colony_site",
-            "colony_access",
+            "affiliation_site",
+            "affiliation_access",
             "nest",
             "spawn",
             "zone",

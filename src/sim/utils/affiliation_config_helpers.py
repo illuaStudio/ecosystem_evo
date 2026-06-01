@@ -86,7 +86,16 @@ def resolve_affiliation_runtime_cfg(
     species_affiliation_cfg: dict | None = None,
 ) -> dict:
     """ワールド profiles[affiliation_id] + 種別の上書き（hide_radius 等）。"""
-    merged = get_affiliation_profile(world, affiliation_id)
+    merged = {
+        # profiles が無い/不足する world でも NestSystem が動けるように既定値を入れる
+        "territory_radius": 180.0,
+        "max_food": 400.0,
+        "initial_stored_food": 0.0,
+        "food_leak_per_tick": 0.0,
+        "food_leak_reserve_ratio": 0.15,
+        "spawn_spread": 28.0,
+    }
+    merged.update(get_affiliation_profile(world, affiliation_id))
     species_cfg = species_affiliation_cfg or {}
     for key in SPECIES_AFFILIATION_OVERRIDE_KEYS:
         if key in species_cfg:
