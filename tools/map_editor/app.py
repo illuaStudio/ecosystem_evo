@@ -13,6 +13,7 @@ if str(ROOT / "tools") not in sys.path:
     sys.path.insert(0, str(ROOT / "tools"))
 
 from map_editor.composites import COLONY_PREFIX, composite_label, list_composite_ids
+from map_editor.editor_bridge import publish_map_selection
 from map_editor.model import WORLD_REL_PATH, WorldMapDocument
 from src.sim.utils.compound_layers import ACCESS_LAYERS, ROOT_LAYERS
 from src.client.camera import Camera
@@ -125,6 +126,27 @@ class MapEditorApp:
             return LAYER_LABELS[layer]
         return EXTRA_LAYER_LABELS.get(layer, layer)
 
+    def _set_selected(self, uid: str | None) -> None:
+        self.selected_uid = uid
+        self._publish_selection()
+
+    def _publish_selection(self) -> None:
+        if self.selected_uid is None:
+            publish_map_selection(uid=None)
+            return
+        obj = next((o for o in self.doc.objects if o.uid == self.selected_uid), None)
+        if obj is None:
+            publish_map_selection(uid=None)
+            return
+        publish_map_selection(
+            uid=obj.uid,
+            layer=obj.layer,
+            type_id=obj.type_ref,
+            x=obj.x,
+            y=obj.y,
+            extra={"props": obj.props} if obj.props else None,
+        )
+
     def _focus_hit(self, hit) -> None:
         """選択したオブジェクトに合わせてレイヤーとタイプを同期（コロニー部品→複合レイヤ）。"""
         if hit.layer in COLONY_LAYERS:
@@ -170,7 +192,7 @@ class MapEditorApp:
             return
         group_id = self.doc.editor_group_id(obj)
         self.doc.remove_object(self.selected_uid)
-        self.selected_uid = None
+        self._set_selected(None)
         self._mark_dirty()
         self._reload_world()
         if group_id:
@@ -186,7 +208,7 @@ class MapEditorApp:
             if not composite_id:
                 return
             obj = self.doc.place_composite(composite_id, wx, wy)
-            self.selected_uid = obj.uid
+            self._set_selected(obj.uid)
             self._mark_dirty()
             self._reload_world()
             label = composite_label(composite_id, self._affiliation_profiles())
@@ -194,7 +216,7 @@ class MapEditorApp:
             return
         type_ref = self._current_type()
         obj = self.doc.add_object(self.active_layer, type_ref, wx, wy)
-        self.selected_uid = obj.uid
+        self._set_selected(obj.uid)
         self._mark_dirty()
         self._reload_world()
         self.status = f"配置: {self._layer_label(self.active_layer)} / {type_ref}"
@@ -210,7 +232,7 @@ class MapEditorApp:
             if hit:
                 self.doc.remove_object(hit.uid)
                 if self.selected_uid == hit.uid:
-                    self.selected_uid = None
+                    self._set_selected(None)
                 self._mark_dirty()
                 self._reload_world()
                 self.status = "削除しました"
@@ -222,7 +244,7 @@ class MapEditorApp:
 
         hit = self.doc.find_at(self.active_layer, wx, wy, all_layers=True)
         if hit is not None:
-            self.selected_uid = hit.uid
+            self._set_selected(hit.uid)
             self._focus_hit(hit)
             self._dragging_uid = hit.uid
             return
@@ -237,6 +259,7 @@ class MapEditorApp:
             self._panning = False
             if self._dragging_uid is not None:
                 self._reload_world()
+                self._publish_selection()
             self._dragging_uid = None
 
     def _handle_mouse_motion(self, pos: tuple[int, int], buttons: tuple[int, ...]) -> None:
@@ -279,7 +302,7 @@ class MapEditorApp:
             self._save()
             return
         if event.key == pygame.K_ESCAPE:
-            self.selected_uid = None
+            self._set_selected(None)
             return
 
     def _draw_hud(self) -> None:

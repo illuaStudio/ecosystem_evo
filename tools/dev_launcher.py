@@ -39,6 +39,7 @@ class DevLauncherApp:
         self._active_spec: FieldSpec | None = None
         self._game_process: subprocess.Popen | None = None
         self._map_editor_process: subprocess.Popen | None = None
+        self._dev_editor_process: subprocess.Popen | None = None
 
         self._build_ui()
         self._reload_all_fields()
@@ -86,6 +87,9 @@ class DevLauncherApp:
         ttk.Button(btn_frame, text="ゲーム起動", command=self._launch_game).pack(side=tk.LEFT, padx=4)
         ttk.Button(btn_frame, text="保存して起動", command=self._save_and_launch).pack(side=tk.LEFT, padx=4)
         ttk.Button(btn_frame, text="マップエディタ", command=self._launch_map_editor).pack(side=tk.LEFT, padx=4)
+        ttk.Button(btn_frame, text="開発エディタ (Web+マップ)", command=self._launch_dev_editor).pack(
+            side=tk.LEFT, padx=4
+        )
         ttk.Button(btn_frame, text="ゲーム終了", command=self._stop_game).pack(side=tk.LEFT, padx=4)
 
         self.status_var = tk.StringVar(value="準備完了")
@@ -376,6 +380,22 @@ class DevLauncherApp:
             return
         self.status_var.set(f"マップエディタ起動 (PID {self._map_editor_process.pid})")
 
+    def _launch_dev_editor(self) -> None:
+        if self._dev_editor_process is not None and self._dev_editor_process.poll() is None:
+            messagebox.showinfo("起動中", "開発エディタはすでに起動しています。")
+            return
+        root = project_root()
+        try:
+            self._dev_editor_process = subprocess.Popen(
+                [sys.executable, "run_dev_editor.py"],
+                cwd=str(root),
+            )
+        except OSError as exc:
+            messagebox.showerror("起動エラー", str(exc))
+            self.status_var.set(f"開発エディタ起動失敗: {exc}")
+            return
+        self.status_var.set(f"開発エディタ起動 (PID {self._dev_editor_process.pid})")
+
     def _stop_game(self) -> None:
         if self._game_process is None:
             return
@@ -392,6 +412,8 @@ class DevLauncherApp:
         self._stop_game()
         if self._map_editor_process is not None and self._map_editor_process.poll() is None:
             self._map_editor_process.terminate()
+        if self._dev_editor_process is not None and self._dev_editor_process.poll() is None:
+            self._dev_editor_process.terminate()
         self.root.destroy()
 
     def run(self) -> None:

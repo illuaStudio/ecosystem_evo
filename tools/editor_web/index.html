@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ecosystem Evo — 設定エディタ</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header class="top-bar">
+    <h1>Ecosystem Evo 設定エディタ</h1>
+    <p class="hint">マップ編集は Pygame ウィンドウ。種族・オブジェクト型はここで編集します。</p>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <nav class="tabs" role="tablist">
+        <button type="button" class="tab active" data-kind="species">種族 (species)</button>
+        <button type="button" class="tab" data-kind="object_types">オブジェクト型</button>
+      </nav>
+      <div class="sidebar-toolbar">
+        <button type="button" id="btn-new" class="btn primary btn-block">＋ 新規</button>
+      </div>
+      <div id="sidebar-status" class="sidebar-status" aria-live="polite"></div>
+      <label class="search-wrap">
+        <span class="sr-only">検索</span>
+        <input type="search" id="search" placeholder="検索…" autocomplete="off" />
+      </label>
+      <ul id="catalog" class="catalog"></ul>
+    </aside>
+
+    <main class="editor">
+      <div id="empty" class="empty-state">
+        左の一覧から項目を選んでください。
+      </div>
+      <div id="panel" class="panel hidden">
+        <div class="panel-head">
+          <h2 id="item-title"></h2>
+          <span id="item-path" class="path"></span>
+        </div>
+
+        <section class="map-selection" aria-label="マップ選択">
+          <h3>マップエディタの選択</h3>
+          <pre id="map-selection">（未選択）</pre>
+        </section>
+
+        <textarea id="json-editor" spellcheck="false" aria-label="JSON"></textarea>
+
+        <div class="actions">
+          <button type="button" id="btn-validate" class="btn secondary">検証</button>
+          <button type="button" id="btn-save" class="btn primary">保存</button>
+          <button type="button" id="btn-reload" class="btn secondary">再読込</button>
+          <button type="button" id="btn-delete" class="btn danger">削除</button>
+        </div>
+
+        <div id="message" class="message" role="status" hidden></div>
+        <ul id="errors" class="errors" hidden></ul>
+      </div>
+    </main>
+  </div>
+
+  <script src="/static/app.js?v=3"></script>
+</body>
+</html>

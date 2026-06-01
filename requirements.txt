@@ -1,2 +1,7 @@
 pygame>=2.5.0
-noise>=1.2.2
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+
+# 任意: バイオーム用 Perlin（Windows では MSVC Build Tools が必要）
+# pip install noise>=1.2.2
+# 未インストール時は src/sim/systems/biome_noise.py の純 Python フォールバックを使用

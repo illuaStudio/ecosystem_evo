@@ -10,3 +10,4 @@ venv/
 *.egg-info/
 dist/
 build/
+.editor_shared_state.json
