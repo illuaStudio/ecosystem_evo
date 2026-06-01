@@ -5,13 +5,13 @@ from src.sim.utils.position_helpers import entity_xy
 
 
 def expand_affiliation_species(world, affiliation_ids) -> tuple[str, ...]:
-    """所属 ID からそのグループに属する全種名を列挙（world.affiliation_species）。"""
+    """所属 ID からそのグループに属する全種名を列挙。"""
     if world is None:
         return ()
-    affiliation_species = getattr(world, "affiliation_species", {}) or {}
     names: list[str] = []
+    groups = getattr(world, "affiliation_species", {}) or {}
     for aid in affiliation_ids or ():
-        for name in affiliation_species.get(aid, ()):
+        for name in groups.get(aid, ()):
             if name not in names:
                 names.append(str(name))
     return tuple(names)

@@ -1,7 +1,12 @@
+from src.game.colony_session import get_colony_orchestrator, try_get_colony_orchestrator
+
+def colony(world):
+    return get_colony_orchestrator(world)
+
 """ゲームレイヤー（GameController / GameMonitor）のテスト。"""
 import unittest
 
-from src.sim.ai.actions import AffiliationReproduceAction
+from src.game.ai.reproduction_actions import AffiliationReproduceAction
 from src.sim.entities.creature_factory import CreatureFactory
 from src.game.game_controller import GameController
 from src.game.game_monitor import GameMonitor
@@ -51,7 +56,7 @@ class TestGameMonitor(unittest.TestCase):
         factory = CreatureFactory()
         queen = factory.create("red_ant_queen", world=world, x=120, y=120)
         world.add_creature(queen, spawn_source="initial")
-        nest = world.nest_system.get_affiliation_root("red_ant")
+        nest = colony(world).get_affiliation_root("red_ant")
         world.events.drain()
 
         monitor = GameMonitor({"low_food_ratio": 0.10})
@@ -93,7 +98,7 @@ class TestGameController(unittest.TestCase):
         factory = CreatureFactory()
         queen = factory.create("red_ant_queen", world=world, x=120, y=120)
         world.add_creature(queen, spawn_source="initial")
-        nest = world.nest_system.get_affiliation_root("red_ant")
+        nest = colony(world).get_affiliation_root("red_ant")
         world.events.drain()
 
         profile = MindPolicy().get_profile("workers_only") or {}
@@ -152,7 +157,7 @@ class TestGameController(unittest.TestCase):
         factory = CreatureFactory()
         queen = factory.create("red_ant_queen", world=world, x=120, y=120)
         world.add_creature(queen, spawn_source="initial")
-        nest = world.nest_system.get_affiliation_root("red_ant")
+        nest = colony(world).get_affiliation_root("red_ant")
         world.events.drain()
 
         ctrl = self._controller(world)

@@ -1,7 +1,11 @@
 {
   "name": "rival_ant",
   "description": "テスト用の敵対勢力ワーカー（本番ワールドには出現しない）。",
-  "color": [60, 90, 230],
+  "color": [
+    60,
+    90,
+    230
+  ],
   "affiliation": {
     "enabled": true,
     "affiliation_id": "rival_ant"
@@ -20,7 +24,14 @@
   },
   "inventory": {
     "slot_count": 1,
-    "slots": [{ "max_mass": 50.0, "allowed_kinds": ["biomass"] }],
+    "slots": [
+      {
+        "max_mass": 50.0,
+        "allowed_kinds": [
+          "biomass"
+        ]
+      }
+    ],
     "mass_per_unit": 1.0,
     "carry_speed_reference_weight": 160.0
   },
@@ -30,8 +41,12 @@
       {
         "name": "WanderAction",
         "weight": 1.0,
-        "params": { "angle_range": 35.0, "speed_multiplier": 0.7 }
+        "params": {
+          "angle_range": 35.0,
+          "speed_multiplier": 0.7
+        }
       }
     ]
-  }
+  },
+  "death_policy": "field_drop"
 }

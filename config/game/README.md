@@ -1,27 +1,40 @@
-# game 層の設定
+# ゲーム層設定（`config/game/`）
 
-このゲーム固有のコンテンツを置く。
+シミュレーションエンジン（`src/sim/`）が読み込む**コンテンツ**。数値の意味づけ（食料・バイオマスドロップ等）はここで定義する。
 
-- `species/` — 種族定義（`name`, `affiliation`, AI など）
-- `worlds/` — ワールド JSON（配置・所属プロファイル・初期スポーン）
-- `object_types/` — マップに置くオブジェクト型（岩・毒霧・巣部品・女神像の部品など）
+## 死後処理（`death_policy`）
 
-シミュレーションエンジンが理解するのは **capabilities**（collision / zone / storage …）のみ。  
-`poison_fog` や `rock` という名前付きの型はゲームコンテンツとしてここに置く。
+sim は **PostLife のパーツ列**だけ実行する。種 JSON に `death_policy` が無い／空なら **何もしない**。
 
-スキーマ説明: `config/sim/object_types/SCHEMA.md`
+| 値 | 意味 |
+|----|------|
+| `"field_drop"` | 地面に `field_bulk` を出して個体を `remove`（本ゲームの通常死骸） |
 
-## Web 設定エディタ
+地面ドロップの型:
 
-種族・オブジェクト型の編集はブラウザ UI、マップ配置は Pygame です。
+| 型 | 用途 |
+|----|------|
+| `field_bulk` | バイオマス（連続量・死骸ドロップ） |
+| `field_item` / `field_gold` | `StackItem`（剣・金貨など個数物） |
 
-```bash
-pip install -r requirements.txt
-python run_dev_editor.py
+ゾーン（毒霧など）は `instances` の `layer: "zone"` のみ。旧 `zones.sources` / `field_emitters` は読み込み時に zone インスタンスへ正規化される。
+| `"corpse_on_creature"` | 個体のまま残留量を持ち分解（レガシー挙動） |
+| `"immediate_remove"` / `"remove"` | 即ワールドから削除 |
+| `{ "steps": [ ... ] }` | パーツを直列指定（`spawn_drop`, `convert_corpse_mass`, `warp_to` 等） |
+
+例（`species/spider.json`）:
+
+```json
+"death_policy": "field_drop"
 ```
 
-- 設定 UI: http://127.0.0.1:8765/
-- API のみ: `python run_dev_editor.py --no-map`
-- マップのみ（API は別途）: `python run_map_editor.py`
+カスタム:
 
-詳細: `tools/README.md`
+```json
+"death_policy": {
+  "steps": [
+    { "step": "spawn_drop", "type": "field_bulk" },
+    "remove"
+  ]
+}
+```

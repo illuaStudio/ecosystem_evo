@@ -1,3 +1,8 @@
+from src.game.colony_session import get_colony_orchestrator, try_get_colony_orchestrator
+
+def colony(world):
+    return get_colony_orchestrator(world)
+
 """スタートワールド（1勢力・女王+働きアリ+極小虫）のスモークテスト。"""
 import unittest
 
@@ -9,7 +14,7 @@ from src.sim.systems.world import World
 class TestWorldStart(unittest.TestCase):
     def test_world_spawns_single_affiliation(self):
         world = World()
-        nests = list(world.nest_system.nests.values())
+        nests = list(colony(world).affiliation_roots.values())
         colony_ids = {n.affiliation_id for n in nests}
         self.assertEqual(colony_ids, {"red_ant"})
         self.assertEqual(len(nests), 1)

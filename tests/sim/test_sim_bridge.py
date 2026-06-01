@@ -8,9 +8,10 @@ from src.game.command_builder import (
     apply_spawn_profile,
     spawn_creature,
 )
+from src.game.sim_bridge_factory import make_sim_bridge
 from src.sim.bridge import SimBridge
 from src.sim.commands import SetAffiliationCasteMind, SetCreatureMind, SetSpeciesMind, SpawnCreature
-from src.sim.utils.caste_helpers import creature_matches_affiliation_caste, list_affiliation_caste_species
+from src.game.caste_helpers import creature_matches_affiliation_caste, list_affiliation_caste_species
 from src.sim.entities.creature_factory import CreatureFactory
 from src.sim.shelter.state import is_creature_sheltered
 from src.sim.systems.world import World
@@ -63,7 +64,7 @@ class TestAffiliationCasteMind(unittest.TestCase):
 
     def test_set_colony_caste_mind_workers_only(self):
         world = _colony_world()
-        bridge = SimBridge(world)
+        bridge = make_sim_bridge(world)
         factory = CreatureFactory()
         worker = factory.create("red_ant", world=world, x=100, y=100)
         soldier = factory.create("red_ant_soldier", world=world, x=110, y=100)
@@ -87,7 +88,7 @@ class TestAffiliationCasteMind(unittest.TestCase):
 
     def test_set_colony_caste_mind_soldiers(self):
         world = _colony_world()
-        bridge = SimBridge(world)
+        bridge = make_sim_bridge(world)
         factory = CreatureFactory()
         worker = factory.create("red_ant", world=world, x=100, y=100)
         soldier = factory.create("red_ant_soldier", world=world, x=110, y=100)
@@ -117,7 +118,7 @@ class TestAffiliationCasteMind(unittest.TestCase):
 
     def test_apply_mind_profile_to_affiliation_caste_helper(self):
         world = _colony_world()
-        bridge = SimBridge(world)
+        bridge = make_sim_bridge(world)
         factory = CreatureFactory()
         for i in range(2):
             ant = factory.create("red_ant", world=world, x=100 + i, y=100)
@@ -151,7 +152,7 @@ class TestAffiliationCasteMind(unittest.TestCase):
                 ),
             }
         )
-        bridge = SimBridge(world)
+        bridge = make_sim_bridge(world)
         factory = CreatureFactory()
         worker = factory.create("red_ant", world=world, x=100, y=100)
         soldier = factory.create("red_ant_soldier", world=world, x=110, y=100)
@@ -175,7 +176,7 @@ class TestAffiliationCasteMind(unittest.TestCase):
 class TestSimBridge(unittest.TestCase):
     def test_spawn_at_coordinates(self):
         world = _world()
-        bridge = SimBridge(world)
+        bridge = make_sim_bridge(world)
         result = bridge.execute(SpawnCreature(species="Spider", x=200, y=300, source="game"))
         self.assertTrue(result.ok)
         self.assertIsNotNone(result.creature)
@@ -184,7 +185,7 @@ class TestSimBridge(unittest.TestCase):
 
     def test_spawn_random_position(self):
         world = _world()
-        bridge = SimBridge(world)
+        bridge = make_sim_bridge(world)
         result = bridge.execute(SpawnCreature(species="springtail", source="game"))
         self.assertTrue(result.ok)
         c = result.creature
@@ -193,7 +194,7 @@ class TestSimBridge(unittest.TestCase):
 
     def test_set_creature_mind_replace(self):
         world = _world()
-        bridge = SimBridge(world)
+        bridge = make_sim_bridge(world)
         factory = CreatureFactory()
         queen = factory.create("red_ant_queen", world=world, x=100, y=100)
         world.add_creature(queen, spawn_source="initial")
@@ -205,7 +206,7 @@ class TestSimBridge(unittest.TestCase):
 
     def test_set_species_mind(self):
         world = _world()
-        bridge = SimBridge(world)
+        bridge = make_sim_bridge(world)
         factory = CreatureFactory()
         for i in range(2):
             ant = factory.create("red_ant", world=world, x=100 + i, y=100)
@@ -238,7 +239,7 @@ class TestSimBridge(unittest.TestCase):
 
     def test_set_species_mind_no_match(self):
         world = _world()
-        bridge = SimBridge(world)
+        bridge = make_sim_bridge(world)
         count = apply_mind_profile_to_species(
             bridge, "nonexistent_species", "workers_only"
         )
@@ -246,7 +247,7 @@ class TestSimBridge(unittest.TestCase):
 
     def test_apply_spawn_profile_via_bridge(self):
         world = _world()
-        bridge = SimBridge(world)
+        bridge = make_sim_bridge(world)
         factory = CreatureFactory()
         queen = factory.create("red_ant_queen", world=world, x=120, y=120)
         world.add_creature(queen, spawn_source="initial")
@@ -256,19 +257,19 @@ class TestSimBridge(unittest.TestCase):
         self.assertTrue(is_creature_sheltered(queen))
         self.assertEqual(
             [a["name"] for a in queen.mind.action_defs],
-            ["FeedAtNestAction"],
+            ["FeedAtNestAction", "WanderAction"],
         )
 
     def test_spawn_creature_helper(self):
         world = _world()
-        bridge = SimBridge(world)
+        bridge = make_sim_bridge(world)
         creature = spawn_creature(bridge, "Spider", x=50, y=60)
         self.assertIsNotNone(creature)
         self.assertEqual(creature.species.name, "Spider")
 
     def test_merge_mind_keeps_existing(self):
         world = _world()
-        bridge = SimBridge(world)
+        bridge = make_sim_bridge(world)
         factory = CreatureFactory()
         queen = factory.create("red_ant_queen", world=world, x=100, y=100)
         world.add_creature(queen, spawn_source="initial")

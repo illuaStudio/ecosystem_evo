@@ -45,6 +45,17 @@ class SpeciesVisibilityManager:
                 if name in limits:
                     self._visible.setdefault(name, True)
 
+    def groups_for_world(self, world) -> list[tuple[str, str, tuple[str, ...]]]:
+        """population_limits に含まれる種が1つでもある生態グループのみ返す。"""
+        limits = getattr(world, "population_limits", None) or {}
+        if not limits:
+            return list(self._groups)
+        return [
+            (gid, label, names)
+            for gid, label, names in self._groups
+            if any(name in limits for name in names)
+        ]
+
     def is_species_visible(self, species_name: str) -> bool:
         return self._visible.get(species_name, True)
 
@@ -107,3 +118,14 @@ class SpeciesVisibilityManager:
     @toggle_rects.setter
     def toggle_rects(self, rects: list[VisibilityToggleRect]) -> None:
         self._toggle_rects = rects
+
+    def set_toggle_rects(self, rects: list[VisibilityToggleRect]) -> None:
+        self._toggle_rects = rects
+
+    def hit_test_toggle(self, x: int, y: int) -> str | None:
+        """表示パネルの行クリック判定。該当 group_id または None。"""
+        for entry in self._toggle_rects:
+            rx, ry, rw, rh = entry.rect
+            if rx <= x <= rx + rw and ry <= y <= ry + rh:
+                return entry.group_id
+        return None

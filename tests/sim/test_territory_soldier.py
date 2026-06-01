@@ -1,3 +1,8 @@
+from src.game.colony_session import get_colony_orchestrator, try_get_colony_orchestrator
+
+def colony(world):
+    return get_colony_orchestrator(world)
+
 """??????????????????"""
 import math
 import unittest
@@ -38,8 +43,8 @@ class TestTerritoryAndCastes(unittest.TestCase):
         soldier = factory.create("red_ant_soldier", world=world, x=110, y=100)
         world.add_creature(soldier)
 
-        worker_nest = world.nest_system.get_creature_nest(worker)
-        soldier_nest = world.nest_system.get_creature_nest(soldier)
+        worker_nest = colony(world).get_creature_affiliation_root(worker)
+        soldier_nest = colony(world).get_creature_affiliation_root(soldier)
         self.assertIsNotNone(worker_nest)
         self.assertIs(soldier_nest, worker_nest)
 
@@ -152,7 +157,7 @@ class TestTerritoryAndCastes(unittest.TestCase):
         soldier = factory.create("red_ant_soldier", world=world, x=125, y=120)
         world.add_creature(soldier)
 
-        nest = world.nest_system.get_creature_nest(soldier)
+        nest = colony(world).get_creature_affiliation_root(soldier)
         territory_r = float(world.affiliation_profiles["red_ant"]["territory_radius"])
         vision = soldier.get_current_vision()
         sx, sy = entity_xy(soldier)

@@ -15,6 +15,8 @@ from src.sim.utils.compound_layers import (
     default_access_type_for_root,
     profile_for_type,
 )
+from src.sim.components.spawn_capability import SpawnCapability
+from src.sim.layout.import_layout import expand_layout_instances
 from src.sim.utils.object_capabilities import (
     capability_block,
     merge_type_with_instance,
@@ -30,6 +32,7 @@ SITE_LAYERS = ROOT_LAYERS
 OBSTACLE_LAYERS = frozenset({"obstacle"})
 ZONE_LAYERS = frozenset({"zone"})
 FIELD_LAYERS = frozenset({"field"})
+SPAWN_LAYERS = frozenset({"spawn"})
 RESERVED_INSTANCE_KEYS = frozenset(
     {
         "id",
@@ -57,7 +60,10 @@ class WorldObjectSystem:
         self.objects.clear()
         self._children.clear()
 
-        instances = list(layout.get("instances") or [])
+        if "instances" in layout:
+            instances = list(layout.get("instances") or [])
+        else:
+            instances = expand_layout_instances(layout)
         self._load_from_instances(instances, layout)
         self._ensure_default_access_children(layout)
         self._rebuild_child_index()
@@ -66,6 +72,12 @@ class WorldObjectSystem:
         affiliation_settings = dict(layout.get("affiliation") or {})
         access_max_hp = get_access_max_hp(affiliation_settings)
         zone_defaults = dict((layout.get("zones") or {}).get("defaults") or {})
+        spawn_defaults = dict((layout.get("spawn_emitters") or {}).get("defaults") or {})
+        spawn_type_defaults = {
+            str(key): dict(value)
+            for key, value in ((layout.get("spawn_emitters") or {}).get("types") or {}).items()
+            if isinstance(value, dict)
+        }
 
         for raw in instances:
             if not isinstance(raw, dict):
@@ -257,6 +269,9 @@ class WorldObjectSystem:
                     half_w=half_w,
                     half_h=half_h,
                     zone_effects=effects,
+                    zone_affiliation_id=str(
+                        raw.get("zone_affiliation_id", raw.get("affiliation_id", ""))
+                    ),
                 )
                 continue
 
@@ -281,6 +296,121 @@ class WorldObjectSystem:
                 if fill:
                     self._apply_fill(obj, fill, creature=None)
                 self.objects[obj_id] = obj
+                continue
+
+            if layer in SPAWN_LAYERS:
+                if obj_id in self.objects:
+                    continue
+                type_ref = str(raw.get("type", "spawn"))
+                type_def = config.get_object_type(type_ref) if type_ref != "spawn" else {}
+                merged = merge_type_with_instance(
+                    type_def,
+                    raw,
+                    reserved_keys=RESERVED_INSTANCE_KEYS,
+                )
+                spawn_block = capability_block(merged, "spawn")
+                spawn_data = {**spawn_defaults, **spawn_block, **raw}
+                spawn_data["type"] = type_ref
+                spawn_cap = SpawnCapability.from_mapping(
+                    spawn_data,
+                    global_defaults=spawn_defaults,
+                    type_defaults=spawn_type_defaults,
+                )
+                self.objects[obj_id] = WorldObject(
+                    id=obj_id,
+                    type_ref=type_ref,
+                    x=float(raw.get("x", 0.0)),
+                    y=float(raw.get("y", 0.0)),
+                    label=str(raw.get("label", spawn_cap.label or type_ref)),
+                    layer="spawn",
+                    origin=str(raw.get("origin", "map")),
+                    spawn=spawn_cap,
+                )
+                continue
+
+        self._ensure_affiliation_clearing_objects(layout)
+
+    def _ensure_affiliation_clearing_objects(self, layout: Dict) -> None:
+        profiles = (layout.get("affiliation") or {}).get("profiles") or {}
+        for affiliation_id, profile in profiles.items():
+            if not isinstance(profile, dict):
+                continue
+            radius = float(profile.get("spawn_exclusion_radius", 0.0))
+            if radius <= 0:
+                continue
+            nest_x = profile.get("nest_x")
+            nest_y = profile.get("nest_y")
+            if nest_x is None or nest_y is None:
+                root = self.objects.get(str(affiliation_id))
+                if root is None:
+                    continue
+                nest_x, nest_y = root.x, root.y
+            self.ensure_affiliation_clearing(
+                str(affiliation_id),
+                float(nest_x),
+                float(nest_y),
+                radius=radius,
+            )
+
+    def ensure_affiliation_clearing(
+        self,
+        affiliation_id: str,
+        x: float,
+        y: float,
+        *,
+        radius: float,
+    ) -> WorldObject:
+        clearing_id = f"{affiliation_id}_clearing"
+        existing = self.objects.get(clearing_id)
+        if existing is not None:
+            existing.x = float(x)
+            existing.y = float(y)
+            existing.radius = max(0.0, float(radius))
+            existing.zone_affiliation_id = str(affiliation_id)
+            return existing
+
+        type_def = config.get_object_type("nest_clearing")
+        effects = zone_effects_from_data(
+            {
+                **type_def,
+                "spawn_rate_multiplier": 0.0,
+                "radius": max(0.0, float(radius)),
+            }
+        )
+        shape, rad, half_w, half_h = resolve_geometry(
+            {"shape": "circle", "radius": radius},
+            capability="zone",
+        )
+        obj = WorldObject(
+            id=clearing_id,
+            type_ref="nest_clearing",
+            x=float(x),
+            y=float(y),
+            role="zone",
+            label=f"{affiliation_id}_clearing",
+            shape=shape,
+            radius=rad,
+            half_w=half_w,
+            half_h=half_h,
+            zone_effects=effects,
+            zone_affiliation_id=str(affiliation_id),
+            origin="runtime",
+        )
+        self.objects[clearing_id] = obj
+        return obj
+
+    def sync_affiliation_clearing(
+        self, affiliation_id: str, x: float, y: float, *, radius: float | None = None
+    ) -> None:
+        from src.sim.utils.affiliation_config_helpers import get_affiliation_profile
+
+        profile = get_affiliation_profile(self.world, affiliation_id)
+        rad = float(
+            radius
+            if radius is not None
+            else profile.get("spawn_exclusion_radius", 150.0)
+        )
+        self.ensure_affiliation_clearing(affiliation_id, x, y, radius=rad)
 
     def _ensure_default_access_children(self, layout: Dict) -> None:
         affiliation_settings = dict(layout.get("affiliation") or {})
@@ -340,6 +470,9 @@ class WorldObjectSystem:
 
     def iter_zones(self) -> List[WorldObject]:
         return [obj for obj in self.objects.values() if obj.is_zone]
+
+    def iter_spawn_emitters(self) -> List[WorldObject]:
+        return [obj for obj in self.objects.values() if obj.is_spawn_emitter]
 
     def get_children(self, parent_id: str) -> List[WorldObject]:
         return [
@@ -605,9 +738,22 @@ class WorldObjectSystem:
             obj.initial_fill = amount
             return
         if mode == "fixed_amount":
+            kind = str(fill.get("kind", "biomass"))
             amount = max(0.0, float(fill.get("amount", 0.0)))
-            obj.storage.stack.set_amount_for_kind("biomass", amount)
+            obj.storage.stack.set_amount_for_kind(kind, amount)
             obj.initial_fill = amount
+            return
+        if mode == "stack_item":
+            item_type = str(fill.get("item_type", fill.get("type", "generic")))
+            quantity = max(1, int(fill.get("quantity", 1)))
+            mass_per_unit = float(fill.get("mass_per_unit", 1.0))
+            obj.storage.stack.set_stack_item(
+                item_type,
+                quantity,
+                mass_per_unit=mass_per_unit,
+            )
+            obj.initial_fill = float(quantity * mass_per_unit)
+            return
 
     def spawn_instance(
         self,

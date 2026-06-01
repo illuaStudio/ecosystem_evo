@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+from src.game.colony_session import get_colony_orchestrator, try_get_colony_orchestrator
+
+def colony(world):
+    return get_colony_orchestrator(world)
 
 def list_colony_access(world, affiliation_id: str):
-    return list(world.nest_system.iter_affiliation_access(affiliation_id))
+    return list(colony(world).iter_affiliation_access(affiliation_id))
 
 
 def primary_access(world, affiliation_id: str):
@@ -14,6 +18,6 @@ def primary_access(world, affiliation_id: str):
 
 
 def damage_colony_access(world, affiliation_id: str, access, amount: float, *, attacker_affiliation_id: str):
-    return world.nest_system.damage_access(
+    return colony(world).damage_access(
         access, affiliation_id, amount, attacker_affiliation_id=attacker_affiliation_id
     )

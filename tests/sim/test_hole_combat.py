@@ -1,3 +1,8 @@
+from src.game.colony_session import get_colony_orchestrator, try_get_colony_orchestrator
+
+def colony(world):
+    return get_colony_orchestrator(world)
+
 """巣穴 HP・敵テリトリー重なり・敗北のテスト。"""
 
 import unittest
@@ -101,7 +106,7 @@ class TestHoleCombat(unittest.TestCase):
 
         world.add_creature(ant)
 
-        nest = world.nest_system.get_creature_nest(ant)
+        nest = colony(world).get_creature_affiliation_root(ant)
 
         access_list = list_colony_access(world, nest.affiliation_id)
 
@@ -125,7 +130,7 @@ class TestHoleCombat(unittest.TestCase):
 
         world.add_creature(blue)
 
-        red_nest = world.nest_system.get_creature_nest(red)
+        red_nest = colony(world).get_creature_affiliation_root(red)
 
         red_nest.stored_mass = 5000
 
@@ -135,7 +140,7 @@ class TestHoleCombat(unittest.TestCase):
 
         self.assertTrue(is_point_in_rival_territory(world, "red_ant", bx, by))
 
-        ok, msg = world.nest_system.can_place_hole(red_nest, bx, by)
+        ok, msg = colony(world).can_place_hole(red_nest, bx, by)
 
         self.assertFalse(ok)
 
@@ -153,13 +158,13 @@ class TestHoleCombat(unittest.TestCase):
 
         world.add_creature(red)
 
-        nest = world.nest_system.get_creature_nest(red)
+        nest = colony(world).get_creature_affiliation_root(red)
 
         access = primary_access(world, nest.affiliation_id)
 
         access.hp = 40.0
 
-        world.nest_system.update(100.0)
+        colony(world).update(100.0)
 
         self.assertAlmostEqual(access.hp, 40.0)
 
@@ -175,7 +180,7 @@ class TestHoleCombat(unittest.TestCase):
 
         world.add_creature(red)
 
-        nest = world.nest_system.get_creature_nest(red)
+        nest = colony(world).get_creature_affiliation_root(red)
 
         access = primary_access(world, nest.affiliation_id)
 
@@ -201,7 +206,7 @@ class TestHoleCombat(unittest.TestCase):
 
         world.add_creature(red)
 
-        nest = world.nest_system.get_creature_nest(red)
+        nest = colony(world).get_creature_affiliation_root(red)
 
         access = primary_access(world, nest.affiliation_id)
 
@@ -245,7 +250,7 @@ class TestHoleCombat(unittest.TestCase):
 
         world.add_creature(soldier)
 
-        nest = world.nest_system.get_creature_nest(worker)
+        nest = colony(world).get_creature_affiliation_root(worker)
 
         access = primary_access(world, nest.affiliation_id)
 
@@ -261,7 +266,7 @@ class TestHoleCombat(unittest.TestCase):
 
         self.assertTrue(is_affiliation_defeated(world, "red_ant"))
 
-        self.assertIsNone(world.nest_system.get_affiliation_root("red_ant"))
+        self.assertIsNone(colony(world).get_affiliation_root("red_ant"))
 
         from src.sim.utils.affiliation_group_helpers import is_creature_affiliation_defeated
 
@@ -274,7 +279,8 @@ class TestHoleCombat(unittest.TestCase):
 
     def test_attack_hole_yields_when_intruder_in_territory(self):
 
-        from src.sim.ai.actions import AttackHoleAction, CombatAction
+        from src.game.ai.combat_actions import AttackHoleAction
+        from src.sim.ai.actions import CombatAction
 
 
 
@@ -328,7 +334,7 @@ class TestHoleCombat(unittest.TestCase):
 
         world.add_creature(soldier)
 
-        blue_nest = world.nest_system.get_creature_nest(blue)
+        blue_nest = colony(world).get_creature_affiliation_root(blue)
 
         access = primary_access(world, blue_nest.affiliation_id)
 
@@ -340,7 +346,7 @@ class TestHoleCombat(unittest.TestCase):
 
     def test_vanguard_only_targets_holes_in_vision(self):
 
-        from src.sim.ai.actions import AttackHoleAction
+        from src.game.ai.combat_actions import AttackHoleAction
 
 
 
@@ -360,7 +366,7 @@ class TestHoleCombat(unittest.TestCase):
 
         world.add_creature(vanguard_far)
 
-        blue_nest = world.nest_system.get_creature_nest(blue)
+        blue_nest = colony(world).get_creature_affiliation_root(blue)
 
         access = primary_access(world, blue_nest.affiliation_id)
 
@@ -414,7 +420,7 @@ class TestHoleCombat(unittest.TestCase):
 
     def test_attack_hole_leash_pulls_back_when_configured(self):
 
-        from src.sim.ai.actions import AttackHoleAction
+        from src.game.ai.combat_actions import AttackHoleAction
 
 
 
@@ -434,9 +440,9 @@ class TestHoleCombat(unittest.TestCase):
 
         world.add_creature(vanguard)
 
-        ns = world.nest_system
+        ns = colony(world)
 
-        self.assertGreater(ns.distance_to_nest(vanguard), 165)
+        self.assertGreater(ns.distance_to_affiliation_site(vanguard), 165)
 
         action = AttackHoleAction(
 

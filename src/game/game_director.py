@@ -1,6 +1,12 @@
 """ゲーム進行: イベント解釈・監視反応・進行状態の更新。"""
 from __future__ import annotations
 
+from src.game.colony_session import get_colony_orchestrator
+
+
+def colony(world):
+    return get_colony_orchestrator(world)
+
 from typing import TYPE_CHECKING
 
 from src.game.command_builder import apply_spawn_profile
@@ -79,13 +85,13 @@ class GameDirector:
         if self.state.has_flag("player_affiliation_defeated"):
             self.state.stability_level = 0.0
         else:
-            root = world.nest_system.get_affiliation_root(self.state.player_affiliation_id)
+            root = colony(world).get_affiliation_root(self.state.player_affiliation_id)
             if root is None:
                 self.state.stability_level = 0.0
             else:
                 food_factor = min(
                     1.0,
-                    world.nest_system.affiliation_fill_ratio(self.state.player_affiliation_id) / 0.5,
+                    colony(world).affiliation_fill_ratio(self.state.player_affiliation_id) / 0.5,
                 )
                 self.state.stability_level = max(0.0, min(1.0, 0.3 + food_factor * 0.7))
 

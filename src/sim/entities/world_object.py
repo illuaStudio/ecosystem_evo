@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Optional, Tuple
 
 from src.sim.components.object_storage import ObjectStorage
+from src.sim.components.spawn_capability import SpawnCapability
 from src.sim.systems.zone_system import ZoneEffects
 from src.sim.utils.object_capabilities import point_in_shape
 
@@ -43,6 +44,12 @@ class WorldObject:
     initial_fill: float = 0.0
     pickup_species_filter: str = ""
     size_from_fill_ratio: bool = False
+    spawn: SpawnCapability | None = None
+    zone_affiliation_id: str = ""
+
+    @property
+    def is_spawn_emitter(self) -> bool:
+        return self.spawn is not None
 
     @property
     def is_field_pickup(self) -> bool:
@@ -86,6 +93,7 @@ class WorldObject:
             return True
         return self.storage.stack.is_empty
 
+    @property
     def fill_ratio(self) -> float:
         if self.initial_fill > 0 and self.storage is not None:
             initial = max(float(self.initial_fill), 1.0)

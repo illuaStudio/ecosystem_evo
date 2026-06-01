@@ -1,11 +1,16 @@
+from src.game.colony_session import get_colony_orchestrator, try_get_colony_orchestrator
+
+def colony(world):
+    return get_colony_orchestrator(world)
+
 """女王の不老・MindPolicy・巣穴待機のテスト。"""
 import unittest
 
-from src.sim.ai.actions import AffiliationReproduceAction
+from src.game.ai.reproduction_actions import AffiliationReproduceAction
 from src.sim.entities.creature_factory import CreatureFactory
 from src.game.command_builder import apply_spawn_profile
 from src.game.mind_policy import MindPolicy
-from src.sim.bridge import SimBridge
+from src.game.sim_bridge_factory import make_sim_bridge
 from src.sim.shelter.state import is_creature_sheltered
 from src.sim.systems.world import World
 from tests.sim.world_fixtures import affiliation_settings
@@ -44,11 +49,12 @@ class TestQueenAndMindPolicy(unittest.TestCase):
         factory = CreatureFactory()
         queen = factory.create("red_ant_queen", world=world, x=100, y=100)
         world.add_creature(queen)
-        apply_spawn_profile(SimBridge(world), queen)
+        apply_spawn_profile(make_sim_bridge(world), queen)
 
         self.assertTrue(is_creature_sheltered(queen))
         names = [a["name"] for a in queen.mind.action_defs]
-        self.assertEqual(names, ["FeedAtNestAction"])
+        self.assertIn("FeedAtNestAction", names)
+        self.assertIn("WanderAction", names)
 
     def test_mind_policy_swaps_reproduction_profile(self):
         world = World.from_json(
@@ -65,7 +71,7 @@ class TestQueenAndMindPolicy(unittest.TestCase):
         world.add_creature(queen)
 
         policy = MindPolicy()
-        bridge = SimBridge(world)
+        bridge = make_sim_bridge(world)
         from src.game.command_builder import apply_mind_profile
 
         self.assertTrue(apply_mind_profile(bridge, queen, "workers_and_soldiers"))
@@ -98,12 +104,12 @@ class TestQueenAndMindPolicy(unittest.TestCase):
         factory = CreatureFactory()
         queen = factory.create("red_ant_queen", world=world, x=120, y=120)
         world.add_creature(queen)
-        bridge = SimBridge(world)
+        bridge = make_sim_bridge(world)
         apply_spawn_profile(bridge, queen)
         from src.game.command_builder import apply_mind_profile
 
         apply_mind_profile(bridge, queen, "workers_only")
-        nest = world.nest_system.get_creature_nest(queen)
+        nest = colony(world).get_creature_affiliation_root(queen)
 
         self.assertTrue(is_creature_sheltered(queen))
 
@@ -123,9 +129,9 @@ class TestQueenAndMindPolicy(unittest.TestCase):
             for e in params.get("offspring", [])
             if e.get("species")
         ]
-        before = world.nest_system.count_affiliation_members(nest.id, member_species)
+        before = colony(world).count_affiliation_members(nest.id, member_species)
         self.assertTrue(action.execute(queen))
-        after = world.nest_system.count_affiliation_members(nest.id, member_species)
+        after = colony(world).count_affiliation_members(nest.id, member_species)
         self.assertEqual(after, before + 1)
 
 

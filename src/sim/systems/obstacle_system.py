@@ -123,36 +123,36 @@ class ObstacleSystem:
         self._cells: Dict[Tuple[int, int], List[int]] = defaultdict(list)
 
     def init_from_config(self, cfg: Dict | None) -> None:
+        """非推奨: テスト用。本番は World → WOS → rebuild_from_world_objects。"""
         self.obstacles.clear()
         self._cells.clear()
         if not cfg:
             return
-
         type_defaults: Dict[str, Dict] = {}
         for key, value in (cfg.get("types") or {}).items():
             if isinstance(value, dict):
                 type_defaults[str(key)] = dict(value)
-
         defaults = dict(cfg.get("defaults") or {})
         for entry in cfg.get("sources") or []:
             if isinstance(entry, dict):
                 self._add_from_entry(entry, type_defaults, defaults)
-
         self._build_index()
 
     def bootstrap_from_world_objects(self) -> bool:
-        """WorldObjectSystem の obstacle から衝突キャッシュを構築。"""
-        ws = getattr(self.world, "world_object_system", None)
-        if ws is None:
-            return False
+        self.rebuild_from_world_objects()
+        return len(self.obstacles) > 0
 
-        obstacles = ws.iter_obstacles()
-        if not obstacles:
-            return False
+    def init_from_layout(self, layout: Dict | None = None) -> None:
+        """WorldObject（obstacle）のみから衝突キャッシュを構築。"""
+        self.rebuild_from_world_objects()
 
+    def rebuild_from_world_objects(self) -> None:
         self.obstacles.clear()
         self._cells.clear()
-        for idx, obj in enumerate(obstacles, start=1):
+        ws = getattr(self.world, "world_object_system", None)
+        if ws is None:
+            return
+        for idx, obj in enumerate(ws.iter_obstacles(), start=1):
             if obj.shape == "rect":
                 self.obstacles.append(
                     ObstacleRect(
@@ -177,15 +177,6 @@ class ObstacleSystem:
                     )
                 )
         self._build_index()
-        return True
-
-    def init_from_layout(self, layout: Dict | None) -> None:
-        """instances 由来を優先し、なければ legacy obstacles.sources を読む。"""
-        if self.bootstrap_from_world_objects():
-            return
-        from src.sim.utils.object_type_loader import merge_obstacle_config
-
-        self.init_from_config(merge_obstacle_config((layout or {}).get("obstacles")))
 
     def _add_from_entry(
         self,

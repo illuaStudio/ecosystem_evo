@@ -1,4 +1,4 @@
-"""コロニー内の種別（caste）判定。種名サフィックス + affiliation_id で絞る。"""
+"""ゲーム層: コロニー内キャスト（種名サフィックス）判定。"""
 from __future__ import annotations
 
 from typing import Literal
@@ -24,7 +24,6 @@ def normalize_caste(caste: str) -> AffiliationCaste | None:
 
 
 def creature_matches_affiliation_caste(creature, affiliation_id: str, caste: AffiliationCaste) -> bool:
-    """個体が指定コロニー・種別に該当するか。"""
     if not affiliation_id or creature is None:
         return False
     from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
@@ -49,13 +48,11 @@ def creature_matches_affiliation_caste(creature, affiliation_id: str, caste: Aff
 
 
 def list_affiliation_caste_species(world, affiliation_id: str, caste: AffiliationCaste) -> tuple[str, ...]:
-    """ワールドに存在しうる種名のうち、caste に該当するものを列挙。"""
     if world is None or not affiliation_id:
         return ()
 
     names: set[str] = set()
-    affiliation_species = getattr(world, "affiliation_species", {}) or {}
-    for name in affiliation_species.get(affiliation_id, ()):
+    for name in (getattr(world, "affiliation_species", {}) or {}).get(affiliation_id, ()):
         names.add(str(name))
 
     from src.config import config
@@ -69,15 +66,14 @@ def list_affiliation_caste_species(world, affiliation_id: str, caste: Affiliatio
         if resolve_affiliation_id(species_name, aff_cfg) == affiliation_id:
             names.add(species_name)
 
-    matched = [
+    return tuple(
         name
         for name in sorted(names)
-        if _species_name_matches_caste(name, affiliation_id, caste)
-    ]
-    return tuple(matched)
+        if _species_name_matches_caste(name, caste)
+    )
 
 
-def _species_name_matches_caste(species_name: str, affiliation_id: str, caste: AffiliationCaste) -> bool:
+def _species_name_matches_caste(species_name: str, caste: AffiliationCaste) -> bool:
     if caste == "member":
         return True
     if caste == "queen":

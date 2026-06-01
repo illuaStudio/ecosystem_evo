@@ -7,10 +7,15 @@ from src.client.game_message_feed import GameMessageFeed
 from src.client.input_handler import InputHandler
 from src.client.rendering.renderer import Renderer
 from src.client.species_visibility import SpeciesVisibilityManager
+from src.game.colony_session import get_colony_orchestrator
 from src.game.game_controller import GameController
 from src.game.sim_runner import SimRunner
 from src.sim.bridge import SimBridge
 from src.sim.systems.world import World
+
+
+def colony(world):
+    return get_colony_orchestrator(world)
 
 
 class GameApp:
@@ -74,7 +79,9 @@ class GameApp:
             "debug_events", False
         )
         self.world = World(world_name)
-        self.sim_bridge = SimBridge(self.world)
+        from src.game.sim_bridge_factory import make_sim_bridge
+
+        self.sim_bridge = make_sim_bridge(self.world)
         self.game_controller = GameController(bridge=self.sim_bridge)
         self.game_controller.debug_sim_events = debug_sim
         self.selected_creature = None
@@ -118,7 +125,7 @@ class GameApp:
 
         affiliation_cfg = (config.get_species(species) or {}).get("affiliation", {})
         if affiliation_cfg.get("enabled"):
-            x, y = self.world.nest_system.spawn_position(species, affiliation_cfg)
+            x, y = colony(self.world).spawn_position(species, affiliation_cfg)
             self.game_controller.spawn_creature(species, x=x, y=y, source="debug")
         else:
             self.game_controller.spawn_creature(species, source="debug")

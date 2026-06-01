@@ -1,3 +1,8 @@
+from src.game.colony_session import get_colony_orchestrator, try_get_colony_orchestrator
+
+def colony(world):
+    return get_colony_orchestrator(world)
+
 """WorldObjectSystem（親子階層・備蓄）の Phase D テスト。"""
 import unittest
 
@@ -78,7 +83,7 @@ class TestWorldObjectSystem(unittest.TestCase):
         root = world.world_object_system.get("red_ant")
         self.assertIsNotNone(root)
         self.assertAlmostEqual(root.storage.stored_mass, 100.0)
-        nest = world.nest_system.get_affiliation_root("red_ant")
+        nest = colony(world).get_affiliation_root("red_ant")
         self.assertIsNotNone(nest)
         self.assertAlmostEqual(nest.stored_mass, 100.0)
         self.assertEqual(len(list_colony_access(world, "red_ant")), 1)
@@ -104,7 +109,7 @@ class TestWorldObjectSystem(unittest.TestCase):
         self.assertAlmostEqual(deposited, 25.0)
         root = world.world_object_system.get("red_ant")
         self.assertAlmostEqual(root.storage.stored_mass, 125.0)
-        nest = world.nest_system.get_affiliation_root("red_ant")
+        nest = colony(world).get_affiliation_root("red_ant")
         self.assertAlmostEqual(nest.stored_mass, 125.0)
 
     def test_shelter_resolves_child_access(self):
@@ -158,21 +163,21 @@ class TestWorldObjectSystem(unittest.TestCase):
         ws.add_access_point("red_ant", 210, 210)
         self.assertEqual(ws.count_active_access("red_ant"), 2)
 
-        world.nest_system.defeat_affiliation("red_ant")
+        colony(world).defeat_affiliation("red_ant")
         self.assertEqual(ws.count_active_access("red_ant"), 0)
         self.assertIn("red_ant", world.defeated_affiliations)
-        self.assertIsNone(world.nest_system.get_affiliation_root("red_ant"))
+        self.assertIsNone(colony(world).get_affiliation_root("red_ant"))
         self.assertIsNotNone(ws.get("red_ant"))
 
     def test_try_place_hole_deducts_parent_storage(self):
         world = _object_world()
-        nest = world.nest_system.get_affiliation_root("red_ant")
+        nest = colony(world).get_affiliation_root("red_ant")
         root = world.world_object_system.get("red_ant")
         root.storage.stored_mass = 1000.0
         nest.stored_mass = 1000.0
         cost = float(world.affiliation_settings.get("access_deposit_cost", world.affiliation_settings.get("hole_food_cost", 250)))
 
-        ok, _msg = world.nest_system.try_place_hole(nest, 360, 200)
+        ok, _msg = colony(world).try_place_hole(nest, 360, 200)
         self.assertTrue(ok)
         self.assertAlmostEqual(root.storage.stored_mass, 1000.0 - cost)
         self.assertAlmostEqual(nest.stored_mass, root.storage.stored_mass)
@@ -180,7 +185,7 @@ class TestWorldObjectSystem(unittest.TestCase):
 
     def test_colony_display_helpers(self):
         world = _object_world()
-        nest = world.nest_system.get_affiliation_root("red_ant")
+        nest = colony(world).get_affiliation_root("red_ant")
         root = world.world_object_system.get("red_ant")
         root.storage.stored_mass = 250.0
         root.storage.capacity = 500.0

@@ -1,18 +1,18 @@
-# nest_system.py
-"""コロニー拠点のランタイム管理（colony_site / colony_access 経由）。"""
+"""ゲーム層: 勢力コロニー（colony_site / access）の進行・経済・敗北。"""
 from __future__ import annotations
 
 import math
 import random
 from typing import TYPE_CHECKING
 
-from src.sim.utils.affiliation_config_helpers import (
-    get_min_storage_reserve,
+from src.game.colony_config import (
     get_access_deposit_cost,
     get_max_access_points,
     get_min_access_spacing,
+    get_min_storage_reserve,
     resolve_affiliation_runtime_cfg as _resolve_affiliation_runtime_cfg,
 )
+from src.game.colony_compound import ColonyCompoundRuntime
 from src.sim.utils.creature_helpers import (
     is_point_in_affiliation_territory,
 )
@@ -61,7 +61,7 @@ def _resolve_affiliation_id(target) -> str:
     return str(oid) if oid is not None else ""
 
 
-class NestSystem:
+class ColonyOrchestrator:
     DEFAULT_JOIN_RADIUS = 200.0
     DEFAULT_DEPOSIT_RADIUS = 30.0
     DEFAULT_SPAWN_SPREAD = 28.0
@@ -72,10 +72,10 @@ class NestSystem:
     def __init__(self, world: "World") -> None:
         self.world = world
         self._sim_time = 0.0
+        self._compound_runtime = ColonyCompoundRuntime(world)
 
     @property
-    def nests(self) -> dict[str, object]:
-        """後方互換: 非敗北 colony_site を affiliation_id → root で列挙。"""
+    def affiliation_roots(self) -> dict[str, object]:
         from src.sim.utils.world_object_helpers import iter_active_affiliation_roots
 
         return {root.id: root for root in iter_active_affiliation_roots(self.world)}
@@ -86,10 +86,7 @@ class NestSystem:
         ws.objects.clear()
         ws._children.clear()
 
-    def bootstrap_from_world_objects(self) -> None:
-        """colony_site は WorldObjectSystem 側で既に読み込み済み。"""
-
-    def create_nest(
+    def create_affiliation_site(
         self,
         x: float,
         y: float,
@@ -99,7 +96,6 @@ class NestSystem:
         max_mass: float = 400.0,
         stored_mass: float = 0.0,
     ):
-        """後方互換: colony_site + 既定 access を登録。"""
         cid = str(affiliation_id or species_name)
         self._register_affiliation_site(
             cid,
@@ -110,15 +106,20 @@ class NestSystem:
         )
         return self.get_affiliation_root(cid)
 
+    def assign_creature_on_spawn(self, creature) -> None:
+        data = getattr(creature.species, "affiliation_data", None) or {}
+        self.assign_creature(creature, data)
+
+    def bootstrap_existing_creatures(self) -> None:
+        """World 生成後に orchestrator を付けたとき、既にいる個体へ所属を付与する。"""
+        for creature in list(self.world.creatures):
+            self.assign_creature_on_spawn(creature)
+
     def get_affiliation_root(self, affiliation_id: str):
         return get_affiliation_root(self.world, affiliation_id)
 
     def get_creature_affiliation_root(self, creature):
         return get_creature_affiliation_root(creature)
-
-    def get_creature_nest(self, creature):
-        """後方互換: 個体の colony_site 親 WorldObject。"""
-        return self.get_creature_affiliation_root(creature)
 
     def _register_affiliation_site(
         self,
@@ -130,23 +131,17 @@ class NestSystem:
         stored_mass: float,
         with_default_access: bool = True,
     ) -> None:
-        ws = self.world.world_object_system
-        if not ws.has_affiliation_root(affiliation_id):
-            ws.ensure_affiliation_site(
-                affiliation_id,
-                x,
-                y,
-                max_mass=max_mass,
-                stored_mass=stored_mass,
-            )
-            if with_default_access and ws.find_access_at(affiliation_id, x, y) is None:
-                ws.add_access_point(affiliation_id, x, y)
-        invalidate_field_effect_cache(self.world)
-        zone_system = getattr(self.world, "zone_system", None)
-        if zone_system is not None:
-            root = ws.get(affiliation_id)
-            if root is not None:
-                zone_system.sync_affiliation_clearing(affiliation_id, root.x, root.y)
+        from src.sim.utils.affiliation_site_helpers import register_affiliation_site
+
+        register_affiliation_site(
+            self.world,
+            affiliation_id,
+            x,
+            y,
+            max_mass=max_mass,
+            stored_mass=stored_mass,
+            with_default_access=with_default_access,
+        )
 
     def iter_affiliation_access(self, affiliation_id: str):
         ws = self.world.world_object_system
@@ -187,12 +182,10 @@ class NestSystem:
     def affiliation_fill_ratio(self, affiliation_id: str) -> float:
         return affiliation_fill_ratio(self.world, affiliation_id)
 
-    def nest_fill_ratio(self, affiliation_id: str) -> float:
-        """後方互換。"""
-        return self.affiliation_fill_ratio(affiliation_id)
-
     def _affiliation_settings(self) -> dict:
-        return getattr(self.world, "affiliation_settings", {}) or {}
+        from src.game.colony_config import get_affiliation_settings
+
+        return get_affiliation_settings(self.world)
 
     def add_hole(self, affiliation_id: str, x: float, y: float) -> None:
         x, y = self._clamp_to_world(float(x), float(y))
@@ -243,15 +236,13 @@ class NestSystem:
     def defeat_affiliation(self, affiliation_id: str) -> None:
         if not affiliation_id:
             return
-        defeated = getattr(self.world, "defeated_affiliations", None)
-        if defeated is None:
-            self.world.defeated_affiliations = set()
-        if affiliation_id in self.world.defeated_affiliations:
+        cfg = self.world._colony_config
+        if cfg.is_defeated(affiliation_id):
             return
 
         self.world.compound_system.clear_access_points(affiliation_id)
 
-        self.world.defeated_affiliations.add(affiliation_id)
+        cfg.defeated.add(str(affiliation_id))
 
         from src.sim.shelter.state import clear_creature_shelter, is_creature_sheltered
 
@@ -322,41 +313,10 @@ class NestSystem:
         self.add_hole(affiliation_id, x, y)
         return True, "接続点を設置しました"
 
-    def _nearest_access_xy(self, affiliation_id: str, x: float, y: float) -> tuple[float, float]:
-        best = None
-        best_d = float("inf")
-        for ax, ay in self._iter_affiliation_access_xy(affiliation_id):
-            d = (ax - x) ** 2 + (ay - y) ** 2
-            if d < best_d:
-                best_d = d
-                best = (ax, ay)
-        if best is not None:
-            return best
-        root = get_affiliation_root(self.world, affiliation_id)
-        if root is not None:
-            return float(root.x), float(root.y)
-        return x, y
+    def affiliation_target_xy(self, creature) -> tuple[float, float]:
+        from src.sim.utils.affiliation_site_helpers import affiliation_target_xy
 
-    def nest_target_xy(self, creature) -> tuple[float, float]:
-        from src.sim.utils.world_object_helpers import (
-            get_creature_nest_parent_ids,
-            resolve_deposit_target,
-        )
-
-        if get_creature_nest_parent_ids(creature):
-            _parent, access = resolve_deposit_target(creature)
-            if access is not None:
-                return float(access.x), float(access.y)
-            if _parent is not None:
-                return float(_parent.x), float(_parent.y)
-
-        from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
-
-        affiliation_id = get_creature_affiliation_id(creature)
-        if not affiliation_id:
-            return entity_xy(creature)
-        cx, cy = entity_xy(creature)
-        return self._nearest_access_xy(affiliation_id, cx, cy)
+        return affiliation_target_xy(creature)
 
     def find_affiliation_at(self, x: float, y: float, pick_radius: float = 36.0) -> str | None:
         from src.sim.utils.world_object_helpers import iter_active_affiliation_roots
@@ -364,15 +324,16 @@ class NestSystem:
         best_id = None
         min_dist = float("inf")
         for root in iter_active_affiliation_roots(self.world):
-            tx, ty = self._nearest_access_xy(root.id, x, y)
+            from src.sim.utils.affiliation_site_helpers import nearest_access_xy
+
+            tx, ty = nearest_access_xy(self.world, root.id, x, y)
             dist = math.hypot(tx - x, ty - y)
             if dist <= pick_radius and dist < min_dist:
                 min_dist = dist
                 best_id = root.id
         return best_id
 
-    def find_nest_at(self, x: float, y: float, pick_radius: float = 36.0):
-        """後方互換: colony_site 親 WorldObject。"""
+    def find_affiliation_site_at(self, x: float, y: float, pick_radius: float = 36.0):
         affiliation_id = self.find_affiliation_at(x, y, pick_radius)
         if affiliation_id is None:
             return None
@@ -393,10 +354,6 @@ class NestSystem:
             return root
         return None
 
-    def find_nearest_nest(self, x: float, y: float, affiliation_id: str, max_dist: float):
-        """後方互換。"""
-        return self.find_nearest_affiliation_root(x, y, affiliation_id, max_dist)
-
     def spawn_position(self, species_name: str, affiliation_cfg: dict | None = None) -> tuple[float, float]:
         from src.sim.utils.spawn_placement import (
             SpawnAnchor,
@@ -409,7 +366,7 @@ class NestSystem:
         runtime_cfg = resolve_affiliation_runtime_cfg(self.world, affiliation_id, cfg)
         spread = float(runtime_cfg["spawn_spread"])
         resolver = SpawnPlacementResolver(self.world)
-        anchor = SpawnAnchor(type="nest", affiliation_id=affiliation_id, spread=spread)
+        anchor = SpawnAnchor(type="affiliation_site", affiliation_id=affiliation_id, spread=spread)
         pos = resolver.pick(
             anchor,
             SpawnPlacementOptions(
@@ -444,8 +401,7 @@ class NestSystem:
     def assign_creature(self, creature, affiliation_cfg: dict | None = None) -> None:
         """個体の所属（affiliation_id）を解決して付与する。
 
-        旧 colony 設計（巣root/備蓄/接続点）は現状 NestSystem が担うため、
-        affiliation_id はそのまま root id として扱う。
+        affiliation_id は colony_site の root id として扱う。
         """
         affiliation = getattr(creature, "affiliation", None)
         if affiliation is None:
@@ -546,46 +502,21 @@ class NestSystem:
                 count += 1
         return count
 
-    def distance_to_nest(self, creature) -> float:
-        cx, cy = entity_xy(creature)
-        tx, ty = self.nest_target_xy(creature)
-        return math.hypot(tx - cx, ty - cy)
+    def distance_to_affiliation_site(self, creature) -> float:
+        from src.sim.utils.affiliation_site_helpers import distance_to_affiliation_site
 
-    def is_at_nest(self, creature, deposit_radius: float) -> bool:
-        return self.distance_to_nest(creature) <= deposit_radius
+        return distance_to_affiliation_site(creature)
+
+    def is_at_affiliation_site(self, creature, deposit_radius: float) -> bool:
+        from src.sim.utils.affiliation_site_helpers import is_at_affiliation_site
+
+        return is_at_affiliation_site(creature, deposit_radius)
 
     def deposit_space(self, affiliation_id: str) -> float:
-        root = get_affiliation_root(self.world, affiliation_id)
-        if root is None or root.storage is None:
-            return 0.0
-        return max(0.0, root.storage.capacity - root.storage.stored_mass)
+        return self._compound_runtime.deposit_space(affiliation_id)
 
     def deposit_carried(self, creature) -> float:
-        from src.sim.utils.inventory_helpers import clear_inventory_for_kind, inventory_is_loaded
-        from src.sim.utils.world_object_helpers import (
-            deposit_carried_to_parent,
-            get_creature_nest_parent_ids,
-        )
-        from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
-
-        if not inventory_is_loaded(creature):
-            return 0.0
-
-        if get_creature_nest_parent_ids(creature):
-            return deposit_carried_to_parent(creature)
-
-        affiliation_id = get_creature_affiliation_id(creature)
-        if not affiliation_id:
-            return 0.0
-
-        root = get_affiliation_root(self.world, affiliation_id)
-        if root is None or root.storage is None:
-            return 0.0
-
-        amount = clear_inventory_for_kind(creature)
-        if amount <= 0:
-            return 0.0
-        return root.storage.deposit(amount)
+        return self._compound_runtime.deposit_carried(creature)
 
     def feed_creature(
         self,
@@ -594,40 +525,11 @@ class NestSystem:
         bite_gain: float = 1.2,
         feed_per_tick: float = 11.0,
     ) -> float:
-        from src.sim.utils.world_object_helpers import (
-            feed_creature_from_parent,
-            get_creature_nest_parent_ids,
+        return self._compound_runtime.feed_creature(
+            creature,
+            bite_gain=bite_gain,
+            feed_per_tick=feed_per_tick,
         )
-        from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
-
-        if get_creature_nest_parent_ids(creature):
-            return feed_creature_from_parent(
-                creature,
-                bite_gain=bite_gain,
-                feed_per_tick=feed_per_tick,
-            )
-
-        affiliation_id = get_creature_affiliation_id(creature)
-        root = get_affiliation_root(self.world, affiliation_id) if affiliation_id else None
-        if root is None or root.storage is None:
-            return 0.0
-        if root.storage.stored_mass <= 0:
-            return 0.0
-
-        max_sat = float(creature.max_satiety)
-        if float(creature.satiety) >= max_sat:
-            return 0.0
-
-        take = min(root.storage.stored_mass, float(feed_per_tick))
-        if take <= 0:
-            return 0.0
-
-        root.storage.withdraw(take)
-        creature.satiety = min(
-            max_sat,
-            creature.satiety + take * float(bite_gain),
-        )
-        return take
 
     def member_count(self, affiliation_id, species_name: str) -> int:
         return self.count_affiliation_members(_resolve_affiliation_id(affiliation_id), [species_name])
@@ -646,4 +548,4 @@ class NestSystem:
         return count
 
     def owner_species_for_affiliation(self, affiliation_id: str) -> str:
-        return owner_species_for_affiliation(self.world, affiliation_id)
+        return self._compound_runtime.owner_species(affiliation_id)

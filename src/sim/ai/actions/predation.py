@@ -1,18 +1,18 @@
 from src.sim.constants.micro_fauna import DEFAULT_MICRO_FAUNA_SPECIES
 from src.sim.utils.field_pickup_helpers import is_field_pickup, pickup_radius
-from src.sim.utils.loot_helpers import (
-    find_nearest_field_biomass_among,
-    is_biomass_field_target,
-    is_trackable_biomass_target,
-    loot_on_field,
-    move_toward_biomass_target,
-    consume_biomass_target,
-    try_pickup_biomass_target,
+from src.sim.combat.pickup_target import (
+    find_nearest_forage_among,
+    is_forage_field_target,
+    is_trackable_forage_target,
+    move_toward_forage_target,
+    consume_forage_target,
+    try_pickup_forage_target,
 )
+from src.sim.utils.field_pickup_helpers import pickup_on_field
 from src.sim.ai.actions.base import Action
 from src.sim.ai.actions.tracking import (
+    AffiliationLeashMixin,
     CreatureTargetMixin,
-    NestLeashMixin,
     TerritoryOnlyMixin,
 )
 from src.sim.combat.target_query import (
@@ -35,7 +35,6 @@ from src.sim.utils.creature_helpers import (
     move_toward,
     move_toward_contact,
     needs_self_feed,
-    nest_has_usable_storage,
     try_attack_only,
     try_pickup_carcass,
     try_predate,
@@ -78,16 +77,16 @@ class ChaseAction(Action):
         prey_species = self._prey_species()
 
         if is_field_pickup(target) or not target.alive:
-            if not is_biomass_field_target(creature.world, target):
+            if not is_forage_field_target(creature.world, target):
                 self._target = None
                 return False
-            dist = move_toward_biomass_target(
+            dist = move_toward_forage_target(
                 creature,
                 target,
                 float(self.params["speed_multiplier"]),
             )
             if dist <= reach * 1.05:
-                consume_biomass_target(
+                consume_forage_target(
                     creature,
                     target,
                     bite_gain=float(self.params["bite_gain"]),
@@ -116,7 +115,7 @@ class ChaseAction(Action):
         if is_field_pickup(target) or (
             target is not None and not getattr(target, "alive", True)
         ):
-            return is_trackable_biomass_target(creature, target, species)
+            return is_trackable_forage_target(creature, target, species)
         return is_trackable_prey(creature, target, species)
 
     def calculate_utility(self, creature) -> float:
@@ -156,7 +155,7 @@ def hunt_prey_species(params: dict) -> tuple[str, ...]:
     return (params.get("target_type", _MICRO_FAUNA_DEFAULT),)
 
 
-class HuntAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action):
+class HuntAction(AffiliationLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action):
     """獲物を追跡し攻撃・殺害。満腹時は死骸を拾って巣へ、飢餓時はその場で食べる。"""
 
     DEFAULT_PARAMS = {
@@ -226,7 +225,7 @@ class HuntAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action
             world = getattr(creature, "world", None)
             return (
                 target.pickup_species_filter in self._prey_species()
-                and loot_on_field(world, target)
+                and pickup_on_field(world, target)
             )
         if target is None or target.alive:
             return False
@@ -259,7 +258,7 @@ class HuntAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action
         if self._defense_hunt():
             return self._find_living_prey(creature, species)
 
-        carcass = find_nearest_field_biomass_among(
+        carcass = find_nearest_forage_among(
             creature, species, exclude=creature
         )
         living = self._find_living_prey(creature, species)
@@ -276,7 +275,7 @@ class HuntAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action
         if is_field_pickup(target) or (
             target is not None and not getattr(target, "alive", True)
         ):
-            return is_trackable_biomass_target(creature, target, species)
+            return is_trackable_forage_target(creature, target, species)
         return is_trackable_prey_creature(
             creature,
             target,
@@ -323,23 +322,23 @@ class HuntAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action
             reach = contact_range(creature, target, pad)
 
         if is_field_pickup(target) or not getattr(target, "alive", True):
-            if not is_biomass_field_target(creature.world, target):
+            if not is_forage_field_target(creature.world, target):
                 self._target = None
                 return False
-            dist = move_toward_biomass_target(
+            dist = move_toward_forage_target(
                 creature,
                 target,
                 float(self.params["speed_multiplier"]),
             )
             if dist <= reach * 1.05:
                 if needs_self_feed(creature):
-                    consume_biomass_target(
+                    consume_forage_target(
                         creature,
                         target,
                         bite_gain=float(self.params["bite_gain"]),
                     )
                 elif not needs_self_feed(creature) and self.params.get("pickup_on_kill", True):
-                    if try_pickup_biomass_target(creature, target, pad):
+                    if try_pickup_forage_target(creature, target, pad):
                         self.completed = True
                         self._target = None
                     else:
@@ -379,21 +378,29 @@ class HuntAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action
     def _nest_blocks_hunt(self, creature) -> bool:
         if self._defense_hunt() or self._territory_only():
             return False
-        return nest_has_usable_storage(creature)
+        from src.sim.utils.compound_feed_helpers import hunger_should_skip_hunt_for_storage
+
+        return hunger_should_skip_hunt_for_storage(creature)
 
     def _nest_hunt_dampening(self, creature) -> float:
-        """備蓄が十分な巣のすぐ近くでは狩り優先度を下げ、巣際の Hunt↔Return 往復を抑える。"""
+        """備蓄が十分な拠点付近では狩り優先度を下げ、往復を抑える。"""
         if needs_self_feed(creature) or not creature.world:
             return 1.0
-        ns = creature.world.nest_system
         from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
+        from src.sim.utils.affiliation_site_helpers import distance_to_affiliation_site
+        from src.sim.utils.world_object_helpers import (
+            affiliation_fill_ratio,
+            get_affiliation_root,
+        )
 
         affiliation_id = get_creature_affiliation_id(creature)
-        if not affiliation_id or ns.get_affiliation_root(affiliation_id) is None:
+        if not affiliation_id or get_affiliation_root(creature.world, affiliation_id) is None:
             return 1.0
-        if ns.distance_to_nest(creature) > float(self.params.get("nest_hunt_dampen_radius", 55.0)):
+        if distance_to_affiliation_site(creature) > float(
+            self.params.get("nest_hunt_dampen_radius", 55.0)
+        ):
             return 1.0
-        if ns.affiliation_fill_ratio(affiliation_id) < float(
+        if affiliation_fill_ratio(creature.world, affiliation_id) < float(
             self.params.get("nest_hunt_dampen_fill_ratio", 0.75)
         ):
             return 1.0

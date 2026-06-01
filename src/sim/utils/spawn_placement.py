@@ -19,7 +19,7 @@ DEFAULT_ATTEMPTS = 32
 class SpawnAnchor:
     """スポーン起点。type に応じて x/y/radius/spread/affiliation_id を解釈する。"""
 
-    type: str  # world | area | point | nest | profile_nest
+    type: str  # world | area | point | affiliation_site | profile_nest | nest (legacy)
     x: float = 0.0
     y: float = 0.0
     radius: float = 0.0
@@ -349,7 +349,7 @@ class SpawnPlacementResolver:
         if anchor_type == "point":
             return self._apply_spread(anchor.x, anchor.y, anchor.spread)
 
-        if anchor_type in ("nest", "profile_nest"):
+        if anchor_type in ("nest", "affiliation_site", "profile_nest"):
             center = self._resolve_nest_center(anchor)
             if center is None:
                 return None
@@ -367,16 +367,15 @@ class SpawnPlacementResolver:
         if anchor.type == "profile_nest":
             return self._profile_nest_center(affiliation_id)
 
-        nest_system = self.world.nest_system
-        nest = nest_system.get_affiliation_root(affiliation_id)
-        if nest is not None:
+        root = self.world.world_object_system.get(affiliation_id)
+        if root is not None and root.is_root:
             ws = getattr(self.world, "world_object_system", None)
             if ws is not None and ws.has_affiliation_root(affiliation_id):
                 access = ws.iter_access_points(affiliation_id)
                 if access:
                     child = random.choice(access)
                     return float(child.x), float(child.y)
-            return float(nest.x), float(nest.y)
+            return float(root.x), float(root.y)
         return self._profile_nest_center(affiliation_id)
 
     def _profile_nest_center(self, affiliation_id: str) -> Optional[Tuple[float, float]]:
@@ -438,7 +437,11 @@ class SpawnPlacementResolver:
         opts: SpawnPlacementOptions,
         anchor: SpawnAnchor | None = None,
     ) -> float:
-        if anchor is not None and anchor.type in ("nest", "profile_nest"):
+        if anchor is not None and anchor.type in (
+            "nest",
+            "affiliation_site",
+            "profile_nest",
+        ):
             return 1.0
         if not opts.use_biome_weight:
             return 1.0

@@ -5,17 +5,16 @@ from src.sim.shelter.helpers import (
     is_at_shelter,
     move_toward_shelter_avoiding_threat,
     nearest_shelter_threat,
-    resolve_creature_shelter,
-    resolve_nest_shelter,
     shelter_distance,
-    sync_shelter_after_defeat,
 )
-from src.sim.shelter.state import clear_creature_shelter, is_creature_sheltered
-from src.sim.shelter.types import ShelterKind, ShelterRef
+from src.sim.shelter.state import (
+    SHELTER_ALLOWED_ACTION_NAMES,
+    clear_creature_shelter,
+    is_creature_sheltered,
+)
 
 __all__ = [
-    "ShelterKind",
-    "ShelterRef",
+    "SHELTER_ALLOWED_ACTION_NAMES",
     "clear_creature_shelter",
     "collect_threat_species_from_mind",
     "enter_creature_shelter",
@@ -24,8 +23,5 @@ __all__ = [
     "is_creature_sheltered",
     "move_toward_shelter_avoiding_threat",
     "nearest_shelter_threat",
-    "resolve_creature_shelter",
-    "resolve_nest_shelter",
     "shelter_distance",
-    "sync_shelter_after_defeat",
 ]

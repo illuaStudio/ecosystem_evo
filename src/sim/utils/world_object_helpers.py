@@ -114,13 +114,12 @@ def get_creature_compound_parent_ids(creature) -> Tuple[str, ...]:
     return tuple(str(x) for x in raw if x)
 
 
-def get_creature_nest_parent_ids(creature) -> Tuple[str, ...]:
-    """後方互換。"""
-    return get_creature_compound_parent_ids(creature)
-
-
 def set_creature_compound_parent_ids(creature, parent_ids: Sequence[str]) -> None:
-    creature.nest_parent_object_ids = tuple(str(x) for x in parent_ids if x)
+    creature.compound_parent_object_ids = tuple(str(x) for x in parent_ids if x)
+
+
+def get_creature_nest_parent_ids(creature) -> Tuple[str, ...]:
+    return get_creature_compound_parent_ids(creature)
 
 
 def set_creature_nest_parent_ids(creature, parent_ids: Sequence[str]) -> None:

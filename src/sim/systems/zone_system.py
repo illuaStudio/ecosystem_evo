@@ -132,88 +132,25 @@ class ZoneSystem:
         self._next_id = 1
         self._type_defaults: Dict[str, Dict] = {}
 
-    def init_from_config(
-        self,
-        cfg: Dict | None,
-        *,
-        legacy_field_emitters: Dict | None = None,
-        affiliation_profiles: Dict | None = None,
-    ) -> None:
+    def init_from_layout(self, layout: Dict | None = None) -> None:
+        """WorldObject（layer: zone）のみから Zone キャッシュを構築する。"""
+        self.rebuild_from_world_objects()
+
+    def rebuild_from_world_objects(self) -> None:
+        """WorldObjectSystem の zone 配置から Zone キャッシュを再構築。"""
         self.zones.clear()
         self._next_id = 1
-        self._type_defaults.clear()
-
-        if cfg:
-            defaults = dict(cfg.get("defaults") or {})
-            for key, value in (cfg.get("types") or {}).items():
-                if isinstance(value, dict):
-                    self._type_defaults[str(key)] = dict(value)
-            for entry in cfg.get("sources") or []:
-                if isinstance(entry, dict):
-                    self._add_from_entry(entry, defaults)
-
-        if legacy_field_emitters:
-            legacy_defaults = dict(legacy_field_emitters.get("defaults") or {})
-            for entry in legacy_field_emitters.get("sources") or legacy_field_emitters.get(
-                "emitters"
-            ) or []:
-                if isinstance(entry, dict):
-                    self._add_from_legacy_field_emitter(entry, legacy_defaults)
-
-        if affiliation_profiles:
-            self._add_affiliation_clearing_zones(affiliation_profiles)
-
-    def init_from_layout(self, layout: Dict | None) -> None:
-        """instances 由来の WorldObject を優先し、なければ legacy zones.sources。"""
-        layout = layout or {}
-        self.zones.clear()
-        self._next_id = 1
-        self._type_defaults.clear()
-
-        loaded_from_objects = self.bootstrap_from_world_objects()
-        if not loaded_from_objects:
-            from src.sim.utils.object_type_loader import merge_zone_config
-
-            cfg = merge_zone_config(layout.get("zones"))
-            if cfg:
-                defaults = dict(cfg.get("defaults") or {})
-                for key, value in (cfg.get("types") or {}).items():
-                    if isinstance(value, dict):
-                        self._type_defaults[str(key)] = dict(value)
-                for entry in cfg.get("sources") or []:
-                    if isinstance(entry, dict):
-                        self._add_from_entry(entry, defaults)
-
-        legacy_field_emitters = layout.get("field_emitters")
-        if legacy_field_emitters:
-            legacy_defaults = dict(legacy_field_emitters.get("defaults") or {})
-            for entry in legacy_field_emitters.get("sources") or legacy_field_emitters.get(
-                "emitters"
-            ) or []:
-                if isinstance(entry, dict):
-                    self._add_from_legacy_field_emitter(entry, legacy_defaults)
-
-        affiliation_profiles = getattr(self.world, "affiliation_profiles", None) or (
-            (layout.get("affiliation") or {}).get("profiles")
-        )
-        if affiliation_profiles:
-            self._add_affiliation_clearing_zones(affiliation_profiles)
-
-    def bootstrap_from_world_objects(self) -> bool:
-        """WorldObjectSystem の zone 配置から Zone キャッシュを構築。"""
         ws = getattr(self.world, "world_object_system", None)
         if ws is None:
-            return False
+            return
 
-        zone_objects = ws.iter_zones()
-        if not zone_objects:
-            return False
-
-        for obj in zone_objects:
+        for obj in ws.iter_zones():
             if obj.zone_effects is None:
                 continue
-            affiliation_id = ""
-            if obj.type_ref == "nest_clearing" and str(obj.id).endswith("_clearing"):
+            affiliation_id = str(obj.zone_affiliation_id or "")
+            if not affiliation_id and obj.type_ref == "nest_clearing" and str(
+                obj.id
+            ).endswith("_clearing"):
                 affiliation_id = str(obj.id)[: -len("_clearing")]
             self._add_zone(
                 x=float(obj.x),
@@ -227,7 +164,6 @@ class ZoneSystem:
                 label=str(obj.label or obj.type_ref),
                 affiliation_id=affiliation_id,
             )
-        return True
 
     def _resolve_entry(self, entry: Dict, global_defaults: Dict) -> Dict:
         zone_type = str(entry.get("type", global_defaults.get("type", "custom")))
@@ -313,8 +249,9 @@ class ZoneSystem:
 
     def _add_affiliation_zone_entry(self, entry: Dict, global_defaults: Dict) -> None:
         affiliation_id = str(entry["affiliation_id"])
-        profiles = getattr(self.world, "affiliation_profiles", None) or {}
-        profile = dict(profiles.get(affiliation_id) or {})
+        from src.sim.utils.affiliation_config_helpers import get_affiliation_profile
+
+        profile = get_affiliation_profile(self.world, affiliation_id)
         data = self._resolve_entry(entry, global_defaults)
         x = entry.get("x", profile.get("nest_x"))
         y = entry.get("y", profile.get("nest_y"))
@@ -342,56 +279,6 @@ class ZoneSystem:
             affiliation_id=affiliation_id,
         )
 
-    def _add_from_legacy_field_emitter(self, entry: Dict, global_defaults: Dict) -> None:
-        if "x" not in entry or "y" not in entry:
-            return
-        merged = dict(DEFAULT_POISON_FOG)
-        merged.update(global_defaults)
-        zone_type = str(entry.get("type", merged.get("type", "poison_fog")))
-        merged.update(self._type_defaults.get(zone_type, {}))
-        merged.update(entry)
-        effects = ZoneEffects(
-            hp_regen_per_dt=max(0.0, float(merged.get("hp_regen_per_dt", 0.0))),
-            hp_drain_per_dt=max(0.0, float(merged.get("hp_drain_per_dt", 0.0))),
-            field_tags=_normalize_tags(merged.get("tags", merged.get("field_tags", ("poison",)))),
-        )
-        shape, radius, half_w, half_h = _geometry_from_data(merged, global_defaults)
-        self._add_zone(
-            x=float(merged["x"]),
-            y=float(merged["y"]),
-            zone_type=zone_type,
-            effects=effects,
-            shape=shape,
-            radius=radius,
-            half_w=half_w,
-            half_h=half_h,
-            label=str(merged.get("label", zone_type)),
-        )
-
-    def _add_affiliation_clearing_zones(self, affiliation_profiles: Dict) -> None:
-        for affiliation_id, raw_profile in affiliation_profiles.items():
-            profile = dict(raw_profile or {})
-            radius = float(profile.get("spawn_exclusion_radius", DEFAULT_NEST_CLEARING["radius"]))
-            if radius <= 0:
-                continue
-            nest_x = profile.get("nest_x")
-            nest_y = profile.get("nest_y")
-            if nest_x is None or nest_y is None:
-                continue
-            if self._has_affiliation_clearing(affiliation_id):
-                continue
-            self._add_zone(
-                x=float(nest_x),
-                y=float(nest_y),
-                zone_type="nest_clearing",
-                effects=ZoneEffects(spawn_rate_multiplier=0.0),
-                shape="circle",
-                radius=radius,
-                label=f"{affiliation_id}_clearing",
-                affiliation_id=str(affiliation_id),
-                auto_generated=True,
-            )
-
     def sync_affiliation_clearing(
         self,
         affiliation_id: str,
@@ -400,45 +287,17 @@ class ZoneSystem:
         *,
         radius: float | None = None,
     ) -> None:
-        """巣の実位置に合わせてクリアリング Zone を更新または追加する。"""
+        """巣位置に合わせクリアリング WorldObject を更新し Zone キャッシュを再構築。"""
         if not affiliation_id:
             return
-        if radius is None:
-            radius = self._clearing_radius_for_affiliation(affiliation_id)
-        radius = float(radius)
-        if radius <= 0:
+        ws = getattr(self.world, "world_object_system", None)
+        if ws is None:
             return
+        ws.sync_affiliation_clearing(affiliation_id, x, y, radius=radius)
+        self.rebuild_from_world_objects()
+        from src.sim.utils.field_effect_cache import invalidate_field_effect_cache
 
-        for zone in self.zones:
-            if zone.affiliation_id == affiliation_id and zone.effects.spawn_rate_multiplier == 0.0:
-                zone.x = float(x)
-                zone.y = float(y)
-                zone.radius = radius
-                zone.auto_generated = True
-                return
-
-        self._add_zone(
-            x=float(x),
-            y=float(y),
-            zone_type="nest_clearing",
-            effects=ZoneEffects(spawn_rate_multiplier=0.0),
-            shape="circle",
-            radius=radius,
-            label=f"{affiliation_id}_clearing",
-            affiliation_id=str(affiliation_id),
-            auto_generated=True,
-        )
-
-    def _clearing_radius_for_affiliation(self, affiliation_id: str) -> float:
-        profiles = getattr(self.world, "affiliation_profiles", None) or {}
-        profile = dict(profiles.get(affiliation_id) or {})
-        return float(profile.get("spawn_exclusion_radius", DEFAULT_NEST_CLEARING["radius"]))
-
-    def _has_affiliation_clearing(self, affiliation_id: str) -> bool:
-        for zone in self.zones:
-            if zone.affiliation_id == affiliation_id and zone.effects.spawn_rate_multiplier == 0.0:
-                return True
-        return False
+        invalidate_field_effect_cache(self.world)
 
     def zones_at(self, x: float, y: float) -> List[Zone]:
         px, py = float(x), float(y)

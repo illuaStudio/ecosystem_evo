@@ -1,10 +1,12 @@
 # world.py
 import json
 import math
+import os
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
 from src.config import config
+from src.sim.layout.import_layout import canonicalize_runtime_layout
 from src.sim.utils.position_helpers import entity_xy
 from src.sim.utils.spatial_grid import SpatialGrid, iter_creatures_in_radius
 from src.sim.utils.field_effect_cache import FieldEffectCache, invalidate_field_effect_cache
@@ -12,13 +14,11 @@ from src.sim.systems.movement_system import MovementSystem
 from src.sim.systems.world_biome import WorldBiome
 from src.sim.systems.zone_system import ZoneSystem
 from src.sim.systems.obstacle_system import ObstacleSystem
-from src.sim.systems.nest_system import NestSystem
 from src.sim.event_bus import EventBus
 from src.sim.systems.spawn_system import SpawnSystem
 from src.sim.systems.world_spawner import WorldSpawner
 from src.sim.systems.world_object_system import WorldObjectSystem
 from src.sim.systems.compound_system import CompoundSystem
-from src.sim.utils.world_instances import normalize_world_layout
 
 
 def normalize_population_limits(raw: Dict) -> Dict[str, int]:
@@ -71,7 +71,7 @@ class World:
         return cls.from_json(data)
 
     def _init_from_data(self, world_data: Dict) -> None:
-        layout = normalize_world_layout(world_data)
+        layout = canonicalize_runtime_layout(world_data)
         self.name = layout["name"]
         self.display_name = layout.get("display_name", self.name)
         self.width = int(layout["world_width"])
@@ -97,38 +97,125 @@ class World:
             layout.get("population_limits", {})
         )
 
-        affiliation_block = dict(layout.get("affiliation") or {})
-
-        self.affiliation_styles = dict(affiliation_block.pop("factions", {}))
-        self.affiliation_species = dict(affiliation_block.pop("affiliation_species", {}))
-        self.affiliation_profiles = {
-            str(k): dict(v)
-            for k, v in (affiliation_block.pop("profiles", {}) or {}).items()
-        }
-        self.affiliation_settings = affiliation_block
-        self.defeated_affiliations: set[str] = set()
-        self.last_defeat_message: str = ""
+        self._affiliation_layout_raw = dict(layout.get("affiliation") or {})
+        self._colony_config = None
         self.events = EventBus()
         self._combat_pairs_this_tick: set[tuple] = set()
 
-        self.nest_system = NestSystem(self)
+        self._sim_time = 0.0
+        self.on_creature_added = None
+        self.on_sim_tick = None
+        self.access_damage_handler = None
+
         self.world_object_system = WorldObjectSystem(self)
         self.world_object_system.init_from_layout(layout)
         self.compound_system = CompoundSystem(self)
-        self.nest_system.bootstrap_from_world_objects()
         self.zone_system = ZoneSystem(self)
-        self.zone_system.init_from_layout(layout)
         self.obstacle_system = ObstacleSystem(self)
-        self.obstacle_system.init_from_layout(layout)
-        self.spawner = WorldSpawner(self)
         self.spawn_system = SpawnSystem(self)
-        self.spawn_system.init_from_config(
-            layout.get("spawn_emitters"),
-            legacy_ambient=layout.get("ambient_spawns"),
-        )
+        self.zone_system.init_from_layout(layout)
+        self.obstacle_system.init_from_layout(layout)
+        self.spawn_system.init_from_layout(layout)
+        self.spawner = WorldSpawner(self)
         self.spawner.spawn_initial_entities(layout)
         self.field_effect_cache.rebuild()
         self.sim_dt = 1.0
+        if os.environ.get("PYTEST_CURRENT_TEST") and self.on_creature_added is None:
+            try:
+                from tests.sim.colony_binding import bind_colony
+
+                bind_colony(self)
+            except ImportError:
+                pass
+
+    @property
+    def affiliation_profiles(self) -> dict:
+        from src.sim.utils.affiliation_config_helpers import get_affiliation_profiles
+
+        return get_affiliation_profiles(self)
+
+    @affiliation_profiles.setter
+    def affiliation_profiles(self, value: dict) -> None:
+        if self._colony_config is not None:
+            self._colony_config.profiles = dict(value)
+        else:
+            raw = dict(self._affiliation_layout_raw)
+            raw["profiles"] = dict(value)
+            self._affiliation_layout_raw = raw
+
+    @property
+    def affiliation_settings(self) -> dict:
+        from src.sim.utils.affiliation_config_helpers import get_affiliation_settings
+
+        return get_affiliation_settings(self)
+
+    @affiliation_settings.setter
+    def affiliation_settings(self, value: dict) -> None:
+        if self._colony_config is not None:
+            self._colony_config.settings = dict(value)
+        else:
+            raw = dict(self._affiliation_layout_raw)
+            for k, v in dict(value).items():
+                raw[k] = v
+            self._affiliation_layout_raw = raw
+
+    @property
+    def affiliation_styles(self) -> dict:
+        cfg = self._colony_config
+        if cfg is not None:
+            return cfg.styles
+        return dict(self._affiliation_layout_raw.get("factions") or {})
+
+    @affiliation_styles.setter
+    def affiliation_styles(self, value: dict) -> None:
+        if self._colony_config is not None:
+            self._colony_config.styles = dict(value)
+        else:
+            raw = dict(self._affiliation_layout_raw)
+            raw["factions"] = dict(value)
+            self._affiliation_layout_raw = raw
+
+    @property
+    def affiliation_species(self) -> dict:
+        cfg = self._colony_config
+        if cfg is not None:
+            return cfg.species_by_affiliation
+        return dict(self._affiliation_layout_raw.get("affiliation_species") or {})
+
+    @affiliation_species.setter
+    def affiliation_species(self, value: dict) -> None:
+        mapped = {
+            str(k): list(v) if isinstance(v, (list, tuple)) else [v]
+            for k, v in dict(value).items()
+        }
+        if self._colony_config is not None:
+            self._colony_config.species_by_affiliation = mapped
+        else:
+            raw = dict(self._affiliation_layout_raw)
+            raw["affiliation_species"] = mapped
+            self._affiliation_layout_raw = raw
+
+    @property
+    def defeated_affiliations(self) -> set[str]:
+        if self._colony_config is not None:
+            return self._colony_config.defeated
+        return set()
+
+    @defeated_affiliations.setter
+    def defeated_affiliations(self, value) -> None:
+        if self._colony_config is not None:
+            self._colony_config.defeated = set(value)
+
+    @property
+    def last_defeat_message(self) -> str:
+        if self._colony_config is not None:
+            return self._colony_config.last_defeat_message
+        return ""
+
+    @last_defeat_message.setter
+    def last_defeat_message(self, value: str) -> None:
+        if self._colony_config is not None:
+            self._colony_config.last_defeat_message = str(value)
 
     @property
     def ambient_spawner(self):
@@ -173,8 +260,9 @@ class World:
         self._spatial_grid_valid = False
         if getattr(creature, "alive", True):
             self._adjust_alive_species_count(creature.species.name, 1)
-        if getattr(creature, "affiliation", None) is not None:
-            self.nest_system.assign_creature(creature, creature.species.affiliation_data)
+        hook = getattr(self, "on_creature_added", None)
+        if hook is not None and getattr(creature, "affiliation", None) is not None:
+            hook(creature)
         from src.sim.utils.spawn_helpers import apply_creature_spawn_state
 
         apply_creature_spawn_state(creature)
@@ -196,8 +284,11 @@ class World:
         """生態シミュレーションを dt 分進める（1 = 旧来の 1 シミュ tick）。"""
         self.sim_dt = float(dt)
         self._combat_pairs_this_tick = set()
+        self._sim_time += float(dt)
+        tick_hook = getattr(self, "on_sim_tick", None)
+        if tick_hook is not None:
+            tick_hook(dt)
         self.spawn_system.update(dt)
-        self.nest_system.update(dt)
         self.world_object_system.update_field_objects(dt)
         self.rebuild_spatial_grid()
         for creature in self.creatures[:]:

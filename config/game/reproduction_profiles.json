@@ -12,6 +12,14 @@
           "scavenge_contact_padding": 10.0,
           "approach_when_hungry": false
         }
+      },
+      {
+        "name": "WanderAction",
+        "weight": 0.2,
+        "params": {
+          "angle_range": 15.0,
+          "speed_multiplier": 0.4
+        }
       }
     ]
   },

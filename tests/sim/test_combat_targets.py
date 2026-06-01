@@ -1,3 +1,8 @@
+from src.game.colony_session import get_colony_orchestrator, try_get_colony_orchestrator
+
+def colony(world):
+    return get_colony_orchestrator(world)
+
 """combat/target 層のスモークテスト。"""
 import unittest
 
@@ -48,8 +53,8 @@ class TestCombatTargets(unittest.TestCase):
         ws = world.world_object_system
         self.assertTrue(ws.has_affiliation_root("red_ant"))
         self.assertTrue(ws.has_affiliation_root("rival_ant"))
-        self.assertIsNotNone(world.nest_system.get_affiliation_root("red_ant"))
-        self.assertIsNotNone(world.nest_system.get_affiliation_root("rival_ant"))
+        self.assertIsNotNone(colony(world).get_affiliation_root("red_ant"))
+        self.assertIsNotNone(colony(world).get_affiliation_root("rival_ant"))
 
     def test_iter_targets_creature_and_colony_access(self):
         world = _world()

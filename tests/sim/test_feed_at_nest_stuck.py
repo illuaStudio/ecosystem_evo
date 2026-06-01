@@ -1,8 +1,13 @@
+from src.game.colony_session import get_colony_orchestrator, try_get_colony_orchestrator
+
+def colony(world):
+    return get_colony_orchestrator(world)
+
 """FeedAtNestAction が巣外で空振りして固まらないこと。"""
 import math
 import unittest
 
-from src.sim.ai.actions import FeedAtNestAction
+from src.game.ai.colony_actions import FeedAtNestAction
 from src.sim.entities.creature_factory import CreatureFactory
 from src.sim.systems.world import World
 from src.sim.utils.creature_helpers import distance_to_point
@@ -16,7 +21,7 @@ class TestFeedAtNestNotStuck(unittest.TestCase):
         predator = factory.create("red_ant", world=world, x=600, y=600)
         world.add_creature(predator)
 
-        nest = world.nest_system.get_creature_nest(predator)
+        nest = colony(world).get_creature_affiliation_root(predator)
         nest.stored_mass = 120.0
         predator.satiety = predator.max_satiety * 0.08
 
@@ -42,7 +47,7 @@ class TestFeedAtNestNotStuck(unittest.TestCase):
         world.add_creature(ant)
         world.add_creature(spider)
 
-        nest = world.nest_system.get_creature_nest(ant)
+        nest = colony(world).get_creature_affiliation_root(ant)
         nest.stored_mass = 300.0
         ant.satiety = ant.max_satiety * 0.10
 

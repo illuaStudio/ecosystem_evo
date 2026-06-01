@@ -21,10 +21,7 @@ if TYPE_CHECKING:
 
 
 def _sim_time(world: "World") -> float:
-    ns = getattr(world, "nest_system", None)
-    if ns is not None:
-        return float(getattr(ns, "_sim_time", 0.0))
-    return 0.0
+    return float(getattr(world, "_sim_time", 0.0))
 
 
 def _affiliation_id_from_creature(creature) -> Optional[str]:

@@ -15,7 +15,6 @@ from src.sim.commands import (
     SimCommandResult,
     SpawnCreature,
 )
-from src.sim.utils.caste_helpers import creature_matches_affiliation_caste, normalize_caste
 from src.sim.entities.creature_factory import CreatureFactory
 
 if TYPE_CHECKING:
@@ -56,9 +55,10 @@ def _matches_species(creature, species_name: str, affiliation_id: str | None) ->
 class SimBridge:
     """Game → Sim の唯一の命令実行窓口。"""
 
-    def __init__(self, world: "World") -> None:
+    def __init__(self, world: "World", *, game_hooks: dict | None = None) -> None:
         self.world = world
         self._factory = CreatureFactory()
+        self._game_hooks = dict(game_hooks or {})
 
     def execute(self, command: SimCommand) -> SimCommandResult:
         if isinstance(command, SpawnCreature):
@@ -68,9 +68,9 @@ class SimBridge:
         if isinstance(command, SetSpeciesMind):
             return self._set_species_mind(command)
         if isinstance(command, SetAffiliationCasteMind):
-            return self._set_affiliation_caste_mind(command)
+            return self._dispatch_game_hook(command, "SetAffiliationCasteMind")
         if isinstance(command, EnterCreatureShelter):
-            return self._enter_creature_shelter(command)
+            return self._dispatch_game_hook(command, "EnterCreatureShelter")
         if isinstance(command, IssueCreatureDirective):
             return self._issue_creature_directive(command)
         if isinstance(command, ClearCreatureDirective):
@@ -157,59 +157,15 @@ class SimBridge:
             count=len(matched),
         )
 
-    def _set_affiliation_caste_mind(self, cmd: SetAffiliationCasteMind) -> SimCommandResult:
-        caste = normalize_caste(cmd.caste) if isinstance(cmd.caste, str) else cmd.caste
-        if caste is None:
+    def _dispatch_game_hook(self, command: SimCommand, key: str) -> SimCommandResult:
+        handler = self._game_hooks.get(key)
+        if handler is None:
             return SimCommandResult(
                 False,
-                "SetAffiliationCasteMind",
-                f"unknown caste={cmd.caste!r}",
+                key,
+                "game hook not registered (use game.make_sim_bridge)",
             )
-
-        matched: list[Any] = []
-        for creature in self.world.creatures:
-            if not creature_matches_affiliation_caste(creature, cmd.affiliation_id, caste):
-                continue
-            if _apply_mind(creature, cmd.actions, cmd.mode):
-                matched.append(creature)
-        if not matched:
-            return SimCommandResult(
-                False,
-                "SetAffiliationCasteMind",
-                f"no creatures for colony={cmd.affiliation_id} caste={caste}",
-            )
-        return SimCommandResult(
-            True,
-            "SetAffiliationCasteMind",
-            creatures=matched,
-            count=len(matched),
-        )
-
-    def _enter_creature_shelter(self, cmd: EnterCreatureShelter) -> SimCommandResult:
-        creature = _creature_by_id(self.world, cmd.creature_id)
-        if creature is None:
-            return SimCommandResult(
-                False,
-                "EnterCreatureShelter",
-                f"creature id={cmd.creature_id} not found",
-            )
-        from src.sim.shelter.helpers import enter_creature_shelter, resolve_nest_shelter
-
-        ref = resolve_nest_shelter(creature)
-        if ref is None:
-            return SimCommandResult(False, "EnterCreatureShelter", "no nest shelter")
-        creature.position.x = ref.x
-        creature.position.y = ref.y
-        creature.pos[0] = ref.x
-        creature.pos[1] = ref.y
-        enter_creature_shelter(creature, ref)
-        return SimCommandResult(
-            True,
-            "EnterCreatureShelter",
-            creature=creature,
-            creatures=[creature],
-            count=1,
-        )
+        return handler(self, command)
 
     def _issue_creature_directive(self, cmd: IssueCreatureDirective) -> SimCommandResult:
         creature = _creature_by_id(self.world, cmd.creature_id)

@@ -10,12 +10,25 @@ from src.sim.behavior import (
 from src.sim.bridge import SimBridge
 from src.sim.commands import ClearCreatureDirective, IssueCreatureDirective
 from src.sim.entities.creature_factory import CreatureFactory
+from src.sim.entities.species import expand_death_policy_content
 from src.sim.systems.world import World
 from src.sim.utils.position_helpers import entity_xy
 
 
 class TestDeathPolicy(unittest.TestCase):
-    def test_default_policy_spawns_field_pickup(self):
+    def test_unset_policy_runs_no_post_life_parts(self):
+        world = World()
+        factory = CreatureFactory()
+        ant = factory.create("red_ant", world=world, x=10, y=10)
+        world.add_creature(ant)
+        set_creature_death_policy(ant, [])
+        ant.become_corpse()
+        self.assertFalse(ant.alive)
+        self.assertEqual(len(world.world_object_system.iter_field_pickups()), 0)
+        world.update(1.0)
+        self.assertNotIn(ant, world.creatures)
+
+    def test_species_field_drop_policy_spawns_pickup(self):
         world = World()
         factory = CreatureFactory()
         spider = factory.create("Spider", world=world, x=100, y=100)
@@ -38,16 +51,20 @@ class TestDeathPolicy(unittest.TestCase):
         ant.become_corpse()
         self.assertNotIn(ant, world.creatures)
 
-    def test_normalize_aliases(self):
+    def test_expand_death_policy_aliases(self):
+        self.assertEqual(normalize_death_policy(None), ())
         self.assertEqual(
-            normalize_death_policy("field_drop"),
+            normalize_death_policy(expand_death_policy_content("unknown_alias")),
+            (),
+        )
+        self.assertEqual(
+            normalize_death_policy(expand_death_policy_content("field_drop")),
             ({"step": "spawn_drop", "type": "field_bulk"}, "remove"),
         )
         self.assertEqual(
-            normalize_death_policy("corpse_on_creature"),
-            ("convert_corpse_mass", "decompose_until_empty"),
+            normalize_death_policy(expand_death_policy_content("remove")),
+            ("remove",),
         )
-        self.assertEqual(normalize_death_policy("remove"), ("remove",))
 
 
 class TestPostLifeDecompose(unittest.TestCase):
@@ -102,7 +119,6 @@ class TestSharedParts(unittest.TestCase):
             ant,
             {
                 "steps": [
-                    "convert_corpse_mass",
                     {"step": "warp_to", "x": 400, "y": 300},
                     "remove",
                 ]

@@ -7,7 +7,7 @@ from src.sim.behavior.parts import BehaviorPart, create_part, parse_step_spec
 
 StepSpec = Tuple[str, dict]
 
-_TICK_PARTS = frozenset({"decompose_until_empty", "move_to"})
+_TICK_PARTS = frozenset({"move_to"})
 
 
 class PostLifeRunner:

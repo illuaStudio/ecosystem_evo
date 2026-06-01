@@ -1,3 +1,8 @@
+from src.game.colony_session import get_colony_orchestrator, try_get_colony_orchestrator
+
+def colony(world):
+    return get_colony_orchestrator(world)
+
 """SpawnPlacementResolver ? initial_spawns ?????"""
 import unittest
 
@@ -94,7 +99,7 @@ class TestSpawnPlacementResolver(unittest.TestCase):
             SpawnPlacementOptions(respect_zones=False, use_biome_weight=False),
         )
         self.assertIsNotNone(pos)
-        nest = world.nest_system.get_affiliation_root("red_ant")
+        nest = colony(world).get_affiliation_root("red_ant")
         x, y = pos
         dist = ((x - nest.x) ** 2 + (y - nest.y) ** 2) ** 0.5
         self.assertLessEqual(dist, 24.5)

@@ -1,3 +1,8 @@
+from src.game.colony_session import get_colony_orchestrator, try_get_colony_orchestrator
+
+def colony(world):
+    return get_colony_orchestrator(world)
+
 """Spider（アリ捕食・食物連鎖頂点）のスモークテスト。"""
 import unittest
 
@@ -155,7 +160,7 @@ class TestSpider(unittest.TestCase):
         world.add_creature(ant)
         world.add_creature(spider)
 
-        nest = world.nest_system.get_creature_nest(ant)
+        nest = colony(world).get_creature_affiliation_root(ant)
         self.assertGreater(spider.max_hp, ant.max_hp)
 
         for _ in range(500):
@@ -166,7 +171,7 @@ class TestSpider(unittest.TestCase):
         loot = find_nearest_field_loot_among(ant, ("Spider",))
         self.assertIsNotNone(loot)
         self.assertTrue(try_pickup_loot(ant, loot))
-        deposited = world.nest_system.deposit_carried(ant)
+        deposited = colony(world).deposit_carried(ant)
         self.assertGreater(deposited, 0)
         self.assertGreater(nest.stored_mass, 0)
 

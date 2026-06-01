@@ -72,9 +72,9 @@ def count_alive_in_radius(
 
 @dataclass
 class SpawnEmitter:
-    """一定エリア内、またはワールド全体で生物を湧かせる発生源。"""
+    """WorldObject 由来のスポーン発生源キャッシュ。"""
 
-    id: int
+    world_object_id: str
     spawn_type: str
     species_pool: Tuple[str, ...]
     target_population: int = 10
@@ -101,106 +101,48 @@ class SpawnSystem:
         self.world = world
         self.emitters: List[SpawnEmitter] = []
         self.ambient: Optional[SpawnEmitter] = None
-        self._next_id = 1
-        self._type_defaults: Dict[str, Dict] = {}
-        self._accumulators: Dict[int, float] = {}
+        self._accumulators: Dict[str, float] = {}
         self._factory = CreatureFactory()
 
-    def init_from_config(
-        self,
-        cfg: Dict | None,
-        *,
-        legacy_ambient: Dict | None = None,
-    ) -> None:
+    def init_from_layout(self, layout: Dict | None = None) -> None:
+        self.rebuild_from_world_objects()
+
+    def rebuild_from_world_objects(self) -> None:
         self.emitters.clear()
         self.ambient = None
-        self._next_id = 1
-        self._type_defaults.clear()
         self._accumulators.clear()
-
-        if not cfg and legacy_ambient:
-            self._init_ambient_only(legacy_ambient)
+        ws = getattr(self.world, "world_object_system", None)
+        if ws is None:
             return
-        if not cfg:
-            return
+        for obj in ws.iter_spawn_emitters():
+            if obj.spawn is None:
+                continue
+            emitter = self._emitter_from_world_object(obj)
+            if emitter.is_ambient:
+                self.ambient = emitter
+            else:
+                self.emitters.append(emitter)
+            self._accumulators[emitter.world_object_id] = 0.0
 
-        global_defaults = dict(DEFAULT_SPAWN_DEFAULTS)
-        global_defaults.update(cfg.get("defaults") or {})
-
-        for key, value in (cfg.get("types") or {}).items():
-            if isinstance(value, dict):
-                self._type_defaults[str(key)] = dict(value)
-
-        ambient_raw = cfg.get("ambient")
-        if isinstance(ambient_raw, dict):
-            self.ambient = self._build_ambient_emitter(ambient_raw, global_defaults)
-            self._accumulators[self.ambient.id] = 0.0
-
-        for entry in cfg.get("sources") or cfg.get("emitters") or []:
-            if isinstance(entry, dict):
-                self._add_point_from_entry(entry, global_defaults)
-
-    def _init_ambient_only(self, legacy_ambient: Dict) -> None:
-        merged = dict(DEFAULT_AMBIENT_DEFAULTS)
-        merged.update(legacy_ambient)
-        self.ambient = self._build_ambient_emitter(merged, {})
-        self._accumulators[self.ambient.id] = 0.0
-
-    def _build_ambient_emitter(self, raw: Dict, global_defaults: Dict) -> SpawnEmitter:
-        merged = dict(DEFAULT_AMBIENT_DEFAULTS)
-        merged.update(global_defaults)
-        merged.update(raw)
-        merged["mode"] = "ambient"
-        return self._make_emitter(merged)
-
-    def _resolve_entry(self, entry: Dict, global_defaults: Dict) -> Dict:
-        spawn_type = str(entry.get("type", global_defaults.get("type", "micro_fauna")))
-        merged = dict(global_defaults)
-        merged.update(self._type_defaults.get(spawn_type, {}))
-        merged.update(entry)
-        if "mode" not in merged:
-            merged["mode"] = "point"
-        return merged
-
-    def _normalize_pool(self, raw) -> Tuple[str, ...]:
-        pool = [str(s) for s in (raw or []) if str(s)]
-        if not pool:
-            pool = list(DEFAULT_MICRO_FAUNA_SPECIES)
-        return tuple(pool)
-
-    def _make_emitter(self, data: Dict) -> SpawnEmitter:
-        emitter_id = self._next_id
-        self._next_id += 1
-        mode = str(data.get("mode", "point"))
-        if mode not in ("ambient", "point"):
-            mode = "point"
-        pool = self._normalize_pool(data.get("species_pool"))
-        emitter = SpawnEmitter(
-            id=emitter_id,
-            spawn_type=mode,
-            species_pool=pool,
-            target_population=max(0, int(data.get("target_population", 0))),
-            spawn_rate_per_dt=max(0.0, float(data.get("spawn_rate_per_dt", 0.0))),
-            radius=max(0.0, float(data.get("radius", 80.0))),
-            max_spawns_per_tick=max(1, int(data.get("max_spawns_per_tick", 2))),
-            position_attempts=max(1, int(data.get("position_attempts", 8))),
-            nest_exclusion_radius=max(0.0, float(data.get("nest_exclusion_radius", 0.0))),
-            use_biome_weight=bool(data.get("use_biome_weight", True)),
-            margin=max(0, int(data.get("margin", 80))),
-            x=float(data.get("x", 0.0)),
-            y=float(data.get("y", 0.0)),
-            label=str(data.get("label", data.get("type", ""))),
+    def _emitter_from_world_object(self, obj) -> SpawnEmitter:
+        cap = obj.spawn
+        assert cap is not None
+        return SpawnEmitter(
+            world_object_id=str(obj.id),
+            spawn_type="ambient" if cap.is_ambient else "point",
+            species_pool=cap.species_pool,
+            target_population=cap.target_population,
+            spawn_rate_per_dt=cap.spawn_rate_per_dt,
+            radius=cap.radius,
+            max_spawns_per_tick=cap.max_spawns_per_tick,
+            position_attempts=cap.position_attempts,
+            nest_exclusion_radius=cap.nest_exclusion_radius,
+            use_biome_weight=cap.use_biome_weight,
+            margin=cap.margin,
+            x=float(obj.x),
+            y=float(obj.y),
+            label=cap.label or obj.label,
         )
-        return emitter
-
-    def _add_point_from_entry(self, entry: Dict, global_defaults: Dict) -> None:
-        if "x" not in entry or "y" not in entry:
-            return
-        data = self._resolve_entry(entry, global_defaults)
-        data["mode"] = "point"
-        emitter = self._make_emitter(data)
-        self.emitters.append(emitter)
-        self._accumulators[emitter.id] = 0.0
 
     @property
     def species_pool(self) -> tuple[str, ...]:
@@ -227,7 +169,7 @@ class SpawnSystem:
         if current >= emitter.target_population:
             return
 
-        acc = self._accumulators.setdefault(emitter.id, 0.0)
+        acc = self._accumulators.setdefault(emitter.world_object_id, 0.0)
         acc += emitter.spawn_rate_per_dt * float(dt)
         spawned = 0
 
@@ -241,7 +183,7 @@ class SpawnSystem:
                 current += 1
                 spawned += 1
 
-        self._accumulators[emitter.id] = acc
+        self._accumulators[emitter.world_object_id] = acc
 
     def _count_for_emitter(self, emitter: SpawnEmitter) -> int:
         if emitter.is_ambient:

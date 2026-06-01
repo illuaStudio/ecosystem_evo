@@ -165,7 +165,10 @@ def expand_instances_to_legacy(world_data: MutableMapping[str, Any]) -> None:
 
 
 def normalize_world_layout(world_data: Dict[str, Any]) -> Dict[str, Any]:
-    """instances 形式なら legacy へ展開したコピーを返す。"""
+    """エディタ/テスト用: instances 形式なら legacy sections へミラーしたコピーを返す。
+
+    sim ランタイムは ``layout.canonicalize_runtime_layout`` を使うこと。
+    """
     if not uses_instances_format(world_data):
         return world_data
     expanded = copy.deepcopy(world_data)

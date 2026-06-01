@@ -180,19 +180,23 @@ def _sample_trait_value(base: float, spec: dict, rng: random.Random) -> float:
     return value
 
 
-NEST_FEED_REQUIRED_KEYS = ("feed_per_tick", "bite_gain")
+AFFILIATION_FEED_REQUIRED_KEYS = ("feed_per_tick", "bite_gain")
 
 
-def normalize_nest_feed(raw: dict | None) -> dict[str, float] | None:
-    """種 JSON の nest_feed を正規化。ブロックがある場合は必須キーを要求。"""
+def normalize_affiliation_feed(raw: dict | None) -> dict[str, float] | None:
+    """種 JSON の affiliation_feed（旧 nest_feed）を正規化。"""
     if raw is None:
         return None
     if not isinstance(raw, dict):
-        raise TypeError("nest_feed must be an object")
-    missing = [k for k in NEST_FEED_REQUIRED_KEYS if k not in raw]
+        raise TypeError("affiliation_feed must be an object")
+    missing = [k for k in AFFILIATION_FEED_REQUIRED_KEYS if k not in raw]
     if missing:
-        raise KeyError(f"nest_feed missing required keys: {', '.join(missing)}")
-    return {k: float(raw[k]) for k in NEST_FEED_REQUIRED_KEYS}
+        raise KeyError(f"affiliation_feed missing required keys: {', '.join(missing)}")
+    return {k: float(raw[k]) for k in AFFILIATION_FEED_REQUIRED_KEYS}
+
+
+def normalize_nest_feed(raw: dict | None) -> dict[str, float] | None:
+    return normalize_affiliation_feed(raw)
 
 
 def clamp_traits(traits: dict) -> dict:
@@ -250,9 +254,32 @@ class Species:
         self.life_cycle = normalize_life_cycle(data.get("life_cycle", {}))
         self.mind_data = data.get("mind", {"type": "priority", "actions": []})
         self.affiliation_data = data.get("affiliation") or {}
-        self.nest_feed = normalize_nest_feed(data.get("nest_feed"))
+        feed_raw = data.get("affiliation_feed") or data.get("nest_feed")
+        self.affiliation_feed = normalize_affiliation_feed(feed_raw)
+        self.nest_feed = self.affiliation_feed
         self.inventory_data = data.get("inventory", {})
         self.description = data.get("description", "")
         from src.sim.behavior.death_policy import normalize_death_policy
 
-        self.death_policy_steps = normalize_death_policy(data.get("death_policy"))
+        self.death_policy_steps = normalize_death_policy(
+            expand_death_policy_content(data.get("death_policy"))
+        )
+
+
+def expand_death_policy_content(raw):
+    """JSON の death_policy エイリアスを step 列へ（コンテンツ層の便宜）。"""
+    if raw is None or raw == {}:
+        return None
+    if isinstance(raw, (list, tuple, dict)):
+        return raw
+    if isinstance(raw, str):
+        aliases = {
+            "field_drop": (
+                {"step": "spawn_drop", "type": "field_bulk"},
+                "remove",
+            ),
+            "immediate_remove": ("remove",),
+            "remove": ("remove",),
+        }
+        return aliases.get(raw)
+    return raw

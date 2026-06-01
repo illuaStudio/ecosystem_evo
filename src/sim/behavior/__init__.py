@@ -13,7 +13,6 @@ from src.sim.behavior.directive import (
 from src.sim.behavior.parts import (
     BehaviorPart,
     PartResult,
-    convert_creature_corpse_mass,
     create_part,
     parse_step_spec,
     remove_creature_from_world,
@@ -30,7 +29,6 @@ __all__ = [
     "PartResult",
     "PostLifeRunner",
     "WarpDirective",
-    "convert_creature_corpse_mass",
     "create_directive",
     "create_part",
     "death_policy_for_creature",

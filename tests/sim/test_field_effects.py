@@ -1,3 +1,8 @@
+from src.game.colony_session import get_colony_orchestrator, try_get_colony_orchestrator
+
+def colony(world):
+    return get_colony_orchestrator(world)
+
 """???????????????????????? ? Phase 1 ???"""
 import unittest
 
@@ -71,8 +76,8 @@ def _toxic_biome_world(drain: float = 0.1) -> World:
 class TestFieldEffects(unittest.TestCase):
     def _world_with_fixed_nests(self) -> World:
         world = _colony_world()
-        world.nest_system.create_nest(200, 200, "red_ant", affiliation_id="red_ant")
-        world.nest_system.create_nest(800, 800, "rival_ant", affiliation_id="rival_ant")
+        colony(world).create_affiliation_site(200, 200, "red_ant", affiliation_id="red_ant")
+        colony(world).create_affiliation_site(800, 800, "rival_ant", affiliation_id="rival_ant")
         return world
 
     def test_territory_regen_only_for_own_colony(self):

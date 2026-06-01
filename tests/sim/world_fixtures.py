@@ -1,6 +1,12 @@
 """テスト用ワールド JSON 断片（コード既定フォールバックなし）。"""
-
 from __future__ import annotations
+
+from src.game.colony_session import get_colony_orchestrator
+
+
+def colony(world):
+    return get_colony_orchestrator(world)
+
 
 from typing import Any, Dict, List
 
@@ -151,14 +157,17 @@ def build_test_world(**overrides) -> dict:
 
 
 def load_test_world(**overrides):
-    """build_test_world → World.from_json。"""
+    """build_test_world → World.from_json + ColonyOrchestrator 紐付け。"""
     from src.sim.systems.world import World
+    from tests.sim.colony_binding import bind_colony
 
-    return World.from_json(build_test_world(**overrides))
+    world = World.from_json(build_test_world(**overrides))
+    bind_colony(world)
+    return world
 
 
 def set_affiliation_stored_mass(world, affiliation_id: str, amount: float) -> None:
-    world.nest_system.set_affiliation_stored_mass(affiliation_id, amount)
+    colony(world).set_affiliation_stored_mass(affiliation_id, amount)
 
 
 def primary_affiliation_access(world, affiliation_id: str):

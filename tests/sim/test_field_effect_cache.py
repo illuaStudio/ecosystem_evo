@@ -1,3 +1,8 @@
+from src.game.colony_session import get_colony_orchestrator, try_get_colony_orchestrator
+
+def colony(world):
+    return get_colony_orchestrator(world)
+
 """FieldEffectCache のセル参照とフォールバック一致。"""
 import unittest
 
@@ -24,7 +29,7 @@ class TestFieldEffectCache(unittest.TestCase):
     def test_territory_rebuilt_after_create_nest(self):
         world = _colony_world()
         factory = CreatureFactory()
-        world.nest_system.create_nest(200, 200, "red_ant", affiliation_id="red_ant")
+        colony(world).create_affiliation_site(200, 200, "red_ant", affiliation_id="red_ant")
         red = factory.create("red_ant", world=world, x=200, y=200)
         world.add_creature(red)
 

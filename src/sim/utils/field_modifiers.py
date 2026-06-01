@@ -1,16 +1,25 @@
-"""座標・バイオーム・テリトリーから環境 HP 変化を集約（Applied Effect Phase 2 とは別）。"""
+"""座標・バイオーム・テリトリーから環境 HP 変化を集約。"""
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any
 
-from src.sim.utils.affiliation_group_helpers import get_creature_affiliation_id
-from src.sim.utils.creature_helpers import is_point_in_affiliation_territory
-from src.sim.utils.position_helpers import entity_xy
+from src.sim.environment.field_sources import (
+    FieldModifiers,
+    compose_field_sample,
+    sample_field_modifiers,
+)
+
+__all__ = [
+    "FieldModifiers",
+    "compose_field_sample",
+    "sample_field_modifiers",
+    "get_field_immunities",
+    "resolve_field_hp_delta",
+    "apply_field_hp_effects",
+]
 
 
 def get_field_immunities(creature: Any) -> frozenset[str]:
-    """種 traits の field_immunities（完全無効化タグ）。"""
     traits = getattr(creature, "traits", {}) or {}
     raw = traits.get("field_immunities") or ()
     if isinstance(raw, str):
@@ -18,73 +27,7 @@ def get_field_immunities(creature: Any) -> frozenset[str]:
     return frozenset(str(tag) for tag in raw if tag)
 
 
-@dataclass(frozen=True)
-class FieldModifiers:
-    """1 tick あたりの環境由来 HP 変化（加算合成）。"""
-
-    hp_regen_per_dt: float = 0.0
-    hp_drain_per_dt: float = 0.0
-
-    def merged_with(self, other: FieldModifiers) -> FieldModifiers:
-        return FieldModifiers(
-            hp_regen_per_dt=self.hp_regen_per_dt + other.hp_regen_per_dt,
-            hp_drain_per_dt=self.hp_drain_per_dt + other.hp_drain_per_dt,
-        )
-
-
-def _biome_modifiers(world: Any, x: float, y: float) -> FieldModifiers:
-    biome = world.biome.get_biome_at(x, y)
-    return FieldModifiers(
-        hp_regen_per_dt=float(biome.get("hp_regen_per_dt", 0.0)),
-        hp_drain_per_dt=float(biome.get("hp_drain_per_dt", 0.0)),
-    )
-
-
-def _territory_modifiers(world: Any, creature: Any, x: float, y: float) -> FieldModifiers:
-    affiliation_settings = getattr(world, "affiliation_settings", None) or {}
-    effects = affiliation_settings.get("territory_effects") or {}
-    if not effects:
-        return FieldModifiers()
-
-    regen = float(effects.get("hp_regen_per_dt", 0.0))
-    drain = float(effects.get("hp_drain_per_dt", 0.0))
-    if regen == 0.0 and drain == 0.0:
-        return FieldModifiers()
-
-    requires_match = bool(effects.get("requires_affiliation_match", True))
-    if requires_match:
-        affiliation_id = get_creature_affiliation_id(creature)
-        if not affiliation_id or not is_point_in_affiliation_territory(world, affiliation_id, x, y):
-            return FieldModifiers()
-
-    return FieldModifiers(hp_regen_per_dt=regen, hp_drain_per_dt=drain)
-
-
-def _zone_modifiers(world: Any, creature: Any, x: float, y: float) -> FieldModifiers:
-    system = getattr(world, "zone_system", None)
-    if system is None:
-        return FieldModifiers()
-    return system.sample_hp_modifiers(creature, x, y)
-
-
-def sample_field_modifiers(world: Any, creature: Any) -> FieldModifiers:
-    """個体の現在位置から環境 modifier を合成する。"""
-    if world is None or not getattr(creature, "alive", True):
-        return FieldModifiers()
-
-    cache = getattr(world, "field_effect_cache", None)
-    if cache is not None:
-        return cache.sample_for_creature(creature)
-
-    x, y = entity_xy(creature)
-    biome = _biome_modifiers(world, x, y)
-    territory = _territory_modifiers(world, creature, x, y)
-    emitters = _zone_modifiers(world, creature, x, y)
-    return biome.merged_with(territory).merged_with(emitters)
-
-
 def resolve_field_hp_delta(creature: Any, modifiers: FieldModifiers, dt: float) -> float:
-    """traits の耐性・倍率を適用した net HP 変化量。"""
     traits = getattr(creature, "traits", {}) or {}
     poison_resist = max(0.0, min(1.0, float(traits.get("poison_resist", 0.0))))
     regen = modifiers.hp_regen_per_dt
@@ -93,7 +36,6 @@ def resolve_field_hp_delta(creature: Any, modifiers: FieldModifiers, dt: float) 
 
 
 def apply_field_hp_effects(creature: Any, dt: float = 1.0) -> None:
-    """環境フィールドによる HP 回復・ダメージを適用する。"""
     world = getattr(creature, "world", None)
     if world is None or not getattr(creature, "alive", True):
         return

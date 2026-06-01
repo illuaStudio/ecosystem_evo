@@ -75,8 +75,9 @@
       }
     ]
   },
-  "nest_feed": {
+  "affiliation_feed": {
     "feed_per_tick": 10,
     "bite_gain": 1.1
-  }
+  },
+  "death_policy": "field_drop"
 }

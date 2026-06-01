@@ -48,5 +48,6 @@
         }
       }
     ]
-  }
+  },
+  "death_policy": "field_drop"
 }

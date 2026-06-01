@@ -1,13 +1,14 @@
 """複数アリが死骸に張り付く問題の回帰テスト。"""
 import unittest
 
-from src.sim.ai.actions import HuntAction, ReturnToNestAction
+from src.game.ai.colony_actions import ReturnToNestAction
+from src.sim.ai.actions import HuntAction
 from src.sim.entities.creature_factory import CreatureFactory
 from src.sim.systems.world import World
+from src.game.affiliation_feed import nest_has_usable_storage
 from src.sim.utils.creature_helpers import (
     carcass_on_field,
     is_edible_prey,
-    nest_has_usable_storage,
     try_attack_only,
     try_pickup_carcass,
 )

@@ -1,4 +1,7 @@
-"""死骸化・分解・残留物質量を担当するコンポーネント。"""
+"""死亡フラグ・死亡イベント・（死骸個体ルート用の）残留量と分解。
+
+死後のレシピ（ドロップ・削除等）は PostLife / death_policy のパーツが担当。
+"""
 from typing import Any
 
 from src.sim.utils.position_helpers import entity_xy

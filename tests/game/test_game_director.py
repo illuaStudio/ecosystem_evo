@@ -1,3 +1,8 @@
+from src.game.colony_session import get_colony_orchestrator, try_get_colony_orchestrator
+
+def colony(world):
+    return get_colony_orchestrator(world)
+
 """GameDirector 進行ロジックのテスト。"""
 import unittest
 
@@ -70,7 +75,7 @@ class TestGameDirector(unittest.TestCase):
         factory = CreatureFactory()
         queen = factory.create("red_ant_queen", world=world, x=120, y=120)
         world.add_creature(queen, spawn_source="initial")
-        nest = world.nest_system.get_affiliation_root("red_ant")
+        nest = colony(world).get_affiliation_root("red_ant")
         world.events.drain()
 
         director = self._director(world)

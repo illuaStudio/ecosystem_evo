@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Iterable
 
-from src.sim.components.inventory import BiomassItem, InventoryItem, InventorySlot
+from src.sim.components.inventory import BiomassItem, InventoryItem, InventorySlot, StackItem
 
 
 def _slot_defs_from_config(
@@ -120,7 +120,28 @@ class ItemStack:
                 for s in self.slots
                 if isinstance(s.item, BiomassItem) and s.item.kind == kind
             )
+        if kind == "item":
+            return float(self.stack_item_quantity())
         return 0.0
+
+    def stack_item_quantity(self, item_type: str | None = None) -> int:
+        total = 0
+        for slot in self.slots:
+            if not isinstance(slot.item, StackItem):
+                continue
+            if item_type is not None and slot.item.item_type != item_type:
+                continue
+            total += int(slot.item.quantity)
+        return total
+
+    def first_stack_item(self, item_type: str | None = None) -> StackItem | None:
+        for slot in self.slots:
+            if not isinstance(slot.item, StackItem):
+                continue
+            if item_type is not None and slot.item.item_type != item_type:
+                continue
+            return slot.item
+        return None
 
     def capacity_for_kind(self, kind: str) -> float:
         return sum(
@@ -130,8 +151,42 @@ class ItemStack:
     def free_space_for_kind(self, kind: str) -> float:
         return max(0.0, self.capacity_for_kind(kind) - self.amount_for_kind(kind))
 
+    def set_stack_item(
+        self,
+        item_type: str,
+        quantity: int,
+        *,
+        mass_per_unit: float = 1.0,
+    ) -> None:
+        quantity = max(0, int(quantity))
+        for slot in self.slots:
+            if isinstance(slot.item, StackItem):
+                slot.item = None
+        if quantity <= 0:
+            return
+        slot = self._primary_slot_for_kind("item", create=True)
+        slot.item = StackItem(
+            item_type=str(item_type),
+            quantity=quantity,
+            mass_per_unit=max(0.0, float(mass_per_unit)),
+        )
+
+    def withdraw_stack_item(self, item_type: str | None = None) -> StackItem | None:
+        for slot in self.slots:
+            if not isinstance(slot.item, StackItem):
+                continue
+            if item_type is not None and slot.item.item_type != item_type:
+                continue
+            taken = slot.item
+            slot.item = None
+            return taken
+        return None
+
     def set_amount_for_kind(self, kind: str, amount: float) -> None:
         amount = max(0.0, float(amount))
+        if kind == "item":
+            self.set_stack_item("generic", max(0, int(amount)))
+            return
         if kind != "biomass":
             raise ValueError(f"unsupported kind for set_amount: {kind!r}")
         for slot in self.slots:
@@ -193,6 +248,28 @@ class ItemStack:
         return None
 
     def deposit_item(self, item: InventoryItem) -> bool:
+        return self.deposit_content(item)
+
+    def peek_item(self) -> InventoryItem | None:
+        for slot in self.slots:
+            if slot.item is not None:
+                return slot.item
+        return None
+
+    def withdraw_content(
+        self,
+        kind: str,
+        amount: float = 0.0,
+        *,
+        item_type: str | None = None,
+    ) -> InventoryItem | float:
+        if kind == "biomass":
+            return self.withdraw_kind("biomass", amount)
+        if kind == "item":
+            return self.withdraw_stack_item(item_type) or 0.0
+        return 0.0
+
+    def deposit_content(self, item: InventoryItem | None) -> bool:
         if item is None:
             return False
         for slot in self.slots:
@@ -201,6 +278,9 @@ class ItemStack:
             slot.item = item
             return True
         return False
+
+    def deposit_mass(self, kind: str, amount: float) -> float:
+        return self.deposit_kind(kind, amount)
 
     def _primary_slot_for_kind(self, kind: str, *, create: bool = False) -> InventorySlot:
         for slot in self.slots:

@@ -1,11 +1,11 @@
-"""Action 共通: 巣リーシュ・テリトリー・個体ターゲット追跡。"""
+"""Action 共通: 所属拠点リーシュ・テリトリー・個体ターゲット追跡。"""
 from __future__ import annotations
 
 from src.sim.utils.movement_helpers import is_beyond_nest_leash, return_toward_nest
 
 
-class NestLeashMixin:
-    """nest_leash_radius 超過時に巣へ戻る。"""
+class AffiliationLeashMixin:
+    """nest_leash_radius 超過時に所属拠点へ戻る（JSON キー名は後方互換）。"""
 
     def _nest_leash(self):
         raw = self.params.get("nest_leash_radius")
@@ -14,7 +14,6 @@ class NestLeashMixin:
         return float(raw)
 
     def _abort_if_beyond_nest_leash(self, creature) -> bool:
-        """リーシュ超過なら帰巣して True（この tick の本処理は打ち切り）。"""
         if not is_beyond_nest_leash(creature, self._nest_leash()):
             return False
         if hasattr(self, "_target"):
@@ -24,6 +23,10 @@ class NestLeashMixin:
             speed_multiplier=float(self.params["speed_multiplier"]),
         )
         return True
+
+
+# 後方互換
+NestLeashMixin = AffiliationLeashMixin
 
 
 class TerritoryOnlyMixin:

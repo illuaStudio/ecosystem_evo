@@ -49,6 +49,7 @@ def spawn_creature_drop(creature, params: dict | None = None) -> None:
 
 
 def convert_creature_corpse_mass(creature) -> None:
+    """死骸個体ルート用: 残留量を trait から設定（remove しない）。"""
     size = float(creature.traits.get("base_size", 9.0))
     mass = size * 200.0
     creature.corpse.remaining_mass = mass
@@ -146,19 +147,6 @@ class MoveToPart(BehaviorPart):
         return self._finished
 
 
-class DecomposeUntilEmptyPart(BehaviorPart):
-    def __init__(self) -> None:
-        self._finished = False
-
-    def tick(self, creature, dt: float = 1.0) -> PartResult:
-        creature.corpse.update(dt)
-        self._finished = creature.corpse.is_depleted()
-        return PartResult(finished=self._finished)
-
-    def is_finished(self) -> bool:
-        return self._finished
-
-
 _PART_BUILDERS = {
     "warp_to": lambda p: WarpPart(p["x"], p["y"]),
     "move_to": lambda p: MoveToPart(
@@ -170,7 +158,6 @@ _PART_BUILDERS = {
     "convert_corpse_mass": lambda _p: InstantPart(convert_creature_corpse_mass),
     "spawn_drop": lambda p: InstantPart(lambda c: spawn_creature_drop(c, p)),
     "remove": lambda _p: InstantPart(remove_creature_from_world, removes_creature=True),
-    "decompose_until_empty": lambda _p: DecomposeUntilEmptyPart(),
 }
 
 

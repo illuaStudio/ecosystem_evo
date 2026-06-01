@@ -103,9 +103,12 @@ def find_nearest_edible_in_territory_among(creature, species_names, exclude=None
 
 def find_nearest_edible_among(creature, species_names, exclude=None):
     """複数種のうち視界内で最も近い獲物／地面ルート／死骸。"""
-    from src.sim.utils.loot_helpers import distance_to_loot, find_nearest_field_loot_among
+    from src.sim.combat.pickup_target import (
+        distance_to_forage,
+        find_nearest_field_pickup_among,
+    )
 
-    loot = find_nearest_field_loot_among(creature, species_names)
+    loot = find_nearest_field_pickup_among(creature, species_names)
     from src.sim.combat.target_query import find_nearest_prey_creature
 
     ref = find_nearest_prey_creature(
@@ -119,7 +122,7 @@ def find_nearest_edible_among(creature, species_names, exclude=None):
         return best_creature
     if best_creature is None:
         return loot
-    if distance_to_loot(creature, loot) <= distance_between(creature, best_creature):
+    if distance_to_forage(creature, loot) <= distance_between(creature, best_creature):
         return loot
     return best_creature
 

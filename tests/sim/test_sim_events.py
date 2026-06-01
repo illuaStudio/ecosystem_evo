@@ -1,7 +1,12 @@
+from src.game.colony_session import get_colony_orchestrator, try_get_colony_orchestrator
+
+def colony(world):
+    return get_colony_orchestrator(world)
+
 """??????????????????????"""
 import unittest
 
-from src.sim.ai.actions import AffiliationReproduceAction
+from src.game.ai.reproduction_actions import AffiliationReproduceAction
 from src.sim.entities.creature_factory import CreatureFactory
 from src.game.mind_policy import MindPolicy
 from src.sim.events import (
@@ -105,7 +110,7 @@ class TestSimEvents(unittest.TestCase):
         factory = CreatureFactory()
         queen = factory.create("red_ant_queen", world=world, x=120, y=120)
         world.add_creature(queen, spawn_source="initial")
-        nest = world.nest_system.get_creature_nest(queen)
+        nest = colony(world).get_creature_affiliation_root(queen)
         world.events.drain()
 
         profile = MindPolicy().get_profile("workers_only") or {}
@@ -133,14 +138,14 @@ class TestSimEvents(unittest.TestCase):
         factory = CreatureFactory()
         worker = factory.create("red_ant", world=world, x=120, y=120)
         world.add_creature(worker, spawn_source="initial")
-        nest = world.nest_system.get_affiliation_root("red_ant")
+        nest = colony(world).get_affiliation_root("red_ant")
         world.events.drain()
 
         world.affiliation_species = {"red_ant": ["red_ant"], "rival_ant": ["rival_ant"]}
         ws = world.world_object_system
         for access in list(ws.iter_access_points("red_ant")):
             access.hp = 0.8
-            world.nest_system.damage_access(
+            colony(world).damage_access(
                 access, "red_ant", 5.0, attacker_affiliation_id="rival_ant"
             )
 

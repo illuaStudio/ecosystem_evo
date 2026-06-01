@@ -24,15 +24,32 @@ def pickup_radius(target: WorldObject) -> float:
     return float(getattr(target, "pickup_radius", 12.0))
 
 
-def is_edible_pickup(obj: WorldObject | None) -> bool:
+def is_pickable_pickup(obj: WorldObject | None) -> bool:
     return is_field_pickup(obj) and not obj.is_pickup_depleted()
+
+
+def is_edible_pickup(obj: WorldObject | None) -> bool:
+    if not is_pickable_pickup(obj):
+        return False
+    return obj.amount_for_kind("biomass") > 0
+
+
+def is_haulable_pickup(obj: WorldObject | None) -> bool:
+    if not is_pickable_pickup(obj):
+        return False
+    if "haul" not in getattr(obj, "pickup_modes", ()):
+        return False
+    if obj.amount_for_kind("biomass") > 0:
+        return True
+    stack = obj.storage.stack if obj.storage else None
+    return stack is not None and stack.first_stack_item() is not None
 
 
 def pickup_on_field(world, obj: WorldObject | None) -> bool:
     wos = object_system(world)
     if wos is None or obj is None:
         return False
-    return obj.id in wos.objects and is_edible_pickup(obj)
+    return obj.id in wos.objects and is_pickable_pickup(obj)
 
 
 def distance_to_pickup(creature, obj: WorldObject) -> float:

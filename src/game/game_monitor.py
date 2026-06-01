@@ -1,6 +1,12 @@
 """数値推移・閾値の監視（離散イベントとは別）。"""
 from __future__ import annotations
 
+from src.game.colony_session import get_colony_orchestrator
+
+
+def colony(world):
+    return get_colony_orchestrator(world)
+
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -24,11 +30,11 @@ class GameMonitor:
     def check(self, world: "World", state: "GameState") -> list[MonitorAlert]:
         alerts: list[MonitorAlert] = []
         affiliation_id = state.player_affiliation_id
-        if world.nest_system.get_affiliation_root(affiliation_id) is None:
+        if colony(world).get_affiliation_root(affiliation_id) is None:
             return alerts
 
         low_ratio = float(self.settings.get("low_fill_ratio", 0.10))
-        fill_ratio = world.nest_system.affiliation_fill_ratio(affiliation_id)
+        fill_ratio = colony(world).affiliation_fill_ratio(affiliation_id)
         if fill_ratio < low_ratio:
             if state.set_flag("low_food_warned"):
                 alerts.append(
@@ -52,7 +58,7 @@ class GameMonitor:
 
         worker_species = self._affiliation_member_species(world, affiliation_id)
         if worker_species:
-            count = world.nest_system.count_affiliation_members(affiliation_id, worker_species)
+            count = colony(world).count_affiliation_members(affiliation_id, worker_species)
             milestone = int(self.settings.get("milestone_workers", 5))
             if count >= milestone and state.set_flag("workers_milestone"):
                 alerts.append(

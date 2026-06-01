@@ -20,9 +20,14 @@ if str(ROOT) not in sys.path:
 from src.config import config
 from src.game.game_controller import GameController
 from src.game.sim_runner import SimRunner
-from src.sim.bridge import SimBridge
+from src.game.sim_bridge_factory import make_sim_bridge
 from src.sim.systems.world import World
 from tools.dev_launcher_fields import default_sim_rate_context
+from src.game.colony_session import get_colony_orchestrator
+
+
+def colony(world):
+    return get_colony_orchestrator(world)
 
 
 @dataclass
@@ -48,7 +53,7 @@ class BalanceRunReport:
 
 
 def _sim_time(world: World) -> float:
-    return float(getattr(world.nest_system, "_sim_time", 0.0))
+    return float(getattr(world, "_sim_time", 0.0))
 
 
 def _real_sec(sim_time: float, ctx) -> float:
@@ -59,14 +64,14 @@ def _real_sec(sim_time: float, ctx) -> float:
 
 
 def _worker_count(world: World, affiliation_id: str) -> int:
-    nest = world.nest_system.get_affiliation_root(affiliation_id)
+    nest = colony(world).get_affiliation_root(affiliation_id)
     if nest is None:
         return 0
     factions = getattr(world, "affiliation_species", {}) or {}
     species = [s for s in factions.get(affiliation_id, ["red_ant"]) if not s.endswith("_queen")]
     if not species:
         species = ["red_ant"]
-    return world.nest_system.count_affiliation_members(nest.id, species)
+    return colony(world).count_affiliation_members(nest.id, species)
 
 
 def _maybe_log_milestone(
@@ -107,7 +112,7 @@ def run_balance(
     dt = runner.sim_dt()
 
     world = World(world_name)
-    bridge = SimBridge(world)
+    bridge = make_sim_bridge(world)
     controller = GameController(bridge=bridge)
     controller.reset_for_world(world, bridge=bridge)
 
@@ -115,7 +120,7 @@ def run_balance(
     report = BalanceRunReport()
     seen_milestones: set[str] = set()
 
-    nest = world.nest_system.get_affiliation_root(affiliation_id)
+    nest = colony(world).get_affiliation_root(affiliation_id)
     if nest is not None:
         _maybe_log_milestone(
             report,
@@ -136,7 +141,7 @@ def run_balance(
         world.update(dt)
         messages = controller.on_tick(world)
 
-        nest = world.nest_system.get_affiliation_root(affiliation_id)
+        nest = colony(world).get_affiliation_root(affiliation_id)
         if nest is not None:
             ratio = nest.fill_ratio
             if controller.state.has_flag("high_food_reached"):

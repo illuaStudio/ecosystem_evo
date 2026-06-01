@@ -7,6 +7,7 @@ from src.game.game_director import GameDirector
 from src.game.game_message import GameMessage
 from src.game.game_monitor import GameMonitor
 from src.game.game_state import GameState
+from src.game.sim_bridge_factory import make_sim_bridge
 from src.sim.bridge import SimBridge
 from src.sim.events import (
     AffiliationDefeatedEvent,
@@ -57,6 +58,12 @@ class GameController:
         self.director.reset()
         if world is None or self.bridge is None:
             return
+        from src.game.colony_orchestrator import ColonyOrchestrator
+        from src.game.colony_session import attach_colony_orchestrator
+
+        orch = ColonyOrchestrator(world)
+        attach_colony_orchestrator(world, orch)
+        world.on_sim_tick = orch.update
         self.director.on_world_start(world)
         world.events.drain()
 

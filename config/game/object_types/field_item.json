@@ -1,0 +1,25 @@
+{
+  "id": "field_item",
+  "label": "Field item",
+  "category": "field",
+  "capabilities": {
+    "container": {
+      "slots": [
+        {
+          "max_mass": 50.0,
+          "allowed_kinds": ["item"]
+        }
+      ]
+    },
+    "pickup": {
+      "radius": 14,
+      "modes": ["haul"],
+      "lifecycle": "ephemeral",
+      "deplete_when_empty": true
+    },
+    "render": {
+      "color": [210, 190, 80],
+      "size_from_fill_ratio": false
+    }
+  }
+}

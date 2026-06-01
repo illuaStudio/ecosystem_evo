@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from src.sim.shelter.state import SHELTER_ALLOWED_ACTION_NAMES, is_creature_sheltered
 from src.sim.utils.inventory_helpers import inventory_is_loaded
 from src.sim.utils.creature_helpers import needs_self_feed
-from src.sim.ai.actions import ACTION_BY_NAME, ReturnToNestAction, WanderAction
+from src.sim.ai.actions import ACTION_BY_NAME, WanderAction
 
 
 class Mind(ABC):
@@ -41,7 +41,10 @@ class UtilityMind(Mind):
     def decide_next_action(self, creature):
         current = creature.current_action
         if inventory_is_loaded(creature):
-            if not needs_self_feed(creature) and isinstance(current, ReturnToNestAction):
+            if not needs_self_feed(creature) and type(current).__name__ in (
+                "ReturnToAffiliationDepositAction",
+                "ReturnToNestAction",
+            ):
                 return current
 
         best_action = None
@@ -94,12 +97,13 @@ class UtilityMind(Mind):
                     (a for a in self.action_defs if a.get("name") == "WanderAction"),
                     None,
                 )
-                if wander_def is None:
-                    raise KeyError(
-                        f"{creature.species.name}: フォールバック用 WanderAction が未定義です"
-                    )
+                wander_params = (
+                    dict(wander_def.get("params", {}))
+                    if wander_def is not None
+                    else dict(getattr(WanderAction, "DEFAULT_PARAMS", None) or {})
+                )
                 best_action = WanderAction.from_config(
-                    wander_def.get("params", {}),
+                    wander_params,
                     source=f"{creature.species.name}/WanderAction",
                 )
 

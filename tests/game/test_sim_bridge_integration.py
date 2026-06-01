@@ -2,7 +2,7 @@
 import unittest
 
 from src.game.game_controller import GameController
-from src.sim.ai.actions import AffiliationReproduceAction
+from src.game.ai.reproduction_actions import AffiliationReproduceAction
 from src.sim.bridge import SimBridge
 from src.sim.entities.creature_factory import CreatureFactory
 from src.sim.systems.world import World

@@ -1,6 +1,12 @@
 # renderer.py
 import pygame
 
+from src.game.colony_session import get_colony_orchestrator
+
+
+def colony(world):
+    return get_colony_orchestrator(world)
+
 from src.config import config
 from src.client.rendering.zone_renderer import ZoneRenderer
 from src.client.rendering.obstacle_renderer import ObstacleRenderer
@@ -124,7 +130,7 @@ class Renderer:
                     continue
                 sx = int(obj.x - camera.x)
                 sy = int(obj.y - camera.y)
-                ratio = obj.fill_ratio() if obj.size_from_fill_ratio else 1.0
+                ratio = obj.fill_ratio if obj.size_from_fill_ratio else 1.0
                 radius = max(4, int(6 + ratio * 10))
                 pygame.draw.circle(self.screen, obj.color, (sx, sy), radius)
                 pygame.draw.circle(self.screen, (40, 36, 32), (sx, sy), radius, 1)
@@ -191,17 +197,17 @@ class Renderer:
 
             cid = get_creature_affiliation_id(sc)
             if cid and world is not None:
-                root = world.nest_system.get_affiliation_root(cid)
+                root = colony(world).get_affiliation_root(cid)
                 if root is not None and root.storage is not None:
                     texts.append(
                         f"コロニー {cid}: 食料 "
                         f"{root.storage.stored_mass:.0f}/{root.storage.capacity:.0f}"
                     )
                     texts.append(
-                        f"  備蓄率 {world.nest_system.affiliation_fill_ratio(cid) * 100:.0f}%"
+                        f"  備蓄率 {colony(world).affiliation_fill_ratio(cid) * 100:.0f}%"
                     )
                     texts.append(
-                        f"コロニー: {world.nest_system.total_member_count(cid)} 匹"
+                        f"コロニー: {colony(world).total_member_count(cid)} 匹"
                     )
                     from src.sim.utils.territory_helpers import get_territory_radius_for_affiliation
                     from src.sim.utils.world_object_helpers import affiliation_access_count
@@ -547,7 +553,7 @@ class Renderer:
             owner_species_for_affiliation,
         )
 
-        ns = world.nest_system
+        ns = colony(world)
         total = ns.total_member_count(affiliation_id)
         root = get_affiliation_root(world, affiliation_id)
 

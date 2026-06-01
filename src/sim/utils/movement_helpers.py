@@ -96,22 +96,38 @@ def refresh_flee_latch_from_species(creature) -> None:
 def is_flee_latch_active(creature) -> bool:
     return bool(getattr(creature, "flee_latch", False))
 
-def distance_to_creature_nest(creature) -> float:
+def distance_to_affiliation_site(creature) -> float:
+    from src.sim.utils.affiliation_site_helpers import distance_to_affiliation_site as _dist
+
     world = getattr(creature, "world", None)
     if world is None or getattr(creature, "affiliation", None) is None:
         return float("inf")
-    return world.nest_system.distance_to_nest(creature)
+    return _dist(creature)
 
-def is_beyond_nest_leash(creature, leash_radius) -> bool:
+
+def is_beyond_affiliation_leash(creature, leash_radius) -> bool:
     if leash_radius is None:
         return False
-    return distance_to_creature_nest(creature) > float(leash_radius)
+    return distance_to_affiliation_site(creature) > float(leash_radius)
+
+
+def return_toward_affiliation_site(creature, speed_multiplier: float = 1.0) -> float:
+    from src.sim.utils.affiliation_site_helpers import affiliation_target_xy
+
+    tx, ty = affiliation_target_xy(creature)
+    return move_toward_point(creature, tx, ty, speed_multiplier)
+
+
+def distance_to_creature_nest(creature) -> float:
+    return distance_to_affiliation_site(creature)
+
+
+def is_beyond_nest_leash(creature, leash_radius) -> bool:
+    return is_beyond_affiliation_leash(creature, leash_radius)
+
 
 def return_toward_nest(creature, speed_multiplier: float = 1.0) -> float:
-    """所属巣（最寄り巣穴）へ向かう。"""
-    ns = creature.world.nest_system
-    tx, ty = ns.nest_target_xy(creature)
-    return move_toward_point(creature, tx, ty, speed_multiplier)
+    return return_toward_affiliation_site(creature, speed_multiplier)
 
 def contact_range(creature, other, padding: float = 8.0) -> float:
     return (

@@ -1,14 +1,14 @@
-"""巣などの避難所へ逃げて隠れる。"""
+"""ゲーム層: 拠点避難（SeekShelter）。"""
 from __future__ import annotations
 
 from src.sim.ai.actions.base import Action
+from src.game.shelter_helpers import resolve_creature_shelter
 from src.sim.shelter.helpers import (
     enter_creature_shelter,
     get_hide_radius,
     is_at_shelter,
     move_toward_shelter_avoiding_threat,
     nearest_shelter_threat,
-    resolve_creature_shelter,
     shelter_distance,
 )
 from src.sim.shelter.state import clear_creature_shelter, is_creature_sheltered
@@ -17,10 +17,11 @@ from src.sim.utils.movement_helpers import (
     is_flee_latch_active,
     update_flee_latch,
 )
+from src.sim.utils.world_object_helpers import get_creature_affiliation_root
 
 
 class SeekShelterAction(Action):
-    """脅威検知時に所属巣穴へ逃げ、到着後は隠れる（標的から除外）。"""
+    """脅威検知時に所属拠点へ逃げ、到着後は隠れる（標的から除外）。"""
 
     DEFAULT_PARAMS = {
         "threat_species": (),
@@ -46,8 +47,7 @@ class SeekShelterAction(Action):
         if not threats or not creature.world:
             return False
 
-        colony = getattr(creature, "colony", None)
-        if colony is None or inventory_is_loaded(creature):
+        if getattr(creature, "affiliation", None) is None or inventory_is_loaded(creature):
             return False
 
         update_flee_latch(creature, threats)
@@ -95,11 +95,12 @@ class SeekShelterAction(Action):
         if not threats:
             return 0.0
 
-        colony = getattr(creature, "colony", None)
-        if colony is None or inventory_is_loaded(creature) or not creature.world:
+        if getattr(creature, "affiliation", None) is None or inventory_is_loaded(creature):
+            return 0.0
+        if not creature.world:
             return 0.0
 
-        if creature.world.nest_system.get_creature_nest(creature) is None:
+        if get_creature_affiliation_root(creature) is None:
             return 0.0
 
         update_flee_latch(creature, threats)
@@ -109,9 +110,12 @@ class SeekShelterAction(Action):
             return 0.0
 
         if is_creature_sheltered(creature):
-            from src.sim.utils.creature_helpers import needs_nest_feed, nest_has_usable_storage
+            from src.game.affiliation_feed import (
+                affiliation_has_usable_storage,
+                needs_affiliation_feed,
+            )
 
-            if needs_nest_feed(creature) and nest_has_usable_storage(creature):
+            if needs_affiliation_feed(creature) and affiliation_has_usable_storage(creature):
                 return 0.0
             return 0.88
 

@@ -1,3 +1,8 @@
+from src.game.colony_session import get_colony_orchestrator, try_get_colony_orchestrator
+
+def colony(world):
+    return get_colony_orchestrator(world)
+
 """ZoneSystem（スポーン除外・毒霧）の Phase 1 テスト。"""
 import unittest
 
@@ -173,7 +178,7 @@ class TestZonePoisonFog(unittest.TestCase):
         world = World()
         for creature in list(world.creatures):
             world.remove_creature(creature)
-        world.nest_system.clear_all_affiliation_sites()
+        colony(world).clear_all_affiliation_sites()
         world.zone_system.zones.clear()
         world.world_object_system.objects.clear()
         world.world_object_system._children.clear()
@@ -188,7 +193,7 @@ class TestZonePoisonFog(unittest.TestCase):
             if z.affiliation_id == "red_ant" and z.effects.spawn_rate_multiplier == 0.0
         ]
         self.assertEqual(len(clearing), 1)
-        nest = world.nest_system.get_affiliation_root("red_ant")
+        nest = colony(world).get_affiliation_root("red_ant")
         self.assertIsNotNone(nest)
         self.assertAlmostEqual(clearing[0].x, nest.x)
         self.assertAlmostEqual(clearing[0].y, nest.y)

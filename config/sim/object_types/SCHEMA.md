@@ -47,6 +47,28 @@
 }
 ```
 
+### 地面の単体アイテム（剣・金貨など）
+
+`layer: "field"` + `fill.mode: "stack_item"` で `StackItem` を載せる。型は `field_item` またはゲーム固有型。
+
+```json
+{
+  "id": "field_item",
+  "capabilities": {
+    "container": {
+      "slots": [{ "max_mass": 50, "allowed_kinds": ["item"] }]
+    },
+    "pickup": { "modes": ["haul"], "deplete_when_empty": true }
+  }
+}
+```
+
+PostLife 例:
+
+```json
+{ "step": "spawn_drop", "type": "field_item", "fill": { "mode": "stack_item", "item_type": "gold_coin", "quantity": 5 } }
+```
+
 ### 毒霧（エリアのみ）
 
 ```json

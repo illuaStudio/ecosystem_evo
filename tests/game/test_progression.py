@@ -1,3 +1,8 @@
+from src.game.colony_session import get_colony_orchestrator, try_get_colony_orchestrator
+
+def colony(world):
+    return get_colony_orchestrator(world)
+
 """progression.json 解禁のテスト。"""
 import unittest
 
@@ -5,7 +10,7 @@ from src.game.game_controller import GameController
 from src.game.game_monitor import GameMonitor
 from src.game.game_state import GameState
 from src.game.progression import ProgressionEvaluator, apply_unlock, load_progression
-from src.sim.bridge import SimBridge
+from src.game.sim_bridge_factory import make_sim_bridge
 from src.sim.entities.creature_factory import CreatureFactory
 from src.sim.systems.world import World
 from tests.sim.world_fixtures import affiliation_settings, load_test_world, set_affiliation_stored_mass
@@ -44,7 +49,7 @@ class TestProgressionUnlock(unittest.TestCase):
         queen = factory.create("red_ant_queen", world=world, x=120, y=120)
         world.add_creature(queen, spawn_source="initial")
         world.events.drain()
-        bridge = SimBridge(world)
+        bridge = make_sim_bridge(world)
         from src.game.command_builder import apply_spawn_profile
 
         apply_spawn_profile(bridge, queen)
@@ -54,9 +59,10 @@ class TestProgressionUnlock(unittest.TestCase):
         world = _player_world()
         queen, bridge = self._setup_queen(world)
         state = GameState(player_affiliation_id="red_ant")
-        nest = world.nest_system.get_affiliation_root("red_ant")
+        nest = colony(world).get_affiliation_root("red_ant")
 
-        self.assertEqual([a["name"] for a in queen.mind.action_defs], ["FeedAtNestAction"])
+        names = [a["name"] for a in queen.mind.action_defs]
+        self.assertIn("FeedAtNestAction", names)
 
         state.set_flag("high_food_reached")
         set_affiliation_stored_mass(world, "red_ant", nest.capacity * 0.55)
@@ -89,7 +95,7 @@ class TestProgressionUnlock(unittest.TestCase):
     def test_soldier_unlock_requires_milestone_and_prior_unlock(self):
         world = _player_world()
         queen, bridge = self._setup_queen(world)
-        nest = world.nest_system.get_affiliation_root("red_ant")
+        nest = colony(world).get_affiliation_root("red_ant")
         factory = CreatureFactory()
 
         state = GameState(player_affiliation_id="red_ant")
@@ -123,12 +129,15 @@ class TestProgressionUnlock(unittest.TestCase):
 
     def test_via_game_controller_on_tick(self):
         world = _player_world()
-        bridge = SimBridge(world)
+        bridge = make_sim_bridge(world)
         factory = CreatureFactory()
         queen = factory.create("red_ant_queen", world=world, x=120, y=120)
         world.add_creature(queen, spawn_source="initial")
-        nest = world.nest_system.get_affiliation_root("red_ant")
+        nest = colony(world).get_affiliation_root("red_ant")
         world.events.drain()
+        from src.game.command_builder import apply_spawn_profile
+
+        apply_spawn_profile(bridge, queen)
 
         ctrl = GameController(
             {

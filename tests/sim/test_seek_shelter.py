@@ -1,10 +1,16 @@
+from src.game.colony_session import get_colony_orchestrator, try_get_colony_orchestrator
+
+def colony(world):
+    return get_colony_orchestrator(world)
+
 """SeekShelterAction: 巣に隠れる・標的除外・敗北時の隠れ個体死亡。"""
 import math
 import unittest
 
-from src.sim.ai.actions import SeekShelterAction
+from src.game.ai.shelter_actions import SeekShelterAction
 from src.sim.entities.creature_factory import CreatureFactory
-from src.sim.shelter.helpers import enter_creature_shelter, resolve_nest_shelter
+from src.game.shelter_helpers import resolve_nest_shelter
+from src.sim.shelter.helpers import enter_creature_shelter
 from src.sim.shelter.state import clear_creature_shelter, is_creature_sheltered
 from src.sim.utils.combat_helpers import bite
 from src.sim.utils.creature_helpers import is_trackable_prey
@@ -74,7 +80,7 @@ class TestSeekShelter(unittest.TestCase):
         spider = factory.create("Spider", world=world, x=500, y=820)
         world.add_creature(spider)
 
-        nest = world.nest_system.get_creature_nest(ant)
+        nest = colony(world).get_creature_affiliation_root(ant)
         access = primary_access(world, nest.affiliation_id)
         spider.position.x = access.x
         spider.position.y = access.y
@@ -104,7 +110,7 @@ class TestSeekShelter(unittest.TestCase):
         ref = resolve_nest_shelter(worker)
         enter_creature_shelter(worker, ref)
 
-        nest = world.nest_system.get_creature_nest(worker)
+        nest = colony(world).get_creature_affiliation_root(worker)
         access = primary_access(world, nest.affiliation_id)
         damage_colony_access(
             world, nest.affiliation_id, access, 500, attacker_affiliation_id="rival_ant"

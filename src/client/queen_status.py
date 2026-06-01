@@ -1,6 +1,12 @@
 """プレイヤー女王の HUD 表示用ヘルパー（Client 層）。"""
 from __future__ import annotations
 
+from src.game.colony_session import get_colony_orchestrator
+
+
+def colony(world):
+    return get_colony_orchestrator(world)
+
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -35,7 +41,7 @@ def find_colony_queen(world: "World", affiliation_id: str):
 
 def _find_colony_reproduce_action(queen):
     from src.sim.ai.mind import ACTION_BY_NAME
-    from src.sim.ai.actions.reproduction import AffiliationReproduceAction
+    from src.game.ai.reproduction_actions import AffiliationReproduceAction
 
     mind = getattr(queen, "mind", None)
     if mind is None:
@@ -78,14 +84,14 @@ def _next_goal(state: "GameState", world: "World", affiliation_id: str) -> str |
 
 
 def _worker_count(world: "World", affiliation_id: str) -> int | None:
-    nest = world.nest_system.get_affiliation_root(affiliation_id)
+    nest = colony(world).get_affiliation_root(affiliation_id)
     if nest is None:
         return None
     groups = getattr(world, "affiliation_species", {}) or {}
     names = [s for s in groups.get(affiliation_id, []) if not str(s).endswith("_queen")]
     if not names:
         return None
-    return world.nest_system.count_affiliation_members(nest.id, names)
+    return colony(world).count_affiliation_members(nest.id, names)
 
 
 def build_queen_panel_lines(
@@ -127,7 +133,7 @@ def build_queen_panel_lines(
         if goal is not None:
             lines.append((goal, (180, 210, 255)))
 
-    nest = world.nest_system.get_creature_nest(queen)
+    nest = colony(world).get_creature_affiliation_root(queen)
     if nest is not None:
         lines.append(
             (

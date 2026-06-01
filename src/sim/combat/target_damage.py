@@ -13,7 +13,7 @@ def apply_damage_to_target(
     *,
     attacker_affiliation_id: str | None = None,
 ) -> float:
-    """TargetRef にダメージ。実際に与えた量（creature は攻撃力そのまま、穴は nest_system 返値）。"""
+    """TargetRef にダメージ。実際に与えた量（creature は攻撃力そのまま、access は handler 返値）。"""
     if ref is None or amount <= 0:
         return 0.0
 
@@ -30,7 +30,10 @@ def apply_damage_to_target(
         if attacker.world is None or access is None or not affiliation_id:
             return 0.0
         cid = attacker_affiliation_id or get_creature_affiliation_id(attacker) or ""
-        dealt = attacker.world.nest_system.damage_access(
+        handler = getattr(attacker.world, "access_damage_handler", None)
+        if handler is None:
+            return 0.0
+        dealt = handler(
             access,
             affiliation_id,
             float(amount),

@@ -1,0 +1,25 @@
+{
+  "id": "field_gold",
+  "label": "Gold pile",
+  "category": "field",
+  "capabilities": {
+    "container": {
+      "slots": [
+        {
+          "max_mass": 999.0,
+          "allowed_kinds": ["item"]
+        }
+      ]
+    },
+    "pickup": {
+      "radius": 12,
+      "modes": ["haul"],
+      "lifecycle": "ephemeral",
+      "deplete_when_empty": true
+    },
+    "render": {
+      "color": [220, 180, 40],
+      "size_from_fill_ratio": false
+    }
+  }
+}
