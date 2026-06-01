@@ -1,10 +1,14 @@
-"""ゲーム層: ワールド JSON の affiliation（コロニー）設定の解釈。"""
+"""ゲーム層: affiliation レイアウト参照（実体は sim.AffiliationLayoutState）。"""
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from src.sim.affiliation_layout import AffiliationLayoutState
+
 if TYPE_CHECKING:
     from src.sim.systems.world import World
+
+ColonyConfig = AffiliationLayoutState
 
 AFFILIATION_PROFILE_REQUIRED_KEYS = frozenset(
     {
@@ -30,69 +34,18 @@ SPECIES_AFFILIATION_OVERRIDE_KEYS = frozenset(
 )
 
 
-class ColonyConfig:
-    """勢力プロファイル・種族マップ・敗北状態（World._colony_config に載せる）。"""
-
-    def __init__(
-        self,
-        *,
-        profiles: dict[str, dict],
-        settings: dict,
-        styles: dict,
-        species_by_affiliation: dict[str, list],
-    ) -> None:
-        self.profiles = profiles
-        self.settings = settings
-        self.styles = styles
-        self.species_by_affiliation = species_by_affiliation
-        self.defeated: set[str] = set()
-        self.last_defeat_message: str = ""
-
-    @classmethod
-    def from_affiliation_block(cls, block: dict | None) -> "ColonyConfig":
-        affiliation_block = dict(block or {})
-        styles = dict(affiliation_block.pop("factions", {}))
-        species_by_affiliation = {
-            str(k): list(v) if isinstance(v, (list, tuple)) else [v]
-            for k, v in (affiliation_block.pop("affiliation_species", {}) or {}).items()
-        }
-        profiles = {
-            str(k): dict(v)
-            for k, v in (affiliation_block.pop("profiles", {}) or {}).items()
-        }
-        return cls(
-            profiles=profiles,
-            settings=affiliation_block,
-            styles=styles,
-            species_by_affiliation=species_by_affiliation,
-        )
-
-    def get_profile(self, affiliation_id: str) -> dict:
-        if not affiliation_id:
-            return {}
-        return dict(self.profiles.get(affiliation_id) or {})
-
-    def is_defeated(self, affiliation_id: str) -> bool:
-        return str(affiliation_id) in self.defeated
-
-    def mark_defeated(self, affiliation_id: str, message: str = "") -> None:
-        self.defeated.add(str(affiliation_id))
-        if message:
-            self.last_defeat_message = message
-
-
-def colony_config(world: "World") -> ColonyConfig:
-    cfg = getattr(world, "_colony_config", None)
+def colony_config(world: "World") -> AffiliationLayoutState:
+    cfg = getattr(world, "_affiliation_layout", None)
     if cfg is None:
         raise RuntimeError(
-            "ColonyConfig が未設定です。GameController.reset_for_world または "
+            "affiliation レイアウトが未設定です。GameController.reset_for_world または "
             "tests.sim.colony_binding.bind_colony を呼んでください。"
         )
     return cfg
 
 
-def try_colony_config(world: "World") -> ColonyConfig | None:
-    return getattr(world, "_colony_config", None)
+def try_colony_config(world: "World") -> AffiliationLayoutState | None:
+    return getattr(world, "_affiliation_layout", None)
 
 
 def get_affiliation_settings(world: "World") -> dict:

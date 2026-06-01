@@ -478,7 +478,6 @@ _PARAM_META: dict[str, tuple[str, str, ValueType, float | None, float | None]] =
     "carcass_utility_mult": ("死骸優先倍率", "死骸を選ぶときの utility 倍率。", "float", 0.5, 3.0),
     "affiliation_hoard_strength": ("巣へ貯蔵優先度", "満腹時に巣へ運ぶ行動の強さ。", "float", 0, 2.0),
     "contact_padding": ("接触余白", "攻撃・接触判定の追加距離（px）。", "float", 0, 30),
-    "corpse_decay_rate": ("死骸分解率", "死骸が自然分解する速さ。", "float", 0, 0.1),
     "debug_events": ("シミュイベントログ", "シミュ内部イベントをログ出力。", "bool", None, None),
     "debug_sim_events": ("シミュイベント HUD", "画面上にシミュイベントを表示。", "bool", None, None),
     "defense_hunt": ("防衛狩り", "テリトリー防衛目的の狩りモード。", "bool", None, None),

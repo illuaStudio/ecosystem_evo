@@ -180,12 +180,6 @@ class Renderer:
             if trait_lines:
                 texts.append("個体特性 (基本値との差):")
                 texts.extend(trait_lines)
-            if not sc.alive:
-                texts.insert(
-                    3,
-                    f"バイオマス: {sc.remaining_mass:.1f}/{sc.initial_mass:.1f} "
-                    f"({sc.corpse_fill_ratio() * 100:.0f}%)",
-                )
             if world and sc.alive:
                 sx, sy = entity_xy(sc)
                 biome = world.biome.get_biome_at(sx, sy)

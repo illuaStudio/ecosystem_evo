@@ -15,7 +15,6 @@
     "metabolism_per_tick": 0.12,
     "satiety_hungry_below": 0.55,
     "satiety_full_above": 0.85,
-    "corpse_decay_rate": 3e-05,
     "starvation_hp_per_tick": 0.0144
   },
   "mind": {

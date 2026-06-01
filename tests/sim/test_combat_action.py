@@ -1,7 +1,7 @@
 """CombatAction ???????????"""
 import unittest
 
-from src.sim.ai.actions import CombatAction
+from src.game.ai.combat_actions import CombatAction
 from src.sim.combat.target_query import find_nearest_hostile_creature
 from src.sim.entities.creature_factory import CreatureFactory
 from src.sim.systems.world import World

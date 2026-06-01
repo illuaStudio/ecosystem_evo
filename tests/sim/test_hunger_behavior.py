@@ -12,7 +12,7 @@ from src.game.ai.colony_actions import (
     ReturnToNestAction,
     ScavengeCarriedAction,
 )
-from src.sim.ai.actions import HuntAction
+from src.game.ai.hunt_actions import HuntAction
 from src.sim.entities.creature_factory import CreatureFactory
 from src.sim.systems.world import World
 from src.game.affiliation_feed import (
@@ -31,10 +31,9 @@ from src.sim.utils.creature_helpers import (
     needs_self_feed,
     satiety_ratio,
     try_attack_only,
-    try_pickup_carcass,
     update_nutrition_recovery,
 )
-from tests.sim.legacy_corpse_helpers import use_legacy_corpse_on_death
+from tests.sim.field_drop_helpers import kill_creature, pickup_field_biomass
 from src.sim.utils.inventory_helpers import inventory_is_loaded, carried_mass_for_kind
 from src.sim.utils.position_helpers import entity_xy
 
@@ -51,7 +50,6 @@ class TestHungerBehavior(unittest.TestCase):
         ant.satiety = ant.max_satiety * ant_satiety_ratio
         world.add_creature(ant)
         world.add_creature(prey)
-        use_legacy_corpse_on_death(prey)
         return ant, prey, ax, ay
 
     def test_nutrition_thresholds_from_traits(self):
@@ -139,11 +137,9 @@ class TestHungerBehavior(unittest.TestCase):
     def test_hungry_carrying_prefers_scavenge_over_return(self):
         world = World()
         ant, prey, ax, ay = self._ant_and_prey(world, ant_satiety_ratio=0.10)
-        for _ in range(12):
-            if not prey.alive:
-                break
-            try_attack_only(ant, prey, attack_power=2.5)
-        self.assertTrue(try_pickup_carcass(ant, prey))
+        loot = kill_creature(world, prey, ant)
+        self.assertIsNotNone(loot)
+        self.assertTrue(pickup_field_biomass(ant, loot))
 
         scavenge = ScavengeCarriedAction()
         ret = ReturnToNestAction()
@@ -152,11 +148,8 @@ class TestHungerBehavior(unittest.TestCase):
     def test_hungry_carrying_eats_carcass(self):
         world = World()
         ant, prey, ax, ay = self._ant_and_prey(world, ant_satiety_ratio=0.10)
-        for _ in range(12):
-            if not prey.alive:
-                break
-            try_attack_only(ant, prey, attack_power=2.5)
-        try_pickup_carcass(ant, prey)
+        loot = kill_creature(world, prey, ant)
+        pickup_field_biomass(ant, loot)
 
         carried_before = carried_mass_for_kind(ant)
         satiety_before = ant.satiety
@@ -173,11 +166,8 @@ class TestHungerBehavior(unittest.TestCase):
         world = World()
         ant, prey, ax, ay = self._ant_and_prey(world, ant_satiety_ratio=0.84)
         ant.nutrition_recovery = True
-        for _ in range(12):
-            if not prey.alive:
-                break
-            try_attack_only(ant, prey, attack_power=2.5)
-        try_pickup_carcass(ant, prey)
+        loot = kill_creature(world, prey, ant)
+        pickup_field_biomass(ant, loot)
         self.assertTrue(inventory_is_loaded(ant))
 
         scavenge = ScavengeCarriedAction()
@@ -253,11 +243,8 @@ class TestHungerBehavior(unittest.TestCase):
         world = World()
         ant, prey, ax, ay = self._ant_and_prey(world, ant_satiety_ratio=0.10)
         needs_self_feed(ant)
-        for _ in range(12):
-            if not prey.alive:
-                break
-            try_attack_only(ant, prey, attack_power=2.5)
-        try_pickup_carcass(ant, prey)
+        loot = kill_creature(world, prey, ant)
+        pickup_field_biomass(ant, loot)
         ant.satiety = ant.max_satiety * 0.20
         update_nutrition_recovery(ant)
 

@@ -147,7 +147,12 @@
 1. `actions` の各要素について `name` でクラスを解決し、`params` でインスタンス化
 2. `calculate_utility(creature) × weight` が最大の Action を採用
 3. 前ティックと同型で未完了の Action があれば、そのインスタンスを継続（ChaseAction のターゲット保持など）
-4. 有効な Action が一つもない場合は **WanderAction** にフォールバック
+4. 有効な Action が一つもない場合は **フォールバック行動**（既定: sim の `IdleLocomotionAction`）。`mind.fallback_action` / `mind.fallback_params` で上書き可
+
+| mind キー | 型 | 意味 |
+|-----------|-----|------|
+| fallback_action | string | フォールバックの Action 名。省略時 `IdleLocomotionAction` |
+| fallback_params | object | フォールバック専用 params。省略時は `actions` 内の同名エントリの params を流用 |
 
 #### actions（行動一覧）— 共通フィールド
 

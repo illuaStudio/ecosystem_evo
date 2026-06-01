@@ -1,11 +1,5 @@
 """満腹度・飢餓（汎用。拠点給餌ルールは game.affiliation_feed）。"""
 
-from src.sim.utils.target_helpers import has_edible_carcass
-
-
-
-
-
 def satiety_ratio(creature) -> float:
 
     if creature.max_satiety <= 0:

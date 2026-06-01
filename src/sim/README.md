@@ -28,20 +28,21 @@
 
 - sim の `death_policy` は **step 列のみ**（エイリアスなし）
 - 種 JSON の文字列エイリアスは `species.expand_death_policy_content()` で展開
-- パーツ: `spawn_drop`, `convert_corpse_mass`, `remove`, `warp_to`, …
+- パーツ: `spawn_drop`, `remove`, `warp_to`, …
 
 ## 採餌
 
-- `combat/pickup_target.py` — 死骸個体 / field WorldObject の統合探索・移動・消費
+- `combat/pickup_target.py` — field WorldObject の統合探索・移動・消費
 - `utils/forage_helpers.py` — 中立名 API（field 専用の拾得は `loot_helpers`）
 
 ## Compound / 勢力拠点
 
 - `CompoundSystem` — 汎用 storage + access（sim）
 - **ゲーム層** `game/colony_compound.py` — 勢力拠点への預け入れ・給餌
-- **ゲーム層** `game/colony_config.py` — affiliation プロファイル・敗北・種族マップの解釈
+- **sim** `affiliation_layout.py` — ワールド JSON affiliation ブロックの中立データ（`World._affiliation_layout`）
+- **ゲーム層** `game/colony_config.py` — 上記レイアウトへの参照ヘルパ（`ColonyConfig` は型エイリアス）
 - **ゲーム層** `game/affiliation_feed.py` — 拠点給餌判定（種 JSON の `affiliation_feed`）
 - `utils/affiliation_site_helpers.py` — 拠点への距離・座標（ゲーム意味なし）
 - **ゲーム層** `game/colony_orchestrator.py` — コロニー進行（敗北・接続点・備蓄漏れ・所属付与）
-- **ゲーム層** `game/ai/` — コロニー向け AI（帰還・給餌・巡回・産卵・避難・巣穴攻撃）。種 JSON の `ReturnToNestAction` 等はエイリアス名
-- **シミュ層** `sim/ai/actions/` — 汎用行動のみ（徘徊・逃走・狩り・汎用戦闘）。`ensure_game_actions_registered()` で game 行動をレジストリに載せる
+- **ゲーム層** `game/ai/` — 意味のある行動すべて（狩り・戦闘・逃走・捕食・コロニー・避難等）。`register_game_actions()` でレジストリ登録
+- **シミュ層** `sim/ai/actions/` — `Action` 基底・`IdleLocomotionAction`（フォールバック専用）・レジストリ・`UtilityMind`

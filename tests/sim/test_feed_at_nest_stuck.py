@@ -42,10 +42,11 @@ class TestFeedAtNestNotStuck(unittest.TestCase):
         factory = CreatureFactory()
         ant = factory.create("red_ant", world=world, x=400, y=500)
         spider = factory.create("Spider", world=world, x=300, y=500)
-        spider.alive = False
-        spider.remaining_mass = 200.0
         world.add_creature(ant)
         world.add_creature(spider)
+        from tests.sim.field_drop_helpers import kill_creature
+
+        kill_creature(world, spider)
 
         nest = colony(world).get_creature_affiliation_root(ant)
         nest.stored_mass = 300.0

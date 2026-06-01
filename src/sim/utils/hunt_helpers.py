@@ -3,13 +3,11 @@ from __future__ import annotations
 
 from typing import Any, List, Optional
 
-from src.sim.ai.actions import CombatAction, HuntAction
-
 
 def get_hunt_target(creature: Any) -> Optional[Any]:
     """現在 HuntAction 中の獲物／死骸。該当しなければ None。"""
     action = getattr(creature, "current_action", None)
-    if not isinstance(action, HuntAction):
+    if action is None or type(action).__name__ != "HuntAction":
         return None
     target = getattr(action, "_target", None)
     if target is None:
@@ -20,7 +18,7 @@ def get_hunt_target(creature: Any) -> Optional[Any]:
 def get_combat_target(creature: Any) -> Optional[Any]:
     """現在 CombatAction 中の敵対個体。該当しなければ None。"""
     action = getattr(creature, "current_action", None)
-    if not isinstance(action, CombatAction):
+    if action is None or type(action).__name__ != "CombatAction":
         return None
     target = getattr(action, "_target", None)
     if target is None:

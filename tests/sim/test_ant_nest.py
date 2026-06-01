@@ -10,12 +10,10 @@ from src.sim.components.inventory import BiomassItem
 from src.sim.utils.inventory_helpers import inventory_is_loaded, carried_mass_for_kind
 from src.sim.utils.creature_helpers import (
     get_haul_max_carry,
-    has_edible_carcass,
     hunger_ratio,
     try_attack_only,
-    try_pickup_carcass,
 )
-from tests.sim.legacy_corpse_helpers import use_legacy_corpse_on_death
+from tests.sim.field_drop_helpers import kill_creature, loot_after_death, pickup_field_biomass
 from src.config import config
 from src.sim.utils.creature_helpers import distance_to_point
 from src.sim.utils.position_helpers import entity_xy
@@ -199,8 +197,6 @@ class TestAntNest(unittest.TestCase):
         factory = CreatureFactory()
         prey = factory.create("springtail", world=world, x=0, y=0)
         world.add_creature(prey)
-        use_legacy_corpse_on_death(prey)
-
         px, py = entity_xy(predator)
         prey.pos[0] = px + 12
         prey.pos[1] = py
@@ -208,18 +204,13 @@ class TestAntNest(unittest.TestCase):
             prey.position.x = prey.pos[0]
             prey.position.y = prey.pos[1]
 
-        for _ in range(12):
-            if not prey.alive:
-                break
-            try_attack_only(predator, prey, attack_power=2.5)
-        self.assertFalse(prey.alive)
-        self.assertTrue(has_edible_carcass(prey))
-
-        initial_mass = prey.remaining_mass
-        self.assertTrue(try_pickup_carcass(predator, prey))
+        loot = kill_creature(world, prey, predator)
+        self.assertIsNotNone(loot)
+        initial_mass = loot.amount_for_kind("biomass")
+        self.assertTrue(pickup_field_biomass(predator, loot))
         self.assertTrue(inventory_is_loaded(predator))
         self.assertGreater(carried_mass_for_kind(predator), 0)
-        self.assertLess(prey.remaining_mass, initial_mass)
+        self.assertLess(loot.amount_for_kind("biomass"), initial_mass)
 
         deposited = colony(world).deposit_carried(predator)
         self.assertGreater(deposited, 0)
@@ -374,7 +365,6 @@ class TestAntNest(unittest.TestCase):
         factory = CreatureFactory()
         prey = factory.create("Spider", world=world, x=0, y=0)
         world.add_creature(prey)
-        use_legacy_corpse_on_death(prey)
         px, py = entity_xy(predator)
         prey.pos[0] = px + 20
         prey.pos[1] = py
@@ -382,7 +372,7 @@ class TestAntNest(unittest.TestCase):
             prey.position.x = prey.pos[0]
             prey.position.y = prey.pos[1]
 
-        from src.sim.ai.actions import HuntAction
+        from src.game.ai.hunt_actions import HuntAction
 
         action = HuntAction(target_types=["springtail", "Spider"])
         for stored in (0.0, nest.capacity * 0.5, nest.capacity):
@@ -397,7 +387,6 @@ class TestAntNest(unittest.TestCase):
         factory = CreatureFactory()
         prey = factory.create("springtail", world=world, x=0, y=0)
         world.add_creature(prey)
-        use_legacy_corpse_on_death(prey)
         px, py = entity_xy(carrier)
         prey.pos[0] = px + 10
         prey.pos[1] = py
@@ -405,23 +394,20 @@ class TestAntNest(unittest.TestCase):
             prey.position.x = prey.pos[0]
             prey.position.y = prey.pos[1]
 
-        for _ in range(12):
-            if not prey.alive:
-                break
-            try_attack_only(carrier, prey, attack_power=2.5)
-        self.assertTrue(try_pickup_carcass(carrier, prey))
+        loot = kill_creature(world, prey, carrier)
+        self.assertTrue(pickup_field_biomass(carrier, loot))
         first_chunk = carried_mass_for_kind(carrier)
-        remaining_after_first = prey.remaining_mass
+        remaining_after_first = loot.amount_for_kind("biomass")
 
-        other.pos[0] = prey.pos[0]
-        other.pos[1] = prey.pos[1]
+        other.pos[0] = px + 10
+        other.pos[1] = py
         if hasattr(other, "position"):
-            other.position.x = prey.pos[0]
-            other.position.y = prey.pos[1]
+            other.position.x = px + 10
+            other.position.y = py
 
-        self.assertTrue(try_pickup_carcass(other, prey))
+        self.assertTrue(pickup_field_biomass(other, loot))
         self.assertGreater(carried_mass_for_kind(other), 0)
-        self.assertLess(prey.remaining_mass, remaining_after_first)
+        self.assertLess(loot.amount_for_kind("biomass"), remaining_after_first)
         self.assertGreater(first_chunk, 0)
 
     def test_deposit_chunk_does_not_double_storage(self):
@@ -433,7 +419,6 @@ class TestAntNest(unittest.TestCase):
         factory = CreatureFactory()
         prey = factory.create("springtail", world=world, x=0, y=0)
         world.add_creature(prey)
-        use_legacy_corpse_on_death(prey)
         px, py = entity_xy(predator)
         prey.pos[0] = px + 10
         prey.pos[1] = py
@@ -441,11 +426,8 @@ class TestAntNest(unittest.TestCase):
             prey.position.x = prey.pos[0]
             prey.position.y = prey.pos[1]
 
-        for _ in range(12):
-            if not prey.alive:
-                break
-            try_attack_only(predator, prey, attack_power=2.5)
-        self.assertTrue(try_pickup_carcass(predator, prey))
+        loot = kill_creature(world, prey, predator)
+        self.assertTrue(pickup_field_biomass(predator, loot))
         carried = carried_mass_for_kind(predator)
         deposited = colony(world).deposit_carried(predator)
         self.assertGreater(deposited, 0)

@@ -8,11 +8,9 @@ from src.sim.ai.action_config import get_mind_action_param
 from src.sim.ai.actions.base import Action
 from src.sim.shelter.state import is_creature_sheltered
 from src.sim.utils.creature_helpers import (
-    consume_carcass,
     consume_carried_for_kind,
     contact_range,
     distance_to_point,
-    find_nearest_field_carcass_among,
     hunger_ratio,
     is_hungry,
     move_toward,
@@ -61,6 +59,10 @@ class ScavengeCarriedAction(Action):
 
 class ReturnToAffiliationDepositAction(Action):
     """運搬中の死骸を拠点へ持ち帰り、貯蔵にする（飢餓時は行わない）。"""
+
+    @classmethod
+    def continues_while_carrying(cls) -> bool:
+        return True
 
     DEFAULT_PARAMS = {
         "speed_multiplier": 1.1,
@@ -131,19 +133,24 @@ class FeedAtAffiliationSiteAction(Action):
         species = self._scavenge_species()
         if species is None:
             return False
-        carcass = find_nearest_field_carcass_among(creature, species, exclude=creature)
-        if carcass is None:
+        from src.sim.combat.pickup_target import find_nearest_field_pickup_among
+        from src.sim.utils.field_pickup_helpers import is_field_pickup, pickup_radius
+        from src.sim.utils.loot_helpers import consume_loot_biomass
+
+        pickup = find_nearest_field_pickup_among(creature, species)
+        if pickup is None or not is_field_pickup(pickup):
             return False
         pad = float(self.params["scavenge_contact_padding"])
-        reach = contact_range(creature, carcass, pad)
-        dist = move_toward(
+        reach = pickup_radius(pickup) + pad
+        dist = move_toward_point(
             creature,
-            carcass,
+            pickup.x,
+            pickup.y,
             float(self.params.get("approach_speed_multiplier", 0.95)),
         )
         if dist <= reach * 1.05:
             feed_cfg = get_affiliation_feed_config(creature)
-            consume_carcass(creature, carcass, bite_gain=feed_cfg["bite_gain"])
+            consume_loot_biomass(creature, pickup, bite_gain=feed_cfg["bite_gain"])
         return True
 
     def _wants_affiliation_feed(self, creature) -> bool:

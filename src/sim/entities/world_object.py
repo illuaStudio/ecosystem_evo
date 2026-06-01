@@ -40,7 +40,6 @@ class WorldObject:
     pickup_radius: float = 12.0
     pickup_modes: Tuple[str, ...] = ()
     deplete_when_empty: bool = True
-    decay_rate: float = 0.0
     initial_fill: float = 0.0
     pickup_species_filter: str = ""
     size_from_fill_ratio: bool = False

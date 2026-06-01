@@ -17,9 +17,9 @@ from src.sim.events import (
     SpawnEvent,
 )
 from src.sim.systems.world import World
-from src.sim.utils.creature_helpers import try_attack_only, try_pickup_carcass
+from src.sim.utils.creature_helpers import try_attack_only
 from src.sim.utils.loot_helpers import try_pickup_loot
-from tests.sim.legacy_corpse_helpers import loot_after_death
+from tests.sim.field_drop_helpers import loot_after_death
 from tests.sim.world_fixtures import affiliation_settings
 
 

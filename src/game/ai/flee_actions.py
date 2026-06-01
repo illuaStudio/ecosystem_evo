@@ -1,36 +1,16 @@
+"""ゲーム層: 脅威種からの逃走。"""
+from __future__ import annotations
+
 from src.sim.ai.actions.base import Action
 from src.sim.utils.creature_helpers import (
     closeness_ratio,
     find_nearest_flee_threat_among,
-    hunger_ratio,
     is_flee_latch_active,
     is_flee_threat,
     is_in_vision,
     move_away_from,
-    needs_self_feed,
     update_flee_latch,
-    wander_step,
 )
-
-
-class WanderAction(Action):
-    DEFAULT_PARAMS = {
-        "angle_range": 30,
-        "speed_multiplier": 0.85,
-    }
-
-    def execute(self, creature) -> bool:
-        wander_step(
-            creature,
-            self.params["angle_range"],
-            self.params["speed_multiplier"],
-        )
-        return False
-
-    def calculate_utility(self, creature) -> float:
-        if getattr(creature, "affiliation", None) is not None and needs_self_feed(creature):
-            return 0.0
-        return 0.6
 
 
 class FleeAction(Action):
@@ -47,8 +27,7 @@ class FleeAction(Action):
         self._threat = None
 
     def _threats(self) -> tuple[str, ...]:
-        raw = self.params.get("threat_species") or ()
-        return tuple(raw)
+        return tuple(self.params.get("threat_species") or ())
 
     def execute(self, creature) -> bool:
         threats = self._threats()

@@ -12,15 +12,17 @@ _orchestrators: weakref.WeakKeyDictionary["World", "ColonyOrchestrator"] = (
     weakref.WeakKeyDictionary()
 )
 
+DEFAULT_SHELTER_ALLOWED_ACTION_NAMES = frozenset({
+    "SeekShelterAction",
+    "FeedAtNestAction",
+    "FeedAtAffiliationSiteAction",
+    "AffiliationReproduceAction",
+})
+
 
 def attach_colony_config(world: "World") -> None:
-    """World の affiliation レイアウトを ColonyConfig に解釈して載せる。"""
-    from src.game.colony_config import ColonyConfig
-
-    if getattr(world, "_colony_config", None) is None:
-        world._colony_config = ColonyConfig.from_affiliation_block(
-            getattr(world, "_affiliation_layout_raw", None) or {}
-        )
+    """コロニー用の避難所許可行動などを World に載せる（レイアウトは sim が既に解析済み）。"""
+    world.shelter_allowed_action_names = DEFAULT_SHELTER_ALLOWED_ACTION_NAMES
 
 
 def attach_colony_orchestrator(world: "World", orchestrator: "ColonyOrchestrator") -> None:

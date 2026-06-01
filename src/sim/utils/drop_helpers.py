@@ -26,14 +26,8 @@ def apply_spawn_drop_step(creature, params: Mapping[str, Any] | None = None) -> 
     if "pickup_species_filter" not in overrides:
         overrides["pickup_species_filter"] = creature.species.name
 
-    rate = float(creature.traits.get("corpse_decay_rate", 0.00003))
     color = tuple(getattr(creature.species, "color", (140, 120, 90)))
     caps = dict(overrides.get("capabilities") or {})
-    pickup = dict(caps.get("pickup") or {})
-    decay = dict(pickup.get("decay") or {})
-    decay["rate"] = rate
-    pickup["decay"] = decay
-    caps["pickup"] = pickup
     render = dict(caps.get("render") or {})
     render.setdefault("color", list(color))
     caps["render"] = render

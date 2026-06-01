@@ -66,7 +66,6 @@ TRAIT_DISPLAY_LABELS = {
     "max_satiety": "最大満腹",
     "metabolism_per_tick": "代謝/tick",
     "starvation_hp_per_tick": "飢餓HP/tick",
-    "corpse_decay_rate": "死骸分解",
     "satiety_hungry_below": "飢餓閾値",
     "satiety_feed_below": "食事開始閾値",
     "satiety_full_above": "満腹閾値",

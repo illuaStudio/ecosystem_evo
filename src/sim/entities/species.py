@@ -16,9 +16,8 @@ ESSENTIAL_TRAIT_KEYS = frozenset({
     "satiety_full_above",
 })
 
-# ESSENTIAL に無くても JSON にあればcreature.traitsへ渡す（CorpseComponent 等が参照）
+# ESSENTIAL に無くても JSON にあれば creature.traits へ渡す
 OPTIONAL_TRAIT_KEYS = frozenset({
-    "corpse_decay_rate",
     "poison_resist",
     "starvation_hp_per_tick",
     "field_immunities",

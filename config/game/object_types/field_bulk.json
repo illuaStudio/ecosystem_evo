@@ -11,8 +11,7 @@
       "radius": 12,
       "modes": ["consume", "haul"],
       "lifecycle": "ephemeral",
-      "deplete_when_empty": true,
-      "decay": { "rate": 0.00003 }
+      "deplete_when_empty": true
     },
     "render": {
       "color": [140, 120, 90],

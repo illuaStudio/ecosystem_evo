@@ -10,9 +10,8 @@ from src.sim.utils.inventory_helpers import (
     inventory_is_loaded,
     release_inventory_biomass,
     carried_mass_for_kind,
-    try_pickup_carcass,
 )
-from tests.sim.legacy_corpse_helpers import become_legacy_corpse
+from tests.sim.field_drop_helpers import kill_creature, pickup_field_biomass
 from src.sim.utils.position_helpers import entity_xy
 
 
@@ -65,16 +64,16 @@ class TestInventory(unittest.TestCase):
 
         prey = factory.create("springtail", world=world, x=102, y=100)
         world.add_creature(prey)
-        prey.hp = 0
-        become_legacy_corpse(prey)
-        prey.remaining_mass = 25.0
+        loot = kill_creature(world, prey)
+        loot.storage.stack.set_amount_for_kind("biomass", 25.0)
+        loot.initial_fill = 25.0
 
-        self.assertTrue(try_pickup_carcass(ant, prey))
+        self.assertTrue(pickup_field_biomass(ant, loot))
         self.assertTrue(inventory_is_loaded(ant))
         self.assertAlmostEqual(carried_mass_for_kind(ant), 25.0)
-        self.assertAlmostEqual(prey.remaining_mass, 0.0, places=1)
+        self.assertTrue(loot.is_pickup_depleted())
 
-    def test_release_does_not_resurrect_removed_carcass(self):
+    def test_release_returns_biomass_to_field_loot(self):
         world = World()
         factory = CreatureFactory()
         ant = factory.create("red_ant", world=world, x=100, y=100)
@@ -82,24 +81,15 @@ class TestInventory(unittest.TestCase):
 
         prey = factory.create("springtail", world=world, x=102, y=100)
         world.add_creature(prey)
-        prey.hp = 0
-        become_legacy_corpse(prey)
-        prey.remaining_mass = 30.0
+        loot = kill_creature(world, prey)
 
-        self.assertTrue(try_pickup_carcass(ant, prey))
+        self.assertTrue(pickup_field_biomass(ant, loot))
         self.assertNotIn(prey, world.creatures)
         self.assertTrue(inventory_is_loaded(ant))
 
         release_inventory_biomass(ant)
-        self.assertNotIn(prey, world.creatures)
-
-    def test_clear_inventory_for_kind(self):
-        world = World()
-        factory = CreatureFactory()
-        ant = factory.create("red_ant", world=world, x=100, y=100)
-        ant.inventory.slots[0].item = BiomassItem(amount=33.0)
-        self.assertAlmostEqual(clear_inventory_for_kind(ant), 33.0)
         self.assertFalse(inventory_is_loaded(ant))
+        self.assertGreater(loot.amount_for_kind("biomass"), 0)
 
 
 if __name__ == "__main__":

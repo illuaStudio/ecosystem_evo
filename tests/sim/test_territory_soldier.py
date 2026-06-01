@@ -7,7 +7,9 @@ def colony(world):
 import math
 import unittest
 
-from src.sim.ai.actions import CombatAction, FleeAction, HuntAction
+from src.game.ai.combat_actions import CombatAction
+from src.game.ai.flee_actions import FleeAction
+from src.game.ai.hunt_actions import HuntAction
 from src.sim.entities.creature_factory import CreatureFactory
 from src.sim.systems.world import World
 from src.sim.utils.creature_helpers import (

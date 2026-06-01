@@ -5,15 +5,10 @@ from src.sim.components.inventory import BiomassItem, InventoryComponent, Invent
 from src.sim.utils.geo_helpers import distance_between
 from src.sim.utils.movement_helpers import contact_range
 from src.sim.utils.position_helpers import entity_xy
-from src.sim.utils.target_helpers import has_edible_carcass
-
-
 def _legacy_max_carry_from_mind(species, default: float = 50.0) -> float:
-    """ReturnToNestAction.params.base_max_carry（移行前の JSON）。"""
+    """mind.actions の params.base_max_carry（帰還系行動）。"""
     mind_data = getattr(species, "mind_data", {}) or {}
     for action_def in mind_data.get("actions", []):
-        if action_def.get("name") != "ReturnToNestAction":
-            continue
         params = action_def.get("params", {}) or {}
         if "base_max_carry" in params:
             return max(0.0, float(params["base_max_carry"]))
@@ -73,13 +68,6 @@ def get_haul_max_carry(creature, default: float = 50.0) -> float:
     return inv.slot_max_mass(0)
 
 
-def _remove_depleted_carcass(world, carcass) -> None:
-    if world is None or carcass is None:
-        return
-    if carcass.remaining_mass <= 0 and carcass in world.creatures:
-        world.remove_creature(carcass)
-
-
 def _detach_loot_from_inventory(inv: InventoryComponent, loot) -> None:
     if inv is None or loot is None:
         return
@@ -89,91 +77,21 @@ def _detach_loot_from_inventory(inv: InventoryComponent, loot) -> None:
             item.source_loot = None
 
 
-def _detach_carcass_from_inventory(inv: InventoryComponent, carcass) -> None:
-    """フィールドから消えた死骸への参照を外す（復活防止）。"""
-    if inv is None or carcass is None:
+def _return_biomass_chunk(world, chunk: float, loot) -> None:
+    if chunk <= 0 or loot is None:
         return
-    for slot in inv.slots:
-        item = slot.item
-        if isinstance(item, BiomassItem) and item.source_carcass is carcass:
-            item.source_carcass = None
+    from src.sim.utils.loot_helpers import return_biomass_to_loot
 
-
-def _return_biomass_chunk(
-    world,
-    carrier,
-    chunk: float,
-    carcass,
-    *,
-    cx: float,
-    cy: float,
-    loot=None,
-) -> None:
-    """チャンクを死骸または地面ルートへ戻す。"""
-    if chunk <= 0:
-        return
-    if loot is not None:
-        from src.sim.utils.loot_helpers import return_biomass_to_loot
-
-        return_biomass_to_loot(world, chunk, loot)
-        return
-    if (
-        carcass is not None
-        and not getattr(carcass, "alive", True)
-        and world is not None
-        and carcass in world.creatures
-    ):
-        carcass.remaining_mass += chunk
-        return
-
-
-def try_pickup_carcass(carrier, carcass, contact_padding: float = 8.0) -> bool:
-    """接触した死骸から、空きスロット数ぶんチャンクを切り出す。"""
-    inv = get_creature_inventory(carrier)
-    if inv is None or inv.empty_slot_count <= 0:
-        return False
-    world = carrier.world
-    if not has_edible_carcass(carcass):
-        return False
-
-    dist = distance_between(carrier, carcass)
-    reach = contact_range(carrier, carcass, contact_padding)
-    if dist > reach * 1.05:
-        return False
-
-    picked = False
-    picked_amount = 0.0
-    for slot in inv.slots:
-        if not slot.can_accept("biomass"):
-            continue
-        if carcass.remaining_mass <= 0:
-            break
-        chunk = min(float(carcass.remaining_mass), slot.max_mass)
-        if chunk <= 0:
-            continue
-        carcass.remaining_mass -= chunk
-        slot.item = BiomassItem(amount=chunk, source_carcass=carcass)
-        picked = True
-        picked_amount += chunk
-
-    if picked and world is not None:
-        _remove_depleted_carcass(world, carcass)
-        if carcass.remaining_mass <= 0 or carcass not in world.creatures:
-            _detach_carcass_from_inventory(inv, carcass)
-        from src.sim.emitters import emit_item_found
-
-        emit_item_found(world, carrier, item_kind="biomass", amount=picked_amount)
-    return picked
+    return_biomass_to_loot(world, chunk, loot)
 
 
 def release_inventory_biomass(carrier) -> None:
-    """インベントリ内の全バイオマスを元死骸へ戻すかマナ還元。"""
+    """インベントリ内の全バイオマスを元の地面ルートへ戻す。"""
     inv = get_creature_inventory(carrier)
     if inv is None or not inv.is_loaded:
         return
 
     world = carrier.world
-    cx, cy = entity_xy(carrier)
 
     for slot in list(inv.slots):
         item = slot.item
@@ -181,20 +99,11 @@ def release_inventory_biomass(carrier) -> None:
             inv.clear_slot(slot)
             continue
         chunk = float(item.amount)
-        carcass = item.source_carcass
         loot = item.source_loot
         inv.clear_slot(slot)
         if chunk <= 0:
             continue
-        _return_biomass_chunk(
-            world,
-            carrier,
-            chunk,
-            carcass,
-            cx=cx,
-            cy=cy,
-            loot=loot,
-        )
+        _return_biomass_chunk(world, chunk, loot)
 
 
 def consume_inventory_for_kind(creature, bite_gain: float = 1.35, *, kind: str = "biomass") -> float:
@@ -269,8 +178,8 @@ def format_inventory_status(creature) -> str | None:
         if isinstance(item, BiomassItem):
             w = item.weight(mass_per_unit=inv.mass_per_unit)
             src = ""
-            if item.source_carcass is not None:
-                src = f"（元: {item.source_carcass.species.name}）"
+            if item.source_loot is not None and item.source_loot.pickup_species_filter:
+                src = f"（元: {item.source_loot.pickup_species_filter}）"
             lines.append(
                 f"  [{i + 1}] バイオマス {item.amount:.1f} / {slot.max_mass:.1f}  "
                 f"(重量 {w:.1f}){src}"

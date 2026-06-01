@@ -38,7 +38,7 @@ class CreatureRenderer:
         if sheltered and not show_sheltered_debug:
             return
 
-        if not creature.alive and creature.remaining_mass <= 0:
+        if not creature.alive:
             return
 
         cx, cy = entity_xy(creature)
@@ -50,11 +50,7 @@ class CreatureRenderer:
 
         color = creature.species.color
         size = int(creature.traits.get("base_size", 8))
-        is_carcass = not creature.alive
-
-        if is_carcass:
-            color = tuple(max(0, c // 2) for c in color)
-        elif sheltered and show_sheltered_debug:
+        if sheltered and show_sheltered_debug:
             color = tuple(min(255, max(0, c // 2 + 50)) for c in color)
 
         if hasattr(creature, "last_pos"):
@@ -77,32 +73,23 @@ class CreatureRenderer:
         bar_w = int(size * 3.0)
         bar_x = sx - bar_w // 2
 
-        if is_carcass:
-            biomass = creature.corpse_fill_ratio() if hasattr(creature, "biomass_ratio") else 0.0
-            bar_y = sy - size - 22
-            bar_color = CreatureRenderer._biomass_bar_color(biomass)
-            pygame.draw.rect(screen, (40, 40, 40), (bar_x, bar_y, bar_w, 7))
-            pygame.draw.rect(
-                screen, bar_color, (bar_x, bar_y, int(bar_w * biomass), 7)
-            )
-        else:
-            bar_y_sat = sy - size - 24
-            bar_y_hp = sy - size - 14
-            sat_fill = satiety_ratio(creature)
-            hp_fill = hp_ratio(creature)
+        bar_y_sat = sy - size - 24
+        bar_y_hp = sy - size - 14
+        sat_fill = satiety_ratio(creature)
+        hp_fill = hp_ratio(creature)
 
-            pygame.draw.rect(screen, (40, 40, 40), (bar_x, bar_y_sat, bar_w, 6))
-            pygame.draw.rect(
-                screen,
-                (80 + int(sat_fill * 175), 255, 80),
-                (bar_x, bar_y_sat, int(bar_w * sat_fill), 6),
-            )
-            pygame.draw.rect(screen, (40, 40, 40), (bar_x, bar_y_hp, bar_w, 6))
-            pygame.draw.rect(
-                screen,
-                (255, 80 + int(hp_fill * 100), 80),
-                (bar_x, bar_y_hp, int(bar_w * hp_fill), 6),
-            )
+        pygame.draw.rect(screen, (40, 40, 40), (bar_x, bar_y_sat, bar_w, 6))
+        pygame.draw.rect(
+            screen,
+            (80 + int(sat_fill * 175), 255, 80),
+            (bar_x, bar_y_sat, int(bar_w * sat_fill), 6),
+        )
+        pygame.draw.rect(screen, (40, 40, 40), (bar_x, bar_y_hp, bar_w, 6))
+        pygame.draw.rect(
+            screen,
+            (255, 80 + int(hp_fill * 100), 80),
+            (bar_x, bar_y_hp, int(bar_w * hp_fill), 6),
+        )
 
         colony = getattr(creature, "colony", None)
         colony_label = COLONY_SPECIES_LABELS.get(creature.species.name)
@@ -121,12 +108,10 @@ class CreatureRenderer:
                 if (
                     slot is not None
                     and isinstance(slot.item, BiomassItem)
-                    and slot.item.source_carcass is not None
+                    and slot.item.source_loot is not None
+                    and slot.item.source_loot.color
                 ):
-                        prey_color = tuple(
-                            max(0, c // 2)
-                            for c in slot.item.source_carcass.species.color
-                        )
+                    prey_color = tuple(max(0, c // 2) for c in slot.item.source_loot.color)
                 csize = max(3, int(size * 0.35 + chunk_ratio * size * 0.45))
                 pygame.draw.circle(
                     screen, prey_color, (sx + size + 6, sy), csize

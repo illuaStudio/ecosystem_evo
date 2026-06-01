@@ -48,14 +48,6 @@ def spawn_creature_drop(creature, params: dict | None = None) -> None:
     apply_spawn_drop_step(creature, params or {})
 
 
-def convert_creature_corpse_mass(creature) -> None:
-    """死骸個体ルート用: 残留量を trait から設定（remove しない）。"""
-    size = float(creature.traits.get("base_size", 9.0))
-    mass = size * 200.0
-    creature.corpse.remaining_mass = mass
-    creature.corpse.initial_mass = mass
-
-
 def remove_creature_from_world(creature) -> bool:
     world = getattr(creature, "world", None)
     if world is not None and creature in world.creatures:
@@ -155,7 +147,6 @@ _PART_BUILDERS = {
         speed_multiplier=float(p.get("speed_multiplier", 1.0)),
         arrival_radius=float(p.get("arrival_radius", 8.0)),
     ),
-    "convert_corpse_mass": lambda _p: InstantPart(convert_creature_corpse_mass),
     "spawn_drop": lambda p: InstantPart(lambda c: spawn_creature_drop(c, p)),
     "remove": lambda _p: InstantPart(remove_creature_from_world, removes_creature=True),
 }

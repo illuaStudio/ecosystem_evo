@@ -20,7 +20,6 @@ class InventoryItem:
 class BiomassItem(InventoryItem):
     kind: str = "biomass"
     amount: float = 0.0
-    source_carcass: Any = None
     source_loot: Any = None
 
     def weight(self, *, mass_per_unit: float) -> float:

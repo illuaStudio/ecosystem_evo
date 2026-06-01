@@ -236,7 +236,7 @@ class ColonyOrchestrator:
     def defeat_affiliation(self, affiliation_id: str) -> None:
         if not affiliation_id:
             return
-        cfg = self.world._colony_config
+        cfg = self.world._affiliation_layout
         if cfg.is_defeated(affiliation_id):
             return
 

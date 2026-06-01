@@ -1,10 +1,38 @@
 """ゲーム層: コロニー繁殖（女王産卵など）。"""
 from __future__ import annotations
 
+import math
 import random
 
 from src.game.colony_session import get_colony_orchestrator
-from src.sim.ai.actions.reproduction import ReproductionAction
+from src.sim.ai.actions.base import Action
+from src.sim.utils.creature_helpers import is_at_population_cap
+from src.sim.utils.position_helpers import entity_xy
+
+
+class ReproductionAction(Action):
+    """繁殖系アクションの基底。サブクラスで spawn 戦略を差し替える。"""
+
+    def _blocked_by_population_cap(self, creature) -> bool:
+        return is_at_population_cap(creature)
+
+    def _offspring_position(self, parent, distance: float) -> tuple[float, float]:
+        angle = random.uniform(0, 360)
+        px, py = entity_xy(parent)
+        x = px + math.cos(math.radians(angle)) * distance
+        y = py + math.sin(math.radians(angle)) * distance
+        if parent.world:
+            margin = 30
+            x = max(margin, min(parent.world.width - margin, x))
+            y = max(margin, min(parent.world.height - margin, y))
+        return x, y
+
+    def _register_offspring(self, parent, offspring, *, spawn_source: str = "reproduction") -> None:
+        if parent.world:
+            parent.world.add_creature(
+                offspring, spawn_source=spawn_source, parent=parent
+            )
+
 from src.sim.utils.creature_helpers import (
     count_alive_by_species,
     get_species_population_cap,

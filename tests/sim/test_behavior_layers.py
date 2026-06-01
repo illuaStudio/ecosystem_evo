@@ -67,26 +67,6 @@ class TestDeathPolicy(unittest.TestCase):
         )
 
 
-class TestPostLifeDecompose(unittest.TestCase):
-    def test_loot_decompose_via_world_update(self):
-        world = World()
-        factory = CreatureFactory()
-        spider = factory.create("Spider", world=world, x=100, y=100)
-        world.add_creature(spider)
-        spider.become_corpse()
-        pickups = list(world.world_object_system.iter_field_pickups())
-        self.assertEqual(len(pickups), 1)
-        initial = pickups[0].amount_for_kind("biomass")
-
-        ticks = 0
-        while world.world_object_system.iter_field_pickups() and ticks < 5000:
-            world.world_object_system.update_field_objects(10.0)
-            ticks += 1
-
-        self.assertGreater(ticks, 0)
-        self.assertEqual(len(world.world_object_system.iter_field_pickups()), 0)
-
-
 class TestSharedParts(unittest.TestCase):
     def test_warp_directive(self):
         world = World()

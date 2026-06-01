@@ -280,7 +280,7 @@ class TestHoleCombat(unittest.TestCase):
     def test_attack_hole_yields_when_intruder_in_territory(self):
 
         from src.game.ai.combat_actions import AttackHoleAction
-        from src.sim.ai.actions import CombatAction
+        from src.game.ai.combat_actions import CombatAction
 
 
 

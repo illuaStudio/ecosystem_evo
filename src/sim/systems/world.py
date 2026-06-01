@@ -1,7 +1,6 @@
 # world.py
 import json
 import math
-import os
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
@@ -97,8 +96,13 @@ class World:
             layout.get("population_limits", {})
         )
 
+        from src.sim.affiliation_layout import AffiliationLayoutState
+
         self._affiliation_layout_raw = dict(layout.get("affiliation") or {})
-        self._colony_config = None
+        self._affiliation_layout = AffiliationLayoutState.from_block(
+            self._affiliation_layout_raw
+        )
+        self.shelter_allowed_action_names: frozenset[str] = frozenset()
         self.events = EventBus()
         self._combat_pairs_this_tick: set[tuple] = set()
 
@@ -120,13 +124,6 @@ class World:
         self.spawner.spawn_initial_entities(layout)
         self.field_effect_cache.rebuild()
         self.sim_dt = 1.0
-        if os.environ.get("PYTEST_CURRENT_TEST") and self.on_creature_added is None:
-            try:
-                from tests.sim.colony_binding import bind_colony
-
-                bind_colony(self)
-            except ImportError:
-                pass
 
     @property
     def affiliation_profiles(self) -> dict:
@@ -136,12 +133,7 @@ class World:
 
     @affiliation_profiles.setter
     def affiliation_profiles(self, value: dict) -> None:
-        if self._colony_config is not None:
-            self._colony_config.profiles = dict(value)
-        else:
-            raw = dict(self._affiliation_layout_raw)
-            raw["profiles"] = dict(value)
-            self._affiliation_layout_raw = raw
+        self._affiliation_layout.profiles = dict(value)
 
     @property
     def affiliation_settings(self) -> dict:
@@ -151,36 +143,19 @@ class World:
 
     @affiliation_settings.setter
     def affiliation_settings(self, value: dict) -> None:
-        if self._colony_config is not None:
-            self._colony_config.settings = dict(value)
-        else:
-            raw = dict(self._affiliation_layout_raw)
-            for k, v in dict(value).items():
-                raw[k] = v
-            self._affiliation_layout_raw = raw
+        self._affiliation_layout.settings = dict(value)
 
     @property
     def affiliation_styles(self) -> dict:
-        cfg = self._colony_config
-        if cfg is not None:
-            return cfg.styles
-        return dict(self._affiliation_layout_raw.get("factions") or {})
+        return self._affiliation_layout.styles
 
     @affiliation_styles.setter
     def affiliation_styles(self, value: dict) -> None:
-        if self._colony_config is not None:
-            self._colony_config.styles = dict(value)
-        else:
-            raw = dict(self._affiliation_layout_raw)
-            raw["factions"] = dict(value)
-            self._affiliation_layout_raw = raw
+        self._affiliation_layout.styles = dict(value)
 
     @property
     def affiliation_species(self) -> dict:
-        cfg = self._colony_config
-        if cfg is not None:
-            return cfg.species_by_affiliation
-        return dict(self._affiliation_layout_raw.get("affiliation_species") or {})
+        return self._affiliation_layout.species_by_affiliation
 
     @affiliation_species.setter
     def affiliation_species(self, value: dict) -> None:
@@ -188,34 +163,23 @@ class World:
             str(k): list(v) if isinstance(v, (list, tuple)) else [v]
             for k, v in dict(value).items()
         }
-        if self._colony_config is not None:
-            self._colony_config.species_by_affiliation = mapped
-        else:
-            raw = dict(self._affiliation_layout_raw)
-            raw["affiliation_species"] = mapped
-            self._affiliation_layout_raw = raw
+        self._affiliation_layout.species_by_affiliation = mapped
 
     @property
     def defeated_affiliations(self) -> set[str]:
-        if self._colony_config is not None:
-            return self._colony_config.defeated
-        return set()
+        return self._affiliation_layout.defeated
 
     @defeated_affiliations.setter
     def defeated_affiliations(self, value) -> None:
-        if self._colony_config is not None:
-            self._colony_config.defeated = set(value)
+        self._affiliation_layout.defeated = set(value)
 
     @property
     def last_defeat_message(self) -> str:
-        if self._colony_config is not None:
-            return self._colony_config.last_defeat_message
-        return ""
+        return self._affiliation_layout.last_defeat_message
 
     @last_defeat_message.setter
     def last_defeat_message(self, value: str) -> None:
-        if self._colony_config is not None:
-            self._colony_config.last_defeat_message = str(value)
+        self._affiliation_layout.last_defeat_message = str(value)
 
     @property
     def ambient_spawner(self):

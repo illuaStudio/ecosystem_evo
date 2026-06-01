@@ -1,14 +1,16 @@
-"""Action 共通: 所属拠点リーシュ・テリトリー・個体ターゲット追跡。"""
+"""ゲーム層 Action 共通: 所属拠点リーシュ・テリトリー・個体ターゲット追跡。"""
 from __future__ import annotations
 
 from src.sim.utils.movement_helpers import is_beyond_nest_leash, return_toward_nest
 
 
 class AffiliationLeashMixin:
-    """nest_leash_radius 超過時に所属拠点へ戻る（JSON キー名は後方互換）。"""
+    """affiliation_site_leash_radius / nest_leash_radius 超過時に所属拠点へ戻る。"""
 
     def _nest_leash(self):
-        raw = self.params.get("nest_leash_radius")
+        raw = self.params.get("affiliation_site_leash_radius")
+        if raw is None:
+            raw = self.params.get("nest_leash_radius")
         if raw is None:
             return None
         return float(raw)
@@ -25,7 +27,6 @@ class AffiliationLeashMixin:
         return True
 
 
-# 後方互換
 NestLeashMixin = AffiliationLeashMixin
 
 

@@ -1,151 +1,46 @@
+"""ゲーム層: 所属拠点向け狩り（備蓄・給餌抑止・拠点リーシュ）。"""
+from __future__ import annotations
+
+from src.game.affiliation_feed import affiliation_blocks_hunt
 from src.sim.constants.micro_fauna import DEFAULT_MICRO_FAUNA_SPECIES
-from src.sim.utils.field_pickup_helpers import is_field_pickup, pickup_radius
 from src.sim.combat.pickup_target import (
+    consume_forage_target,
     find_nearest_forage_among,
     is_forage_field_target,
     is_trackable_forage_target,
     move_toward_forage_target,
-    consume_forage_target,
     try_pickup_forage_target,
-)
-from src.sim.utils.field_pickup_helpers import pickup_on_field
-from src.sim.ai.actions.base import Action
-from src.sim.ai.actions.tracking import (
-    AffiliationLeashMixin,
-    CreatureTargetMixin,
-    TerritoryOnlyMixin,
 )
 from src.sim.combat.target_query import (
     find_nearest_prey_creature,
     is_trackable_prey_creature,
 )
-from src.sim.utils.creature_helpers import is_creature_threatening_territory
-from src.sim.utils.movement_helpers import is_beyond_nest_leash
-from src.sim.utils.inventory_helpers import inventory_is_loaded
+from src.sim.ai.actions.base import Action
+from src.game.ai.tracking import (
+    AffiliationLeashMixin,
+    CreatureTargetMixin,
+    TerritoryOnlyMixin,
+)
 from src.sim.utils.creature_helpers import (
-    carcass_on_field,
     closeness_ratio,
-    consume_carcass,
     contact_range,
     distance_between,
-    find_nearest_edible_among,
-    find_nearest_field_carcass_among,
+    is_creature_threatening_territory,
     is_flee_latch_active,
-    is_trackable_prey,
-    move_toward,
     move_toward_contact,
     needs_self_feed,
     try_attack_only,
-    try_pickup_carcass,
-    try_predate,
     wander_step,
 )
-
+from src.sim.utils.field_pickup_helpers import (
+    is_field_pickup,
+    pickup_on_field,
+    pickup_radius,
+)
+from src.sim.utils.inventory_helpers import inventory_is_loaded
+from src.sim.utils.movement_helpers import is_beyond_nest_leash
 
 _MICRO_FAUNA_DEFAULT = DEFAULT_MICRO_FAUNA_SPECIES[0]
-
-
-class ChaseAction(Action):
-    """視界内の指定種族を追跡し、接触時に bite → consume_carcass で捕食する。"""
-
-    DEFAULT_PARAMS = {
-        "target_type": _MICRO_FAUNA_DEFAULT,
-        "target_types": None,
-        "speed_multiplier": 1.25,
-        "contact_padding": 8.0,
-        "bite_gain": 1.35,
-        "attack_power": 1.0,
-    }
-
-    def __init__(self, **params):
-        super().__init__(**params)
-        self._target = None
-
-    def execute(self, creature) -> bool:
-        if not creature.world:
-            return False
-
-        target = self._resolve_target(creature)
-        if target is None:
-            return False
-
-        pad = float(self.params["contact_padding"])
-        if is_field_pickup(target):
-            reach = pickup_radius(target) + pad
-        else:
-            reach = contact_range(creature, target, pad)
-        prey_species = self._prey_species()
-
-        if is_field_pickup(target) or not target.alive:
-            if not is_forage_field_target(creature.world, target):
-                self._target = None
-                return False
-            dist = move_toward_forage_target(
-                creature,
-                target,
-                float(self.params["speed_multiplier"]),
-            )
-            if dist <= reach * 1.05:
-                consume_forage_target(
-                    creature,
-                    target,
-                    bite_gain=float(self.params["bite_gain"]),
-                )
-        else:
-            dist = move_toward_contact(
-                creature, target, self.params["speed_multiplier"], pad
-            )
-            if dist <= reach:
-                try_predate(
-                    creature,
-                    target,
-                    attack_power=float(self.params["attack_power"]),
-                    bite_gain=float(self.params["bite_gain"]),
-                )
-
-        if not self._trackable_prey(creature, target, prey_species):
-            self._target = None
-
-        return False
-
-    def _prey_species(self) -> tuple[str, ...]:
-        return chase_prey_species(self.params)
-
-    def _trackable_prey(self, creature, target, species: tuple[str, ...]) -> bool:
-        if is_field_pickup(target) or (
-            target is not None and not getattr(target, "alive", True)
-        ):
-            return is_trackable_forage_target(creature, target, species)
-        return is_trackable_prey(creature, target, species)
-
-    def calculate_utility(self, creature) -> float:
-        prey = find_nearest_edible_among(
-            creature, self._prey_species(), exclude=creature
-        )
-        if prey is None:
-            return 0.0
-
-        if not needs_self_feed(creature):
-            return 0.0
-
-        closeness = closeness_ratio(creature, prey)
-        return min(1.0, 0.35 + closeness * 0.65)
-
-    def _resolve_target(self, creature):
-        species = self._prey_species()
-        if self._trackable_prey(creature, self._target, species):
-            return self._target
-        self._target = find_nearest_edible_among(
-            creature, species, exclude=creature
-        )
-        return self._target
-
-
-def chase_prey_species(params: dict) -> tuple[str, ...]:
-    """ChaseAction の target_types（優先）または target_type。"""
-    if params.get("target_types"):
-        return tuple(params["target_types"])
-    return (params.get("target_type", _MICRO_FAUNA_DEFAULT),)
 
 
 def hunt_prey_species(params: dict) -> tuple[str, ...]:
@@ -156,7 +51,7 @@ def hunt_prey_species(params: dict) -> tuple[str, ...]:
 
 
 class HuntAction(AffiliationLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action):
-    """獲物を追跡し攻撃・殺害。満腹時は死骸を拾って巣へ、飢餓時はその場で食べる。"""
+    """獲物を追跡し攻撃・殺害。満腹時は地面バイオマスを拾って拠点へ、飢餓時はその場で食べる。"""
 
     DEFAULT_PARAMS = {
         "target_type": _MICRO_FAUNA_DEFAULT,
@@ -220,7 +115,6 @@ class HuntAction(AffiliationLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin,
         return target.species.name in self._carcass_only_species()
 
     def _is_field_carcass_prey(self, creature, target) -> bool:
-        """Hunt 対象種の現場バイオマス（地面ルート／旧死骸）。"""
         if is_field_pickup(target):
             world = getattr(creature, "world", None)
             return (
@@ -229,19 +123,13 @@ class HuntAction(AffiliationLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin,
             )
         if target is None or target.alive:
             return False
-        if target.species.name not in self._prey_species():
-            return False
-        return carcass_on_field(getattr(creature, "world", None), target)
+        return False
 
     def _find_living_prey(self, creature, species: tuple[str, ...]):
-        """生きた獲物のみ（carcass_only_species は狩り対象外）。"""
         if self._defense_hunt():
             kwargs = self._prey_query_kwargs()
         else:
-            kwargs = {
-                **self._prey_query_kwargs(),
-                "living_only": True,
-            }
+            kwargs = {**self._prey_query_kwargs(), "living_only": True}
         living_species = tuple(s for s in species if s not in self._carcass_only_species())
         if not living_species:
             return None
@@ -254,13 +142,10 @@ class HuntAction(AffiliationLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin,
         return ref.as_creature() if ref else None
 
     def _find_prey(self, creature, species: tuple[str, ...]):
-        """視界内: 近い現場死骸を生きた獲物より優先。死骸がなければ狩り（防衛狩りは生きた個体のみ）。"""
         if self._defense_hunt():
             return self._find_living_prey(creature, species)
 
-        carcass = find_nearest_forage_among(
-            creature, species, exclude=creature
-        )
+        carcass = find_nearest_forage_among(creature, species, exclude=creature)
         living = self._find_living_prey(creature, species)
 
         if carcass is None:
@@ -309,7 +194,7 @@ class HuntAction(AffiliationLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin,
         if (
             not self._defense_hunt()
             and needs_self_feed(creature)
-            and self._nest_blocks_hunt(creature)
+            and affiliation_blocks_hunt(creature)
             and not self._is_field_carcass_prey(creature, target)
         ):
             self._target = None
@@ -355,7 +240,7 @@ class HuntAction(AffiliationLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin,
         if (
             not self._defense_hunt()
             and needs_self_feed(creature)
-            and self._nest_blocks_hunt(creature)
+            and affiliation_blocks_hunt(creature)
             and not self._is_field_carcass_prey(creature, target)
         ):
             self._target = None
@@ -375,15 +260,25 @@ class HuntAction(AffiliationLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin,
 
         return False
 
-    def _nest_blocks_hunt(self, creature) -> bool:
-        if self._defense_hunt() or self._territory_only():
-            return False
-        from src.sim.utils.compound_feed_helpers import hunger_should_skip_hunt_for_storage
+    def _hunt_dampen_radius(self) -> float:
+        raw = self.params.get("affiliation_hunt_dampen_radius")
+        if raw is None:
+            raw = self.params.get("nest_hunt_dampen_radius")
+        return float(raw if raw is not None else 55.0)
 
-        return hunger_should_skip_hunt_for_storage(creature)
+    def _hunt_dampen_fill_ratio(self) -> float:
+        raw = self.params.get("affiliation_hunt_dampen_fill_ratio")
+        if raw is None:
+            raw = self.params.get("nest_hunt_dampen_fill_ratio")
+        return float(raw if raw is not None else 0.75)
 
-    def _nest_hunt_dampening(self, creature) -> float:
-        """備蓄が十分な拠点付近では狩り優先度を下げ、往復を抑える。"""
+    def _hunt_dampen_factor(self) -> float:
+        raw = self.params.get("affiliation_hunt_dampen_factor")
+        if raw is None:
+            raw = self.params.get("nest_hunt_dampen_factor")
+        return float(raw if raw is not None else 0.2)
+
+    def _affiliation_hunt_dampening(self, creature) -> float:
         if needs_self_feed(creature) or not creature.world:
             return 1.0
         from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
@@ -396,18 +291,13 @@ class HuntAction(AffiliationLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin,
         affiliation_id = get_creature_affiliation_id(creature)
         if not affiliation_id or get_affiliation_root(creature.world, affiliation_id) is None:
             return 1.0
-        if distance_to_affiliation_site(creature) > float(
-            self.params.get("nest_hunt_dampen_radius", 55.0)
-        ):
+        if distance_to_affiliation_site(creature) > self._hunt_dampen_radius():
             return 1.0
-        if affiliation_fill_ratio(creature.world, affiliation_id) < float(
-            self.params.get("nest_hunt_dampen_fill_ratio", 0.75)
-        ):
+        if affiliation_fill_ratio(creature.world, affiliation_id) < self._hunt_dampen_fill_ratio():
             return 1.0
-        return float(self.params.get("nest_hunt_dampen_factor", 0.2))
+        return self._hunt_dampen_factor()
 
     def _hunt_drive(self, creature, prey=None) -> float:
-        """飢餓時: 巣で食べられるなら狩らない。通常・満腹帯: 備蓄狩り。防衛狩りは常に最優先。"""
         if self._defense_hunt():
             return 1.0
         if self._territory_only():
@@ -416,7 +306,9 @@ class HuntAction(AffiliationLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin,
             return 1.0
 
         if needs_self_feed(creature):
-            if self._nest_blocks_hunt(creature) and not self._is_field_carcass_prey(creature, prey):
+            if affiliation_blocks_hunt(creature) and not self._is_field_carcass_prey(
+                creature, prey
+            ):
                 return 0.0
             return 1.0
 
@@ -465,7 +357,7 @@ class HuntAction(AffiliationLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin,
             )
         if self._territory_only() or self._defense_hunt():
             return score
-        return score * self._nest_hunt_dampening(creature)
+        return score * self._affiliation_hunt_dampening(creature)
 
     def _resolve_target(self, creature):
         species = self._prey_species()

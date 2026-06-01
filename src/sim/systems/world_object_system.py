@@ -687,13 +687,6 @@ class WorldObjectSystem:
         type_def = config.get_object_type(type_ref)
         container_cfg = self._container_config_from_merged(merged)
         pickup = capability_block(merged, "pickup")
-        decay = pickup.get("decay") if isinstance(pickup.get("decay"), dict) else {}
-        decay_rate = float(
-            raw.get(
-                "decay_rate",
-                decay.get("rate", pickup.get("decay_rate", 0.00003)),
-            )
-        )
         storage = ObjectStorage.from_config(container_cfg)
         color = resolve_render_color(merged, (140, 120, 90))
         render = capability_block(merged, "render")
@@ -714,7 +707,6 @@ class WorldObjectSystem:
             pickup_radius=float(pickup.get("radius", 12.0)),
             pickup_modes=tuple(str(m) for m in modes),
             deplete_when_empty=bool(pickup.get("deplete_when_empty", True)),
-            decay_rate=decay_rate,
             pickup_species_filter=str(raw.get("pickup_species_filter", "")),
             size_from_fill_ratio=bool(render.get("size_from_fill_ratio", False)),
         )
@@ -826,14 +818,6 @@ class WorldObjectSystem:
                 if obj.deplete_when_empty and obj.lifecycle == "ephemeral":
                     to_remove.append(obj.id)
                 continue
-            if obj.decay_rate > 0 and obj.storage is not None:
-                initial = max(float(obj.initial_fill), 1.0)
-                decay = min(
-                    obj.amount_for_kind("biomass"),
-                    initial * float(obj.decay_rate) * dt,
-                )
-                if decay > 0:
-                    obj.storage.stack.withdraw_kind("biomass", decay)
             if obj.is_pickup_depleted() and obj.deplete_when_empty:
                 if obj.lifecycle == "ephemeral":
                     to_remove.append(obj.id)

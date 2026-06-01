@@ -4,7 +4,7 @@ import random
 from src.sim.ai.mind import UtilityMind
 from src.sim.behavior import PostLifeRunner, death_policy_for_creature
 from src.sim.components.affiliation import AffiliationComponent
-from src.sim.components.corpse import CorpseComponent
+from src.sim.components.death import DeathComponent
 from src.sim.components.energy import Energy
 from src.sim.components.life_cycle import LifeCycleManager
 from src.sim.components.metabolism import MetabolismComponent
@@ -60,7 +60,7 @@ class Creature(BaseEntity):
         self.energy = Energy()
         self.life_cycle = LifeCycleManager(self, self.species.life_cycle)
         self.metabolism = MetabolismComponent(self)
-        self.corpse = CorpseComponent(self)
+        self.death = DeathComponent(self)
         self.reproduction = ReproductionComponent(self)
         self.inventory = build_inventory_from_species(self.species)
 
@@ -77,28 +77,12 @@ class Creature(BaseEntity):
         self.satiety = self.max_satiety
 
     @property
-    def remaining_mass(self) -> float:
-        return self.corpse.remaining_mass
-
-    @remaining_mass.setter
-    def remaining_mass(self, value: float) -> None:
-        self.corpse.remaining_mass = value
-
-    @property
     def compound_parent_object_ids(self) -> tuple[str, ...]:
         return self.nest_parent_object_ids
 
     @compound_parent_object_ids.setter
     def compound_parent_object_ids(self, value) -> None:
         self.nest_parent_object_ids = tuple(str(x) for x in value if x)
-
-    @property
-    def initial_mass(self) -> float:
-        return self.corpse.initial_mass
-
-    @initial_mass.setter
-    def initial_mass(self, value: float) -> None:
-        self.corpse.initial_mass = value
 
     @property
     def repro_cooldown(self) -> int:
@@ -131,16 +115,13 @@ class Creature(BaseEntity):
         self.reproduction.set_cooldown(ticks)
 
     def is_dead(self) -> bool:
-        """生存中は HP 判定。死骸は残留量が尽きたら削除対象。"""
+        """生存中は HP 判定。死亡後にワールドに残った個体は削除対象。"""
         if self.alive:
             return self.hp <= 0
-        return self.corpse.is_depleted()
-
-    def corpse_fill_ratio(self) -> float:
-        return self.corpse.fill_ratio()
+        return True
 
     def become_corpse(self, cause: str = "hp") -> None:
-        self.corpse.become_corpse(cause=cause)
+        self.death.mark_dead(cause=cause)
         self.directive = None
         self.current_action = None
         steps = death_policy_for_creature(self)

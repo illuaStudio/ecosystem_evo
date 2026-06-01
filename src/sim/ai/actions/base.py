@@ -31,3 +31,8 @@ class Action(ABC):
 
     def calculate_utility(self, creature) -> float:
         return 0.5
+
+    @classmethod
+    def continues_while_carrying(cls) -> bool:
+        """運搬中も継続する行動（帰還など）。ゲーム層で上書き。"""
+        return False

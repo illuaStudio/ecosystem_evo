@@ -37,11 +37,3 @@ def creature_can_use_affiliation_storage_feed(creature) -> bool:
         return False
     return satiety_room_until_site_feed_target(creature) > 0
 
-
-def hunger_should_skip_hunt_for_storage(creature) -> bool:
-    """飢餓時、拠点 storage で給餌できるなら狩りを抑止。"""
-    from src.sim.utils.nutrition_helpers import needs_self_feed
-
-    if not needs_self_feed(creature):
-        return False
-    return creature_can_use_affiliation_storage_feed(creature)

@@ -15,7 +15,6 @@
     "max_hp": 40.0,
     "max_satiety": 30.0,
     "metabolism_per_tick": 0.02,
-    "corpse_decay_rate": 0.002,
     "field_immunities": [
       "poison"
     ],

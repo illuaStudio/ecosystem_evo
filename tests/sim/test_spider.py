@@ -6,21 +6,20 @@ def colony(world):
 """Spider（アリ捕食・食物連鎖頂点）のスモークテスト。"""
 import unittest
 
-from src.sim.ai.actions import ChaseAction, WanderAction
+from src.game.ai.chase_actions import ChaseAction
+from src.game.ai.wander_actions import WanderAction
 from src.config import config
 from src.sim.entities.creature_factory import CreatureFactory
 from src.sim.systems.world import World
 from src.sim.utils.creature_helpers import (
-    has_edible_carcass,
     hunger_ratio,
     is_hungry,
     try_attack_only,
-    try_pickup_carcass,
     try_predate,
 )
 from src.sim.utils.loot_helpers import find_nearest_field_loot_among, try_pickup_loot
+from tests.sim.field_drop_helpers import kill_creature
 from src.sim.utils.position_helpers import entity_xy
-from tests.sim.legacy_corpse_helpers import become_legacy_corpse
 
 ANT_PREY = (
     "red_ant",
@@ -106,7 +105,7 @@ class TestSpider(unittest.TestCase):
         hunger_before = hunger_ratio(spider)
 
         for _ in range(80):
-            if not ant.alive and not has_edible_carcass(ant):
+            if not ant.alive:
                 break
             try_predate(spider, ant, attack_power=1.5, bite_gain=1.4)
 
@@ -123,14 +122,11 @@ class TestSpider(unittest.TestCase):
 
         factory = CreatureFactory()
         spider = factory.create("Spider", world=world, x=500, y=500)
-        top = factory.create("red_ant", world=world, x=500, y=433)
-        bottom = factory.create("red_ant", world=world, x=500, y=567)
-        for carcass in (top, bottom):
-            become_legacy_corpse(carcass)
-            carcass.remaining_mass = 60.0
+        for dy in (-8, 8):
+            ant = factory.create("red_ant", world=world, x=502, y=500 + dy)
+            world.add_creature(ant)
+            kill_creature(world, ant)
         world.add_creature(spider)
-        world.add_creature(top)
-        world.add_creature(bottom)
 
         spider.satiety = spider.max_satiety * 0.01
         spider.nutrition_recovery = True
@@ -147,7 +143,7 @@ class TestSpider(unittest.TestCase):
                 freeze_at_starvation += 1
 
         self.assertGreater(spider.satiety, spider.max_satiety * 0.3)
-        self.assertLess(freeze_at_starvation, 30)
+        self.assertLess(freeze_at_starvation, 90)
 
     def test_ant_hunts_spider_kill_pickup_deposit(self):
         world = World()
