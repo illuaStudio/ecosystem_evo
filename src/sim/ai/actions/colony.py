@@ -4,10 +4,10 @@ from src.sim.ai.action_config import get_mind_action_param
 from src.sim.ai.actions.base import Action
 from src.sim.shelter.state import is_creature_sheltered
 from src.sim.utils.inventory_helpers import inventory_is_loaded
-from src.sim.utils.world_object_helpers import creature_has_affiliation_target, parent_stored_food
+from src.sim.utils.world_object_helpers import creature_has_affiliation_target, parent_stored_mass
 from src.sim.utils.creature_helpers import (
     consume_carcass,
-    consume_carried_biomass,
+    consume_carried_for_kind,
     contact_range,
     distance_to_point,
     find_nearest_field_carcass_among,
@@ -18,7 +18,7 @@ from src.sim.utils.creature_helpers import (
     get_nest_feed_config,
     needs_nest_feed,
     needs_self_feed,
-    nest_has_usable_food,
+    nest_has_usable_storage,
     wander_step,
 )
 from src.sim.utils.position_helpers import entity_xy
@@ -32,7 +32,7 @@ class ScavengeCarriedAction(Action):
         if affiliation is None or not inventory_is_loaded(creature):
             return False
 
-        consume_carried_biomass(
+        consume_carried_for_kind(
             creature,
             bite_gain=get_mind_action_param(creature, "HuntAction", "bite_gain"),
         )
@@ -112,7 +112,7 @@ class FeedAtNestAction(Action):
     }
 
     def _has_usable_food(self, creature) -> bool:
-        return nest_has_usable_food(creature)
+        return nest_has_usable_storage(creature)
 
     def _scavenge_species(self) -> tuple[str, ...] | None:
         raw = self.params.get("scavenge_species")
@@ -242,17 +242,17 @@ class FeedAtNestAction(Action):
 
         if at_nest and usable:
             from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
-            from src.sim.utils.world_object_helpers import affiliation_food_ratio, parent_stored_food
+            from src.sim.utils.world_object_helpers import affiliation_fill_ratio, parent_stored_mass
 
             cid = get_creature_affiliation_id(creature)
             if cid:
-                fill = affiliation_food_ratio(creature.world, cid)
+                fill = affiliation_fill_ratio(creature.world, cid)
             else:
                 ws = creature.world.world_object_system
                 parent_ids = getattr(creature, "nest_parent_object_ids", ()) or ()
                 root = ws.get(parent_ids[0]) if parent_ids else None
-                cap = float(root.storage.max_food) if root and root.storage else 1.0
-                fill = min(1.0, parent_stored_food(creature) / max(cap, 1.0))
+                cap = float(root.storage.capacity) if root and root.storage else 1.0
+                fill = min(1.0, parent_stored_mass(creature) / max(cap, 1.0))
             base = 0.55 + fill * 0.45
             return min(1.0, base + (0.25 if needs_self_feed(creature) else 0.0))
 

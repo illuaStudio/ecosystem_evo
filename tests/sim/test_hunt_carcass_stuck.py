@@ -7,7 +7,7 @@ from src.sim.systems.world import World
 from src.sim.utils.creature_helpers import (
     carcass_on_field,
     is_edible_prey,
-    nest_has_usable_food,
+    nest_has_usable_storage,
     try_attack_only,
     try_pickup_carcass,
 )
@@ -101,7 +101,7 @@ class TestHuntCarcassStuck(unittest.TestCase):
 
         spider = factory.create("Spider", world=world, x=150, y=100)
         become_legacy_corpse(spider)
-        spider.remaining_biomass = 500.0
+        spider.remaining_mass = 500.0
         world.add_creature(spider)
 
         hunt = HuntAction(target_types=["Spider"], defense_hunt=True)
@@ -127,7 +127,7 @@ class TestHuntCarcassStuck(unittest.TestCase):
         self.assertEqual(hunt._find_prey(ant, ("springtail", "Spider")), None)
 
         live.alive = False
-        live.remaining_biomass = 200.0
+        live.remaining_mass = 200.0
         self.assertIs(hunt._find_prey(ant, ("springtail", "Spider")), live)
         self.assertGreater(hunt.calculate_utility(ant), 0.0)
 
@@ -142,7 +142,7 @@ class TestHuntCarcassStuck(unittest.TestCase):
 
         dead_amoeba = factory.create("springtail", world=world, x=508, y=500)
         become_legacy_corpse(dead_amoeba)
-        dead_amoeba.remaining_biomass = 80.0
+        dead_amoeba.remaining_mass = 80.0
         world.add_creature(dead_amoeba)
 
         live_amoeba = factory.create("springtail", world=world, x=540, y=500)
@@ -167,7 +167,7 @@ class TestHuntCarcassStuck(unittest.TestCase):
 
         spider = factory.create("Spider", world=world, x=540, y=500)
         become_legacy_corpse(spider)
-        spider.remaining_biomass = 800.0
+        spider.remaining_mass = 800.0
         world.add_creature(spider)
 
         hunt = HuntAction(
@@ -187,10 +187,10 @@ class TestHuntCarcassStuck(unittest.TestCase):
 
         spider = factory.create("Spider", world=world, x=520, y=500)
         become_legacy_corpse(spider)
-        spider.remaining_biomass = 400.0
+        spider.remaining_mass = 400.0
         world.add_creature(spider)
 
-        self.assertTrue(nest_has_usable_food(ant))
+        self.assertTrue(nest_has_usable_storage(ant))
 
         hunt = HuntAction(
             target_types=["springtail", "Spider"],

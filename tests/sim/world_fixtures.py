@@ -18,10 +18,10 @@ RED_ANT_PROFILE = {
     "nest_x": 120,
     "nest_y": 120,
     "territory_radius": 180,
-    "max_food": 5000,
-    "initial_stored_food": 80,
-    "food_leak_per_tick": 0.5,
-    "food_leak_reserve_ratio": 0.15,
+    "max_mass": 5000,
+    "initial_mass": 80,
+    "storage_leak_per_tick": 0.5,
+    "storage_leak_reserve_ratio": 0.15,
     "spawn_spread": 28,
 }
 
@@ -29,10 +29,10 @@ RIVAL_ANT_PROFILE = {
     "nest_x": 500,
     "nest_y": 500,
     "territory_radius": 180,
-    "max_food": 5000,
-    "initial_stored_food": 80,
-    "food_leak_per_tick": 0.5,
-    "food_leak_reserve_ratio": 0.15,
+    "max_mass": 5000,
+    "initial_mass": 80,
+    "storage_leak_per_tick": 0.5,
+    "storage_leak_reserve_ratio": 0.15,
     "spawn_spread": 28,
 }
 
@@ -53,7 +53,7 @@ MINIMAL_TEST_BIOME = {
 def affiliation_settings(**extra) -> dict:
     """巣穴・産卵共通。デフォルトは red_ant のみ（多勢力テストは profiles / affiliation_species を上書き）。"""
     base = {
-        "min_food_reserve": 72,
+        "min_storage_reserve": 72,
         "profiles": {
             "red_ant": dict(RED_ANT_PROFILE),
         },
@@ -69,7 +69,7 @@ def two_faction_affiliation_settings(**extra) -> dict:
         "rival_ant": dict(RIVAL_ANT_PROFILE),
     }
     base = {
-        "min_food_reserve": 72,
+        "min_storage_reserve": 72,
         "profiles": profiles,
         "affiliation_species": {
             "red_ant": ["red_ant", "red_ant_soldier"],
@@ -157,8 +157,8 @@ def load_test_world(**overrides):
     return World.from_json(build_test_world(**overrides))
 
 
-def set_affiliation_stored_food(world, affiliation_id: str, amount: float) -> None:
-    world.nest_system.set_affiliation_stored_food(affiliation_id, amount)
+def set_affiliation_stored_mass(world, affiliation_id: str, amount: float) -> None:
+    world.nest_system.set_affiliation_stored_mass(affiliation_id, amount)
 
 
 def primary_affiliation_access(world, affiliation_id: str):

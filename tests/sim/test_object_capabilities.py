@@ -57,11 +57,11 @@ class TestObjectCapabilities(unittest.TestCase):
                 "id": "affiliation_site",
                 "category": "colony",
                 "role": "root",
-                "max_food": 5000,
+                "max_mass": 5000,
             }
         )
         self.assertIn("storage", capabilities_of(site))
-        self.assertEqual(site["max_food"], 5000)
+        self.assertEqual(site["max_mass"], 5000)
 
         access = normalize_capabilities(
             {

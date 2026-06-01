@@ -27,13 +27,13 @@ def _placement_world(**overrides):
                     "territory_radius": 180,
                     "spawn_exclusion_radius": 150,
                     "spawn_spread": 24,
-                    "max_food": 5000,
-                    "initial_stored_food": 80,
-                    "food_leak_per_tick": 0,
-                    "food_leak_reserve_ratio": 0.15,
+                    "max_mass": 5000,
+                    "initial_mass": 80,
+                    "storage_leak_per_tick": 0,
+                    "storage_leak_reserve_ratio": 0.15,
                 }
             },
-            "min_food_reserve": 72,
+            "min_storage_reserve": 72,
         },
         "world": {
             "biome_map_cell_size": 64,

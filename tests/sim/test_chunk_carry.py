@@ -6,10 +6,10 @@ from src.sim.systems.world import World
 from tests.sim.legacy_corpse_helpers import become_legacy_corpse
 from src.sim.utils.creature_helpers import try_attack_only, try_pickup_carcass
 from src.sim.utils.inventory_helpers import (
-    clear_inventory_biomass,
+    clear_inventory_for_kind,
     get_haul_max_carry,
     inventory_is_loaded,
-    total_biomass_amount,
+    carried_mass_for_kind,
 )
 from src.sim.utils.position_helpers import entity_xy
 
@@ -34,20 +34,20 @@ class TestChunkCarry(unittest.TestCase):
 
         spider.hp = 0
         become_legacy_corpse(spider)
-        spider.remaining_biomass = 165.0
+        spider.remaining_mass = 165.0
         self.assertFalse(spider.alive)
 
-        total = spider.remaining_biomass
+        total = spider.remaining_mass
         per_trip_cap = sum(s.max_mass for s in ant.inventory.slots)
         self.assertGreater(per_trip_cap, 0.0)
 
         trips = 0
-        while spider.remaining_biomass > 0 and trips < 120:
+        while spider.remaining_mass > 0 and trips < 120:
             self.assertTrue(try_pickup_carcass(ant, spider))
             trips += 1
             self.assertTrue(inventory_is_loaded(ant))
-            self.assertLessEqual(total_biomass_amount(ant), per_trip_cap + 0.001)
-            clear_inventory_biomass(ant)
+            self.assertLessEqual(carried_mass_for_kind(ant), per_trip_cap + 0.001)
+            clear_inventory_for_kind(ant)
 
         self.assertGreaterEqual(trips, 15)
         self.assertLessEqual(trips, 60)

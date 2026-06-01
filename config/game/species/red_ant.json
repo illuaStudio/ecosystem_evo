@@ -19,7 +19,7 @@
     "metabolism_per_tick": 0.01,
     "satiety_hungry_below": 0.15,
     "satiety_full_above": 0.85,
-    "corpse_decompose_rate": 0.01,
+    "corpse_decay_rate": 0.01,
     "starvation_hp_per_tick": 0.0012
   },
   "inventory": {
@@ -32,7 +32,7 @@
         ]
       }
     ],
-    "biomass_weight_per_unit": 1.0,
+    "mass_per_unit": 1.0,
     "carry_speed_reference_weight": 160.0
   },
   "mind": {

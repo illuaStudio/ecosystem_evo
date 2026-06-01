@@ -30,22 +30,22 @@ def bite(predator, prey, attack_power: float = 1.0) -> float:
 
 def consume_carcass(predator, carcass, bite_gain: float = 1.35) -> float:
     """死骸の残存バイオマスを消費して満腹度を回復。得られた Satiety 量を返す。"""
-    if carcass.alive or carcass.remaining_biomass <= 0:
+    if carcass.alive or carcass.remaining_mass <= 0:
         return 0.0
 
     base_size = float(predator.traits.get("base_size", 9.0))
     bite_gain = float(bite_gain)
     amount = min(
-        carcass.remaining_biomass * 0.45,
+        carcass.remaining_mass * 0.45,
         base_size * bite_gain * 1.6,
     )
-    carcass.remaining_biomass -= amount * 0.9
+    carcass.remaining_mass -= amount * 0.9
 
     gained = amount * bite_gain
     predator.satiety = min(predator.max_satiety, predator.satiety + gained)
 
-    if carcass.remaining_biomass <= 8.0:
-        carcass.remaining_biomass = 0.0
+    if carcass.remaining_mass <= 8.0:
+        carcass.remaining_mass = 0.0
 
     return gained
 
@@ -83,7 +83,7 @@ def try_attack_only(predator, target, attack_power: float = 1.0) -> bool:
 def _remove_depleted_carcass(world, carcass) -> None:
     if world is None or carcass is None:
         return
-    if carcass.remaining_biomass <= 0 and carcass in world.creatures:
+    if carcass.remaining_mass <= 0 and carcass in world.creatures:
         world.remove_creature(carcass)
 
 def release_carried_carcass(carrier) -> None:
@@ -100,8 +100,8 @@ def try_pickup_carcass(carrier, carcass, contact_padding: float = 8.0) -> bool:
     return _pickup(carrier, carcass, contact_padding=contact_padding)
 
 
-def consume_carried_biomass(predator, bite_gain: float = 1.35) -> float:
+def consume_carried_for_kind(predator, bite_gain: float = 1.35, *, kind: str = "biomass") -> float:
     """インベントリ内バイオマスをその場で消費（後方互換名）。"""
-    from src.sim.utils.inventory_helpers import consume_inventory_biomass
+    from src.sim.utils.inventory_helpers import consume_inventory_for_kind
 
-    return consume_inventory_biomass(predator, bite_gain=bite_gain)
+    return consume_inventory_for_kind(predator, bite_gain=bite_gain)

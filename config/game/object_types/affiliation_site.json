@@ -4,8 +4,8 @@
   "label": "所属拠点（親）",
   "capabilities": {
     "storage": {
-      "max_food": 5000,
-      "initial_stored_food": 80
+      "max_mass": 5000,
+      "initial_mass": 80
     },
     "compound": {
       "role": "root",

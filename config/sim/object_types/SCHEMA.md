@@ -21,7 +21,9 @@
 |------|------|----------------|
 | `collision` | 当たり判定 | `shape` (`circle`/`rect`), `radius`, `width`, `height` |
 | `zone` | エリア効果 | 上記形状 + `hp_regen_per_dt`, `hp_drain_per_dt`, `field_tags`, `spawn_rate_multiplier` |
-| `storage` | 貯蔵（ItemStack） | `max_food`, `initial_stored_food`, `slot_count`, `slots[]` |
+| `storage` | 貯蔵（ItemStack・compound 親） | `max_mass`, `initial_mass`, `slot_count`, `slots[]` |
+| `container` | 中身（ItemStack・地面/動的） | `storage` と同型。`layer: field` と併用 |
+| `pickup` | 地面ドロップの拾得・分解 | `radius`, `modes`, `lifecycle`, `deplete_when_empty`, `decay` |
 | `access` | 接続点（隠れ・預け入れ・取出） | `role`, `shelter`, `deposit` / `deposit_access`, `withdraw` / `withdraw_access` |
 | `combat` | 破壊可能 | `max_hp`, `hp` |
 | `compound` | 親子 compound | `role`, `profile` (`colony`/`generic`), `default_access_type`, `visible` |
@@ -69,7 +71,7 @@
 {
   "id": "affiliation_site",
   "capabilities": {
-    "storage": { "max_food": 5000, "initial_stored_food": 80 },
+    "storage": { "max_mass": 5000, "initial_mass": 80 },
     "compound": { "role": "root" }
   }
 }
@@ -135,13 +137,27 @@
 
 コロニーは `compound.profile: "colony"` 付き `colony_site` として同じ仕組みを使う（敗北・テリトリーは `NestSystem`）。
 
+## field レイヤー（動的ドロップ）
+
+`world.json` の `instances[]` または PostLife `spawn_drop` で配置。
+
+```json
+{
+  "layer": "field",
+  "type": "field_bulk",
+  "x": 120,
+  "y": 340,
+  "fill": { "mode": "fixed_amount", "amount": 500 }
+}
+```
+
+死後デフォルト: `{"step": "spawn_drop", "type": "field_bulk"}` → `remove`。
+
 ## Phase 4: ItemStack（バイオマスのアイテム化）
 
 - `ObjectStorage` は内部で `ItemStack`（スロット列）を持つ
 - 生物 `InventoryComponent` と同型の `InventorySlot` / `InventoryItem`
 - バイオマス = `BiomassItem`（`kind: "biomass"`）。将来の剣等 = `StackItem`（`kind: "item"`）
-- `stored_food` / `max_food` はバイオマス量の**互換 API**（中身は ItemStack）
+- `ObjectStorage.stored_mass` / `capacity` / `fill_ratio` は ItemStack の集計
 - 移動 API: `src/sim/utils/item_stack_helpers.py`
-  - `transfer_biomass_creature_to_storage`
-  - `transfer_biomass_storage_to_creature`
-- 配置 API: `deposit_carried_to_parent` / `withdraw_biomass_from_parent`
+- 配置 API: `deposit_carried_to_parent` / `withdraw_from_parent_storage`

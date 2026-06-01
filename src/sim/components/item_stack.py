@@ -9,7 +9,7 @@ from src.sim.components.inventory import BiomassItem, InventoryItem, InventorySl
 
 def _slot_defs_from_config(
     *,
-    max_food: float | None = None,
+    max_mass: float | None = None,
     slot_count: int | None = None,
     slot_specs: Iterable[dict] | None = None,
 ) -> list[InventorySlot]:
@@ -27,7 +27,7 @@ def _slot_defs_from_config(
         return slots
 
     count = int(slot_count if slot_count is not None else 1)
-    cap = max(0.0, float(max_food if max_food is not None else 400.0))
+    cap = max(0.0, float(max_mass if max_mass is not None else 400.0))
     if count <= 1:
         return [InventorySlot(max_mass=cap, allowed_kinds=frozenset({"biomass"}))]
     per = cap / count if count > 0 else cap
@@ -40,39 +40,41 @@ def _slot_defs_from_config(
 @dataclass
 class ItemStack:
     slots: list[InventorySlot] = field(default_factory=list)
-    biomass_weight_per_unit: float = 1.0
+    mass_per_unit: float = 1.0
 
     @classmethod
-    def from_biomass_capacity(
+    def from_kind_capacity(
         cls,
-        max_food: float,
-        stored_food: float = 0.0,
+        kind: str,
+        max_mass: float,
+        stored_mass: float = 0.0,
         *,
-        biomass_weight_per_unit: float = 1.0,
+        mass_per_unit: float = 1.0,
     ) -> ItemStack:
         stack = cls(
-            slots=_slot_defs_from_config(max_food=max_food),
-            biomass_weight_per_unit=float(biomass_weight_per_unit),
+            slots=_slot_defs_from_config(max_mass=max_mass),
+            mass_per_unit=float(mass_per_unit),
         )
-        if stored_food > 0:
-            stack.set_biomass_amount(stored_food)
+        if stored_mass > 0:
+            stack.set_amount_for_kind(kind, stored_mass)
         return stack
 
     @classmethod
     def from_storage_config(cls, config: dict) -> ItemStack:
         cfg = dict(config or {})
         slots = _slot_defs_from_config(
-            max_food=cfg.get("max_food"),
+            max_mass=cfg.get("max_mass"),
             slot_count=cfg.get("slot_count"),
             slot_specs=cfg.get("slots"),
         )
         stack = cls(
             slots=slots,
-            biomass_weight_per_unit=float(cfg.get("biomass_weight_per_unit", 1.0)),
+            mass_per_unit=float(cfg.get("mass_per_unit", 1.0)),
         )
-        initial = float(cfg.get("initial_stored_food", cfg.get("stored_food", 0.0)))
+        initial = float(cfg.get("initial_mass", cfg.get("stored_mass", 0.0)))
+        default_kind = str(cfg.get("default_kind", "biomass"))
         if initial > 0:
-            stack.set_biomass_amount(initial)
+            stack.set_amount_for_kind(default_kind, initial)
         return stack
 
     @property
@@ -84,81 +86,104 @@ class ItemStack:
         return all(s.is_empty() for s in self.slots)
 
     @property
+    def capacity_mass(self) -> float:
+        return sum(float(s.max_mass) for s in self.slots)
+
+    @property
     def total_mass(self) -> float:
         total = 0.0
         for slot in self.slots:
             if slot.item is not None:
-                total += slot.item.weight(
-                    biomass_weight_per_unit=self.biomass_weight_per_unit
-                )
+                total += slot.item.weight(mass_per_unit=self.mass_per_unit)
         return total
 
-    def iter_biomass_slots(self):
+    @property
+    def fill_ratio(self) -> float:
+        cap = self.capacity_mass
+        if cap <= 0:
+            return 0.0
+        return max(0.0, min(1.0, self.total_mass / cap))
+
+    def iter_slots_for_kind(self, kind: str):
         for slot in self.slots:
-            if isinstance(slot.item, BiomassItem):
+            if kind not in slot.allowed_kinds:
+                continue
+            if isinstance(slot.item, BiomassItem) and slot.item.kind == kind:
+                yield slot
+            elif slot.item is None:
                 yield slot
 
-    def biomass_amount(self) -> float:
-        return sum(float(s.item.amount) for s in self.iter_biomass_slots() if s.item)
+    def amount_for_kind(self, kind: str) -> float:
+        if kind == "biomass":
+            return sum(
+                float(s.item.amount)
+                for s in self.slots
+                if isinstance(s.item, BiomassItem) and s.item.kind == kind
+            )
+        return 0.0
 
-    def biomass_capacity(self) -> float:
+    def capacity_for_kind(self, kind: str) -> float:
         return sum(
-            float(s.max_mass)
-            for s in self.slots
-            if "biomass" in s.allowed_kinds
+            float(s.max_mass) for s in self.slots if kind in s.allowed_kinds
         )
 
-    def biomass_free_space(self) -> float:
-        return max(0.0, self.biomass_capacity() - self.biomass_amount())
+    def free_space_for_kind(self, kind: str) -> float:
+        return max(0.0, self.capacity_for_kind(kind) - self.amount_for_kind(kind))
 
-    def set_biomass_amount(self, amount: float) -> None:
+    def set_amount_for_kind(self, kind: str, amount: float) -> None:
         amount = max(0.0, float(amount))
+        if kind != "biomass":
+            raise ValueError(f"unsupported kind for set_amount: {kind!r}")
         for slot in self.slots:
-            if isinstance(slot.item, BiomassItem):
+            if isinstance(slot.item, BiomassItem) and slot.item.kind == kind:
                 slot.item = None
         if amount <= 0:
             return
-        slot = self._primary_biomass_slot(create=True)
+        slot = self._primary_slot_for_kind(kind, create=True)
         cap = float(slot.max_mass)
         slot.item = BiomassItem(amount=min(amount, cap) if cap > 0 else amount)
 
-    def set_biomass_capacity(self, cap: float) -> None:
+    def set_capacity_for_kind(self, kind: str, cap: float) -> None:
         cap = max(0.0, float(cap))
+        if kind != "biomass":
+            raise ValueError(f"unsupported kind for set_capacity: {kind!r}")
         if not self.slots:
-            self.slots = _slot_defs_from_config(max_food=cap)
+            self.slots = _slot_defs_from_config(max_mass=cap)
             return
-        biomass_slots = [s for s in self.slots if "biomass" in s.allowed_kinds]
-        if len(biomass_slots) == 1:
-            biomass_slots[0].max_mass = cap
-            stored = self.biomass_amount()
+        kind_slots = [s for s in self.slots if kind in s.allowed_kinds]
+        if len(kind_slots) == 1:
+            kind_slots[0].max_mass = cap
+            stored = self.amount_for_kind(kind)
             if stored > cap:
-                self.set_biomass_amount(cap)
+                self.set_amount_for_kind(kind, cap)
             return
-        self.slots = _slot_defs_from_config(max_food=cap)
-        self.set_biomass_amount(min(self.biomass_amount(), cap))
+        self.slots = _slot_defs_from_config(max_mass=cap)
+        self.set_amount_for_kind(kind, min(self.amount_for_kind(kind), cap))
 
-    def deposit_biomass(self, amount: float) -> float:
+    def deposit_kind(self, kind: str, amount: float) -> float:
         amount = float(amount)
         if amount <= 0:
             return 0.0
-        space = self.biomass_free_space()
+        if kind != "biomass":
+            return 0.0
+        space = self.free_space_for_kind(kind)
         added = min(amount, space)
         if added <= 0:
             return 0.0
-        slot = self._primary_biomass_slot(create=True)
+        slot = self._primary_slot_for_kind(kind, create=True)
         if slot.item is None:
             slot.item = BiomassItem(amount=added)
         else:
             slot.item.amount = float(slot.item.amount) + added
         return added
 
-    def withdraw_biomass(self, amount: float) -> float:
+    def withdraw_kind(self, kind: str, amount: float) -> float:
         amount = float(amount)
-        if amount <= 0 or self.biomass_amount() <= 0:
+        if amount <= 0 or self.amount_for_kind(kind) <= 0:
             return 0.0
-        taken = min(amount, self.biomass_amount())
-        remaining = self.biomass_amount() - taken
-        self.set_biomass_amount(remaining)
+        taken = min(amount, self.amount_for_kind(kind))
+        remaining = self.amount_for_kind(kind) - taken
+        self.set_amount_for_kind(kind, remaining)
         return taken
 
     def first_empty_slot(self) -> InventorySlot | None:
@@ -177,19 +202,12 @@ class ItemStack:
             return True
         return False
 
-    def _primary_biomass_slot(self, *, create: bool = False) -> InventorySlot:
+    def _primary_slot_for_kind(self, kind: str, *, create: bool = False) -> InventorySlot:
         for slot in self.slots:
-            if "biomass" in slot.allowed_kinds:
+            if kind in slot.allowed_kinds:
                 return slot
         if create:
-            slot = InventorySlot(max_mass=400.0, allowed_kinds=frozenset({"biomass"}))
+            slot = InventorySlot(max_mass=400.0, allowed_kinds=frozenset({kind}))
             self.slots.append(slot)
             return slot
-        raise ValueError("no biomass slot")
-
-    @property
-    def food_ratio(self) -> float:
-        cap = self.biomass_capacity()
-        if cap <= 0:
-            return 0.0
-        return max(0.0, min(1.0, self.biomass_amount() / cap))
+        raise ValueError(f"no slot for kind {kind!r}")

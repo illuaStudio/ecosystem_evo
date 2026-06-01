@@ -19,14 +19,14 @@ from src.sim.utils.creature_helpers import (
     is_satiated,
     needs_nest_feed,
     needs_self_feed,
-    nest_has_usable_food,
+    nest_has_usable_storage,
     satiety_ratio,
     try_attack_only,
     try_pickup_carcass,
     update_nutrition_recovery,
 )
 from tests.sim.legacy_corpse_helpers import use_legacy_corpse_on_death
-from src.sim.utils.inventory_helpers import inventory_is_loaded, total_biomass_amount
+from src.sim.utils.inventory_helpers import inventory_is_loaded, carried_mass_for_kind
 from src.sim.utils.position_helpers import entity_xy
 
 
@@ -79,7 +79,7 @@ class TestHungerBehavior(unittest.TestCase):
         spider = factory.create("Spider", world=world, x=520, y=500)
         world.add_creature(spider)
         nest = world.nest_system.get_creature_nest(ant)
-        nest.stored_food = 200.0
+        nest.stored_mass = 200.0
 
         hunt = HuntAction(target_types=["springtail", "Spider"])
         feed = FeedAtNestAction()
@@ -92,7 +92,7 @@ class TestHungerBehavior(unittest.TestCase):
         spider = factory.create("Spider", world=world, x=520, y=500)
         world.add_creature(spider)
         nest = world.nest_system.get_creature_nest(ant)
-        nest.stored_food = 0.0
+        nest.stored_mass = 0.0
 
         hunt = HuntAction(target_types=["springtail", "Spider"])
         feed = FeedAtNestAction()
@@ -106,7 +106,7 @@ class TestHungerBehavior(unittest.TestCase):
         spider = factory.create("Spider", world=world, x=520, y=500)
         world.add_creature(spider)
         nest = world.nest_system.get_creature_nest(ant)
-        nest.stored_food = nest.max_food
+        nest.stored_mass = nest.capacity
 
         hunt = HuntAction(
             target_types=["springtail", "Spider"], affiliation_hoard_strength=0.8
@@ -117,9 +117,9 @@ class TestHungerBehavior(unittest.TestCase):
         world = World()
         ant, _ = self._ant_and_prey(world, ant_satiety_ratio=0.10)
         nest = world.nest_system.get_creature_nest(ant)
-        nest.stored_food = 8.0
-        nest.max_food = 5000.0
-        self.assertTrue(nest_has_usable_food(ant))
+        nest.stored_mass = 8.0
+        nest.capacity = 5000.0
+        self.assertTrue(nest_has_usable_storage(ant))
         feed = FeedAtNestAction()
         self.assertGreater(feed.calculate_utility(ant), 0.0)
 
@@ -145,7 +145,7 @@ class TestHungerBehavior(unittest.TestCase):
             try_attack_only(ant, prey, attack_power=2.5)
         try_pickup_carcass(ant, prey)
 
-        carried_before = total_biomass_amount(ant)
+        carried_before = carried_mass_for_kind(ant)
         satiety_before = ant.satiety
         self.assertGreater(carried_before, 0)
 
@@ -153,7 +153,7 @@ class TestHungerBehavior(unittest.TestCase):
         action.execute(ant)
 
         self.assertGreater(ant.satiety, satiety_before)
-        self.assertLess(total_biomass_amount(ant), carried_before)
+        self.assertLess(carried_mass_for_kind(ant), carried_before)
 
     def test_scavenge_keeps_remainder_for_nest_after_recovery(self):
         """回復ラッチ終了後も運搬分を手放さず、帰巣行動に戻れる。"""
@@ -180,7 +180,7 @@ class TestHungerBehavior(unittest.TestCase):
         world = World()
         ant, _ = self._ant_and_prey(world, ant_satiety_ratio=0.10)
         nest = world.nest_system.get_creature_nest(ant)
-        nest.stored_food = 0.0
+        nest.stored_mass = 0.0
         ant.pos[0] = nest.x + 200
         ant.pos[1] = nest.y
         ant.position.x = ant.pos[0]
@@ -199,7 +199,7 @@ class TestHungerBehavior(unittest.TestCase):
         ant, _ = self._ant_and_prey(world, ant_satiety_ratio=0.5)
         ant.nutrition_recovery = True
         nest = world.nest_system.get_creature_nest(ant)
-        nest.stored_food = 500.0
+        nest.stored_mass = 500.0
         ant.pos[0] = nest.x
         ant.pos[1] = nest.y
         ant.position.x = nest.x
@@ -220,7 +220,7 @@ class TestHungerBehavior(unittest.TestCase):
         self.assertTrue(needs_self_feed(ant))
 
         nest = world.nest_system.get_creature_nest(ant)
-        nest.stored_food = 200.0
+        nest.stored_mass = 200.0
         ant.satiety = ant.max_satiety * 0.25
         update_nutrition_recovery(ant)
         self.assertFalse(is_hungry(ant))
@@ -259,7 +259,7 @@ class TestHungerBehavior(unittest.TestCase):
         vanguard = factory.create("red_ant_vanguard", world=world, x=500, y=500)
         world.add_creature(vanguard)
         nest = world.nest_system.get_creature_nest(vanguard)
-        nest.stored_food = 500.0
+        nest.stored_mass = 500.0
 
         vanguard.satiety = vanguard.max_satiety * 0.84
         vanguard.nutrition_recovery = False
@@ -279,22 +279,22 @@ class TestHungerBehavior(unittest.TestCase):
         world.add_creature(vanguard)
         nest = world.nest_system.get_creature_nest(vanguard)
         self.assertIsNotNone(nest)
-        nest.stored_food = 500.0
+        nest.stored_mass = 500.0
 
         vanguard.satiety = vanguard.max_satiety * 0.84
         vanguard.nutrition_recovery = True
 
         feed = FeedAtNestAction(feed_radius=42)
         self.assertTrue(needs_self_feed(vanguard))
-        self.assertTrue(nest_has_usable_food(vanguard))
+        self.assertTrue(nest_has_usable_storage(vanguard))
         self.assertGreater(feed.calculate_utility(vanguard), 0.0)
 
     def test_nest_usable_food_allows_top_up_near_full_above(self):
         world = World()
         ant, _ = self._ant_and_prey(world, ant_satiety_ratio=0.84)
         nest = world.nest_system.get_creature_nest(ant)
-        nest.stored_food = 500.0
-        self.assertTrue(nest_has_usable_food(ant))
+        nest.stored_mass = 500.0
+        self.assertTrue(nest_has_usable_storage(ant))
 
     def test_vanguard_not_stuck_feeding_at_displayed_85_percent(self):
         """84.9% 等（HUD では 85%）で回復モード・FeedAtNest に張り付かない。"""
@@ -303,7 +303,7 @@ class TestHungerBehavior(unittest.TestCase):
         vanguard = factory.create("red_ant_vanguard", world=world, x=500, y=500)
         world.add_creature(vanguard)
         nest = world.nest_system.get_creature_nest(vanguard)
-        nest.stored_food = 500.0
+        nest.stored_mass = 500.0
 
         vanguard.satiety = vanguard.max_satiety * 0.8493
         vanguard.nutrition_recovery = True
@@ -323,7 +323,7 @@ class TestHungerBehavior(unittest.TestCase):
         vanguard = factory.create("red_ant_vanguard", world=world, x=500, y=500)
         world.add_creature(vanguard)
         nest = world.nest_system.get_creature_nest(vanguard)
-        nest.stored_food = 500.0
+        nest.stored_mass = 500.0
         vanguard.pos[0] = nest.x
         vanguard.pos[1] = nest.y
         vanguard.position.x = nest.x
@@ -357,9 +357,9 @@ class TestQueenNestFeeding(unittest.TestCase):
         queen.nutrition_recovery = False
         update_nutrition_recovery(queen)
         nest = world.nest_system.get_creature_nest(queen)
-        from tests.sim.world_fixtures import set_affiliation_stored_food
+        from tests.sim.world_fixtures import set_affiliation_stored_mass
 
-        set_affiliation_stored_food(world, nest.affiliation_id, 500.0)
+        set_affiliation_stored_mass(world, nest.affiliation_id, 500.0)
         self.assertTrue(is_creature_sheltered(queen))
         return world, queen, nest
 
@@ -396,7 +396,7 @@ class TestQueenNestFeeding(unittest.TestCase):
 
         self.assertTrue(is_satiated(queen))
         self.assertFalse(needs_self_feed(queen))
-        self.assertLess(nest.stored_food, 500.0)
+        self.assertLess(nest.stored_mass, 500.0)
 
     def test_sheltered_queen_no_chatter_near_full_above(self):
         _, queen, _ = self._sheltered_queen(0.89)

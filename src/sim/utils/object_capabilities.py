@@ -21,7 +21,8 @@ _LEGACY_ZONE_KEYS = frozenset(
     }
 )
 _LEGACY_COLLISION_KEYS = frozenset({"shape", "radius", "width", "height"})
-_LEGACY_STORAGE_KEYS = frozenset({"max_food", "initial_stored_food"})
+_LEGACY_STORAGE_KEYS = frozenset({"max_mass", "initial_mass"})
+_LEGACY_CONTAINER_KEYS = _LEGACY_STORAGE_KEYS
 _LEGACY_ACCESS_KEYS = frozenset({"shelter", "deposit_access", "deposit", "role"})
 _LEGACY_COMBAT_KEYS = frozenset({"hp", "max_hp"})
 _LEGACY_RENDER_KEYS = frozenset({"render", "color"})
@@ -45,6 +46,7 @@ def normalize_capabilities(raw: Mapping[str, Any]) -> Dict[str, Any]:
     _merge_legacy_collision(caps, raw, category)
     _merge_legacy_zone(caps, raw, category)
     _merge_legacy_storage(caps, raw, category)
+    _merge_legacy_container(caps, raw)
     _merge_legacy_access(caps, raw, category)
     _merge_legacy_combat(caps, raw, category)
     _merge_legacy_render(caps, raw)
@@ -80,9 +82,12 @@ def _flatten_for_legacy(result: Dict[str, Any]) -> None:
             result[key] = copy.deepcopy(zone[key])
 
     storage = caps.get("storage") or {}
-    for key in ("max_food", "initial_stored_food"):
+    container = caps.get("container") or {}
+    for key in ("max_mass", "initial_mass"):
         if key in storage and key not in result:
             result[key] = copy.deepcopy(storage[key])
+        if key in container and key not in result:
+            result[key] = copy.deepcopy(container[key])
 
     access = caps.get("access") or {}
     for key in ("role", "shelter", "deposit", "deposit_access"):
@@ -278,6 +283,16 @@ def _merge_legacy_storage(caps: Dict[str, Any], raw: Mapping[str, Any], category
     block = {key: raw[key] for key in _LEGACY_STORAGE_KEYS if key in raw}
     if block or (category == "affiliation" and str(raw.get("role", "")) == "root"):
         caps.setdefault("storage", block)
+
+
+def _merge_legacy_container(caps: Dict[str, Any], raw: Mapping[str, Any]) -> None:
+    if "container" in caps:
+        return
+    if not any(key in raw for key in _LEGACY_CONTAINER_KEYS):
+        return
+    block = {key: raw[key] for key in _LEGACY_CONTAINER_KEYS if key in raw}
+    if block:
+        caps["container"] = block
 
 
 def _merge_legacy_access(caps: Dict[str, Any], raw: Mapping[str, Any], category: str) -> None:

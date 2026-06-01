@@ -1,4 +1,4 @@
-"""ワールド JSON の affiliation 共通設定（profiles / min_food_reserve）解決。
+"""ワールド JSON の affiliation 共通設定（profiles / min_storage_reserve）解決。
 
 旧 colony_* は廃止し、affiliation を所属・拠点の一般名として扱う。
 """
@@ -10,10 +10,10 @@ AFFILIATION_PROFILE_REQUIRED_KEYS = frozenset(
         "nest_x",
         "nest_y",
         "territory_radius",
-        "max_food",
-        "initial_stored_food",
-        "food_leak_per_tick",
-        "food_leak_reserve_ratio",
+        "max_mass",
+        "initial_mass",
+        "storage_leak_per_tick",
+        "storage_leak_reserve_ratio",
         "spawn_spread",
     }
 )
@@ -23,8 +23,8 @@ SPECIES_AFFILIATION_OVERRIDE_KEYS = frozenset(
     {
         "hide_radius",
         "spawn_spread",
-        "max_food",
-        "initial_stored_food",
+        "max_mass",
+        "initial_mass",
         "initial_food",
     }
 )
@@ -50,12 +50,12 @@ def get_affiliation_profile(world, affiliation_id: str) -> dict:
     return profile
 
 
-def get_min_food_reserve(world) -> float:
+def get_min_storage_reserve(world) -> float:
     """接続点設置・産卵で共有する最低食料備蓄。"""
     cfg = get_affiliation_settings(world)
-    if "min_food_reserve" not in cfg:
-        raise KeyError("world affiliation.min_food_reserve が未設定です")
-    return float(cfg["min_food_reserve"])
+    if "min_storage_reserve" not in cfg:
+        raise KeyError("world affiliation.min_storage_reserve が未設定です")
+    return float(cfg["min_storage_reserve"])
 
 
 def _cfg_value(cfg: dict, key: str, legacy_key: str, default):
@@ -64,8 +64,8 @@ def _cfg_value(cfg: dict, key: str, legacy_key: str, default):
     return cfg.get(legacy_key, default)
 
 
-def get_access_food_cost(cfg: dict) -> float:
-    return float(_cfg_value(cfg, "access_food_cost", "hole_food_cost", 250.0))
+def get_access_deposit_cost(cfg: dict) -> float:
+    return float(_cfg_value(cfg, "access_deposit_cost", "hole_food_cost", 250.0))
 
 
 def get_max_access_points(cfg: dict) -> int:
@@ -89,10 +89,10 @@ def resolve_affiliation_runtime_cfg(
     merged = {
         # profiles が無い/不足する world でも NestSystem が動けるように既定値を入れる
         "territory_radius": 180.0,
-        "max_food": 400.0,
-        "initial_stored_food": 0.0,
-        "food_leak_per_tick": 0.0,
-        "food_leak_reserve_ratio": 0.15,
+        "max_mass": 400.0,
+        "initial_mass": 0.0,
+        "storage_leak_per_tick": 0.0,
+        "storage_leak_reserve_ratio": 0.15,
         "spawn_spread": 28.0,
     }
     merged.update(get_affiliation_profile(world, affiliation_id))

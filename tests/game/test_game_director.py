@@ -74,7 +74,7 @@ class TestGameDirector(unittest.TestCase):
         world.events.drain()
 
         director = self._director(world)
-        nest.stored_food = nest.max_food * 0.05
+        nest.stored_mass = nest.capacity * 0.05
         alerts = GameMonitor({"low_food_ratio": 0.10}).check(world, director.state)
         msgs = director.on_monitor_alerts(alerts, world)
         self.assertEqual(len(msgs), 1)

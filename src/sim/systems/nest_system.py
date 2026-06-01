@@ -7,8 +7,8 @@ import random
 from typing import TYPE_CHECKING
 
 from src.sim.utils.affiliation_config_helpers import (
-    get_min_food_reserve,
-    get_access_food_cost,
+    get_min_storage_reserve,
+    get_access_deposit_cost,
     get_max_access_points,
     get_min_access_spacing,
     resolve_affiliation_runtime_cfg as _resolve_affiliation_runtime_cfg,
@@ -19,8 +19,8 @@ from src.sim.utils.creature_helpers import (
 from src.sim.utils.position_helpers import entity_xy
 from src.sim.utils.field_effect_cache import invalidate_field_effect_cache
 from src.sim.utils.world_object_helpers import (
-    affiliation_food_ratio,
-    affiliation_stored_food,
+    affiliation_fill_ratio,
+    affiliation_stored_mass,
     get_affiliation_root,
     get_creature_affiliation_root,
     owner_species_for_affiliation,
@@ -96,8 +96,8 @@ class NestSystem:
         species_name: str,
         *,
         affiliation_id: str | None = None,
-        max_food: float = 400.0,
-        stored_food: float = 0.0,
+        max_mass: float = 400.0,
+        stored_mass: float = 0.0,
     ):
         """後方互換: colony_site + 既定 access を登録。"""
         cid = str(affiliation_id or species_name)
@@ -105,8 +105,8 @@ class NestSystem:
             cid,
             float(x),
             float(y),
-            max_food=float(max_food),
-            stored_food=float(stored_food),
+            max_mass=float(max_mass),
+            stored_mass=float(stored_mass),
         )
         return self.get_affiliation_root(cid)
 
@@ -126,8 +126,8 @@ class NestSystem:
         x: float,
         y: float,
         *,
-        max_food: float,
-        stored_food: float,
+        max_mass: float,
+        stored_mass: float,
         with_default_access: bool = True,
     ) -> None:
         ws = self.world.world_object_system
@@ -136,8 +136,8 @@ class NestSystem:
                 affiliation_id,
                 x,
                 y,
-                max_food=max_food,
-                stored_food=stored_food,
+                max_mass=max_mass,
+                stored_mass=stored_mass,
             )
             if with_default_access and ws.find_access_at(affiliation_id, x, y) is None:
                 ws.add_access_point(affiliation_id, x, y)
@@ -176,20 +176,20 @@ class NestSystem:
             return ws.count_active_access(affiliation_id) == 0
         return True
 
-    def set_affiliation_stored_food(self, affiliation_id: str, amount: float) -> None:
+    def set_affiliation_stored_mass(self, affiliation_id: str, amount: float) -> None:
         amount = max(0.0, float(amount))
         root = get_affiliation_root(self.world, affiliation_id)
         if root is None or root.storage is None:
             return
-        cap = float(root.storage.max_food)
-        root.storage.stored_food = min(amount, cap) if cap > 0 else amount
+        cap = float(root.storage.capacity)
+        root.storage.stored_mass = min(amount, cap) if cap > 0 else amount
 
-    def affiliation_food_ratio(self, affiliation_id: str) -> float:
-        return affiliation_food_ratio(self.world, affiliation_id)
+    def affiliation_fill_ratio(self, affiliation_id: str) -> float:
+        return affiliation_fill_ratio(self.world, affiliation_id)
 
-    def nest_food_ratio(self, affiliation_id: str) -> float:
+    def nest_fill_ratio(self, affiliation_id: str) -> float:
         """後方互換。"""
-        return self.affiliation_food_ratio(affiliation_id)
+        return self.affiliation_fill_ratio(affiliation_id)
 
     def _affiliation_settings(self) -> dict:
         return getattr(self.world, "affiliation_settings", {}) or {}
@@ -200,7 +200,7 @@ class NestSystem:
         root = get_affiliation_root(self.world, affiliation_id)
         if root is None:
             self._register_affiliation_site(
-                affiliation_id, x, y, max_food=400.0, stored_food=0.0, with_default_access=False
+                affiliation_id, x, y, max_mass=400.0, stored_mass=0.0, with_default_access=False
             )
         if cs.find_access_at(affiliation_id, x, y) is None:
             cs.add_access_point(affiliation_id, x, y)
@@ -260,9 +260,9 @@ class NestSystem:
         for creature in self.world.creatures:
             if get_creature_affiliation_id(creature) != affiliation_id:
                 continue
-            from src.sim.utils.inventory_helpers import clear_inventory_biomass
+            from src.sim.utils.inventory_helpers import clear_inventory_for_kind
 
-            clear_inventory_biomass(creature)
+            clear_inventory_for_kind(creature)
             if is_creature_sheltered(creature):
                 creature.become_corpse(cause="defeat")
                 clear_creature_shelter(creature)
@@ -297,10 +297,10 @@ class NestSystem:
             if math.hypot(ax - x, ay - y) < min_spacing:
                 return False, f"既存の接続点に近すぎます (要 {min_spacing:.0f}px 以上)"
 
-        cost = get_access_food_cost(cfg)
-        reserve = get_min_food_reserve(self.world)
+        cost = get_access_deposit_cost(cfg)
+        reserve = get_min_storage_reserve(self.world)
         needed = reserve + cost
-        stored = affiliation_stored_food(self.world, affiliation_id)
+        stored = affiliation_stored_mass(self.world, affiliation_id)
         if stored < needed:
             return (
                 False,
@@ -315,10 +315,10 @@ class NestSystem:
         if not ok:
             return False, reason
 
-        cost = get_access_food_cost(self._affiliation_settings())
+        cost = get_access_deposit_cost(self._affiliation_settings())
         root = get_affiliation_root(self.world, affiliation_id)
         if root is not None and root.storage is not None:
-            root.storage.stored_food = max(0.0, root.storage.stored_food - cost)
+            root.storage.stored_mass = max(0.0, root.storage.stored_mass - cost)
         self.add_hole(affiliation_id, x, y)
         return True, "接続点を設置しました"
 
@@ -486,8 +486,8 @@ class NestSystem:
             affiliation_id,
             cx,
             cy,
-            max_food=float(runtime_cfg["max_food"]),
-            stored_food=float(runtime_cfg["initial_stored_food"]),
+            max_mass=float(runtime_cfg["max_mass"]),
+            stored_mass=float(runtime_cfg["initial_mass"]),
         )
         affiliation.affiliation_id = str(affiliation_id)
 
@@ -500,21 +500,21 @@ class NestSystem:
             if root.storage is None:
                 continue
             runtime_cfg = resolve_affiliation_runtime_cfg(self.world, root.id, {})
-            if root.storage.stored_food > 0:
+            if root.storage.stored_mass > 0:
                 self._leak_food_storage(root.storage, runtime_cfg, dt)
 
     def _leak_food_storage(self, storage, affiliation_cfg: dict, dt: float) -> None:
         if not affiliation_cfg:
             return
-        leak_per_tick = float(affiliation_cfg["food_leak_per_tick"])
-        reserve_ratio = float(affiliation_cfg["food_leak_reserve_ratio"])
+        leak_per_tick = float(affiliation_cfg["storage_leak_per_tick"])
+        reserve_ratio = float(affiliation_cfg["storage_leak_reserve_ratio"])
         if leak_per_tick <= 0:
             return
-        reserve = storage.max_food * reserve_ratio
-        leakable = max(0.0, storage.stored_food - reserve)
+        reserve = storage.capacity * reserve_ratio
+        leakable = max(0.0, storage.stored_mass - reserve)
         if leakable <= 0:
             return
-        storage.stored_food = max(reserve, storage.stored_food - leak_per_tick * dt)
+        storage.stored_mass = max(reserve, storage.stored_mass - leak_per_tick * dt)
 
     def try_consume_food(self, affiliation_id, amount: float) -> bool:
         affiliation_id = _resolve_affiliation_id(affiliation_id)
@@ -523,7 +523,7 @@ class NestSystem:
         root = get_affiliation_root(self.world, affiliation_id)
         if root is None or root.storage is None:
             return False
-        if root.storage.stored_food < amount:
+        if root.storage.stored_mass < amount:
             return False
         root.storage.withdraw(amount)
         return True
@@ -558,10 +558,10 @@ class NestSystem:
         root = get_affiliation_root(self.world, affiliation_id)
         if root is None or root.storage is None:
             return 0.0
-        return max(0.0, root.storage.max_food - root.storage.stored_food)
+        return max(0.0, root.storage.capacity - root.storage.stored_mass)
 
     def deposit_carried(self, creature) -> float:
-        from src.sim.utils.inventory_helpers import clear_inventory_biomass, inventory_is_loaded
+        from src.sim.utils.inventory_helpers import clear_inventory_for_kind, inventory_is_loaded
         from src.sim.utils.world_object_helpers import (
             deposit_carried_to_parent,
             get_creature_nest_parent_ids,
@@ -582,7 +582,7 @@ class NestSystem:
         if root is None or root.storage is None:
             return 0.0
 
-        amount = clear_inventory_biomass(creature)
+        amount = clear_inventory_for_kind(creature)
         if amount <= 0:
             return 0.0
         return root.storage.deposit(amount)
@@ -611,14 +611,14 @@ class NestSystem:
         root = get_affiliation_root(self.world, affiliation_id) if affiliation_id else None
         if root is None or root.storage is None:
             return 0.0
-        if root.storage.stored_food <= 0:
+        if root.storage.stored_mass <= 0:
             return 0.0
 
         max_sat = float(creature.max_satiety)
         if float(creature.satiety) >= max_sat:
             return 0.0
 
-        take = min(root.storage.stored_food, float(feed_per_tick))
+        take = min(root.storage.stored_mass, float(feed_per_tick))
         if take <= 0:
             return 0.0
 

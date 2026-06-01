@@ -148,7 +148,7 @@ def find_nearest_field_carcass_among(creature, species_names, exclude=None):
     return best
 
 def has_edible_carcass(target) -> bool:
-    return not target.alive and getattr(target, "remaining_biomass", 0) > 0
+    return not target.alive and getattr(target, "remaining_mass", 0) > 0
 
 def carcass_on_field(world, target) -> bool:
     """ワールド上に存在し、まだバイオマスが残る死骸か。"""

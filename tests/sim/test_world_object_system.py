@@ -9,7 +9,7 @@ from src.sim.utils.world_object_helpers import (
     resolve_shelter_from_parents,
     set_creature_nest_parent_ids,
     iter_affiliation_access_xy,
-    affiliation_food_ratio,
+    affiliation_fill_ratio,
     affiliation_access_count,
 )
 from tests.sim.test_hole_combat_helpers import damage_colony_access, list_colony_access, primary_access
@@ -40,16 +40,16 @@ def _object_world(**overrides):
             },
         ],
         "affiliation": {
-            "min_food_reserve": 72,
+            "min_storage_reserve": 72,
             "profiles": {
                 "red_ant": {
                     "nest_x": 200,
                     "nest_y": 200,
                     "territory_radius": 180,
-                    "max_food": 5000,
-                    "initial_stored_food": 100,
-                    "food_leak_per_tick": 0,
-                    "food_leak_reserve_ratio": 0.15,
+                    "max_mass": 5000,
+                    "initial_mass": 100,
+                    "storage_leak_per_tick": 0,
+                    "storage_leak_reserve_ratio": 0.15,
                     "spawn_spread": 28,
                     "spawn_exclusion_radius": 150,
                 }
@@ -77,10 +77,10 @@ class TestWorldObjectSystem(unittest.TestCase):
         world = _object_world()
         root = world.world_object_system.get("red_ant")
         self.assertIsNotNone(root)
-        self.assertAlmostEqual(root.storage.stored_food, 100.0)
+        self.assertAlmostEqual(root.storage.stored_mass, 100.0)
         nest = world.nest_system.get_affiliation_root("red_ant")
         self.assertIsNotNone(nest)
-        self.assertAlmostEqual(nest.stored_food, 100.0)
+        self.assertAlmostEqual(nest.stored_mass, 100.0)
         self.assertEqual(len(list_colony_access(world, "red_ant")), 1)
 
     def test_parent_child_hierarchy(self):
@@ -103,9 +103,9 @@ class TestWorldObjectSystem(unittest.TestCase):
         deposited = deposit_carried_to_parent(ant)
         self.assertAlmostEqual(deposited, 25.0)
         root = world.world_object_system.get("red_ant")
-        self.assertAlmostEqual(root.storage.stored_food, 125.0)
+        self.assertAlmostEqual(root.storage.stored_mass, 125.0)
         nest = world.nest_system.get_affiliation_root("red_ant")
-        self.assertAlmostEqual(nest.stored_food, 125.0)
+        self.assertAlmostEqual(nest.stored_mass, 125.0)
 
     def test_shelter_resolves_child_access(self):
         world = _object_world()
@@ -168,26 +168,26 @@ class TestWorldObjectSystem(unittest.TestCase):
         world = _object_world()
         nest = world.nest_system.get_affiliation_root("red_ant")
         root = world.world_object_system.get("red_ant")
-        root.storage.stored_food = 1000.0
-        nest.stored_food = 1000.0
-        cost = float(world.affiliation_settings.get("access_food_cost", world.affiliation_settings.get("hole_food_cost", 250)))
+        root.storage.stored_mass = 1000.0
+        nest.stored_mass = 1000.0
+        cost = float(world.affiliation_settings.get("access_deposit_cost", world.affiliation_settings.get("hole_food_cost", 250)))
 
         ok, _msg = world.nest_system.try_place_hole(nest, 360, 200)
         self.assertTrue(ok)
-        self.assertAlmostEqual(root.storage.stored_food, 1000.0 - cost)
-        self.assertAlmostEqual(nest.stored_food, root.storage.stored_food)
+        self.assertAlmostEqual(root.storage.stored_mass, 1000.0 - cost)
+        self.assertAlmostEqual(nest.stored_mass, root.storage.stored_mass)
         self.assertEqual(world.world_object_system.count_active_access("red_ant"), 2)
 
     def test_colony_display_helpers(self):
         world = _object_world()
         nest = world.nest_system.get_affiliation_root("red_ant")
         root = world.world_object_system.get("red_ant")
-        root.storage.stored_food = 250.0
-        root.storage.max_food = 500.0
+        root.storage.stored_mass = 250.0
+        root.storage.capacity = 500.0
 
         pts = iter_affiliation_access_xy(world, "red_ant")
         self.assertEqual(len(pts), 1)
-        self.assertAlmostEqual(affiliation_food_ratio(world, "red_ant"), 0.5)
+        self.assertAlmostEqual(affiliation_fill_ratio(world, "red_ant"), 0.5)
         self.assertEqual(affiliation_access_count(world, "red_ant"), 1)
 
     def test_obstacle_instances_load_geometry(self):

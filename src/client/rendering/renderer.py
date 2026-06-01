@@ -117,16 +117,16 @@ class Renderer:
                 show_sheltered_debug=show_sheltered,
             )
 
-        gs = getattr(world, "ground_loot_system", None)
-        if gs is not None:
-            for loot in gs.loots.values():
-                if loot.is_depleted():
+        wos = getattr(world, "world_object_system", None)
+        if wos is not None:
+            for obj in wos.iter_field_pickups():
+                if obj.is_pickup_depleted():
                     continue
-                sx = int(loot.x - camera.x)
-                sy = int(loot.y - camera.y)
-                ratio = loot.biomass_ratio()
+                sx = int(obj.x - camera.x)
+                sy = int(obj.y - camera.y)
+                ratio = obj.fill_ratio() if obj.size_from_fill_ratio else 1.0
                 radius = max(4, int(6 + ratio * 10))
-                pygame.draw.circle(self.screen, loot.color, (sx, sy), radius)
+                pygame.draw.circle(self.screen, obj.color, (sx, sy), radius)
                 pygame.draw.circle(self.screen, (40, 36, 32), (sx, sy), radius, 1)
 
         if (
@@ -177,8 +177,8 @@ class Renderer:
             if not sc.alive:
                 texts.insert(
                     3,
-                    f"バイオマス: {sc.remaining_biomass:.1f}/{sc.initial_biomass:.1f} "
-                    f"({sc.biomass_ratio() * 100:.0f}%)",
+                    f"バイオマス: {sc.remaining_mass:.1f}/{sc.initial_mass:.1f} "
+                    f"({sc.corpse_fill_ratio() * 100:.0f}%)",
                 )
             if world and sc.alive:
                 sx, sy = entity_xy(sc)
@@ -195,10 +195,10 @@ class Renderer:
                 if root is not None and root.storage is not None:
                     texts.append(
                         f"コロニー {cid}: 食料 "
-                        f"{root.storage.stored_food:.0f}/{root.storage.max_food:.0f}"
+                        f"{root.storage.stored_mass:.0f}/{root.storage.capacity:.0f}"
                     )
                     texts.append(
-                        f"  備蓄率 {world.nest_system.affiliation_food_ratio(cid) * 100:.0f}%"
+                        f"  備蓄率 {world.nest_system.affiliation_fill_ratio(cid) * 100:.0f}%"
                     )
                     texts.append(
                         f"コロニー: {world.nest_system.total_member_count(cid)} 匹"
@@ -534,15 +534,15 @@ class Renderer:
         """選択中のコロニー詳細 HUD。戻り値は次の描画 Y。"""
         from src.sim.utils.affiliation_config_helpers import (
             get_affiliation_profile,
-            get_access_food_cost,
+            get_access_deposit_cost,
             get_max_access_points,
         )
         from src.sim.utils.world_object_helpers import (
             affiliation_access_count,
-            affiliation_food_ratio,
+            affiliation_fill_ratio,
             affiliation_site_xy,
-            affiliation_stored_food,
-            affiliation_max_food,
+            affiliation_stored_mass,
+            affiliation_capacity,
             get_affiliation_root,
             owner_species_for_affiliation,
         )
@@ -552,7 +552,7 @@ class Renderer:
         root = get_affiliation_root(world, affiliation_id)
 
         leak_per_tick = float(
-            get_affiliation_profile(world, affiliation_id).get("food_leak_per_tick", 0)
+            get_affiliation_profile(world, affiliation_id).get("storage_leak_per_tick", 0)
         )
 
         self.screen.blit(
@@ -561,14 +561,14 @@ class Renderer:
         y += 35
 
         colony_world = getattr(world, "affiliation_settings", {}) or {}
-        access_cost = get_access_food_cost(colony_world)
+        access_cost = get_access_deposit_cost(colony_world)
         max_access = get_max_access_points(colony_world)
         access_count = affiliation_access_count(world, affiliation_id)
         sx, sy = affiliation_site_xy(world, affiliation_id)
         owner = owner_species_for_affiliation(world, affiliation_id)
-        stored = affiliation_stored_food(world, affiliation_id)
-        cap = affiliation_max_food(world, affiliation_id)
-        ratio = affiliation_food_ratio(world, affiliation_id)
+        stored = affiliation_stored_mass(world, affiliation_id)
+        cap = affiliation_capacity(world, affiliation_id)
+        ratio = affiliation_fill_ratio(world, affiliation_id)
 
         texts = [
             f"勢力:{affiliation_id}  種:{owner}",

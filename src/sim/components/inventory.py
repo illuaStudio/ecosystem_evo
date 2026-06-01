@@ -12,7 +12,7 @@ class InventoryItem:
 
     kind: str
 
-    def weight(self, *, biomass_weight_per_unit: float) -> float:
+    def weight(self, *, mass_per_unit: float) -> float:
         raise NotImplementedError
 
 
@@ -23,8 +23,8 @@ class BiomassItem(InventoryItem):
     source_carcass: Any = None
     source_loot: Any = None
 
-    def weight(self, *, biomass_weight_per_unit: float) -> float:
-        return max(0.0, float(self.amount)) * max(0.0, float(biomass_weight_per_unit))
+    def weight(self, *, mass_per_unit: float) -> float:
+        return max(0.0, float(self.amount)) * max(0.0, float(mass_per_unit))
 
 
 @dataclass
@@ -36,7 +36,7 @@ class StackItem(InventoryItem):
     quantity: int = 1
     mass_per_unit: float = 1.0
 
-    def weight(self, *, biomass_weight_per_unit: float) -> float:
+    def weight(self, *, mass_per_unit: float) -> float:
         return max(0.0, float(self.quantity)) * max(0.0, float(self.mass_per_unit))
 
 
@@ -56,7 +56,7 @@ class InventorySlot:
 @dataclass
 class InventoryComponent:
     slots: list[InventorySlot] = field(default_factory=list)
-    biomass_weight_per_unit: float = 1.0
+    mass_per_unit: float = 1.0
     carry_speed_reference_weight: float = 80.0
 
     @property
@@ -73,7 +73,7 @@ class InventoryComponent:
         for slot in self.slots:
             if slot.item is not None:
                 total += slot.item.weight(
-                    biomass_weight_per_unit=self.biomass_weight_per_unit
+                    mass_per_unit=self.mass_per_unit
                 )
         return total
 

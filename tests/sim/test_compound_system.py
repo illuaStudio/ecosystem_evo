@@ -90,7 +90,7 @@ class TestCompoundSystem(unittest.TestCase):
         self.assertAlmostEqual(deposited, 40.0)
 
         root = get_compound_root(world, "dungeon_loot")
-        self.assertAlmostEqual(root.storage.stored_food, 40.0)
+        self.assertAlmostEqual(root.storage.stored_mass, 40.0)
 
     def test_resolve_deposit_and_withdraw_use_nearest_access(self):
         world = _linked_chest_world()

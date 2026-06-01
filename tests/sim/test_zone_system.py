@@ -22,8 +22,8 @@ def _zone_world(**overrides):
                     "nest_y": 200,
                     "territory_radius": 180,
                     "spawn_exclusion_radius": 150,
-                    "max_food": 5000,
-                    "initial_stored_food": 80,
+                    "max_mass": 5000,
+                    "initial_mass": 80,
                 }
             }
         },

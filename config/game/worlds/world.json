@@ -253,20 +253,20 @@
     "red_ant_vanguard": 10
   },
   "affiliation": {
-    "access_food_cost": 250.0,
+    "access_deposit_cost": 250.0,
     "max_access_points": 8,
     "min_access_spacing": 120.0,
-    "min_food_reserve": 72.0,
+    "min_storage_reserve": 72.0,
     "access_max_hp": 120.0,
     "profiles": {
       "red_ant": {
         "nest_x": 120.0,
         "nest_y": 120.0,
         "territory_radius": 180.0,
-        "max_food": 5000.0,
-        "initial_stored_food": 1000.0,
-        "food_leak_per_tick": 0.0,
-        "food_leak_reserve_ratio": 0.15,
+        "max_mass": 5000.0,
+        "initial_mass": 1000.0,
+        "storage_leak_per_tick": 0.0,
+        "storage_leak_reserve_ratio": 0.15,
         "spawn_spread": 28.0,
         "spawn_exclusion_radius": 150.0
       }

@@ -114,9 +114,9 @@ class TestSimEvents(unittest.TestCase):
             for a in profile["actions"]
             if a["name"] == "AffiliationReproduceAction"
         )
-        from src.sim.utils.affiliation_config_helpers import get_min_food_reserve
+        from src.sim.utils.affiliation_config_helpers import get_min_storage_reserve
 
-        nest.stored_food = get_min_food_reserve(world) + float(params["food_cost"]) + 10
+        nest.stored_mass = get_min_storage_reserve(world) + float(params["food_cost"]) + 10
 
         action = AffiliationReproduceAction(**{**params, "spawn_cooldown": 0})
         self.assertTrue(action.execute(queen))

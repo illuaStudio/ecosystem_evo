@@ -30,7 +30,7 @@ def build_inventory_from_species(species) -> InventoryComponent:
         raw = {
             "slot_count": 1,
             "slots": [{"max_mass": max_mass, "allowed_kinds": ["biomass"]}],
-            "biomass_weight_per_unit": 1.0,
+            "mass_per_unit": 1.0,
             "carry_speed_reference_weight": 80.0,
         }
 
@@ -49,7 +49,7 @@ def build_inventory_from_species(species) -> InventoryComponent:
 
     return InventoryComponent(
         slots=slots,
-        biomass_weight_per_unit=float(raw.get("biomass_weight_per_unit", 1.0)),
+        mass_per_unit=float(raw.get("mass_per_unit", 1.0)),
         carry_speed_reference_weight=float(
             raw.get("carry_speed_reference_weight", 80.0)
         ),
@@ -76,7 +76,7 @@ def get_haul_max_carry(creature, default: float = 50.0) -> float:
 def _remove_depleted_carcass(world, carcass) -> None:
     if world is None or carcass is None:
         return
-    if carcass.remaining_biomass <= 0 and carcass in world.creatures:
+    if carcass.remaining_mass <= 0 and carcass in world.creatures:
         world.remove_creature(carcass)
 
 
@@ -123,7 +123,7 @@ def _return_biomass_chunk(
         and world is not None
         and carcass in world.creatures
     ):
-        carcass.remaining_biomass += chunk
+        carcass.remaining_mass += chunk
         return
 
 
@@ -146,19 +146,19 @@ def try_pickup_carcass(carrier, carcass, contact_padding: float = 8.0) -> bool:
     for slot in inv.slots:
         if not slot.can_accept("biomass"):
             continue
-        if carcass.remaining_biomass <= 0:
+        if carcass.remaining_mass <= 0:
             break
-        chunk = min(float(carcass.remaining_biomass), slot.max_mass)
+        chunk = min(float(carcass.remaining_mass), slot.max_mass)
         if chunk <= 0:
             continue
-        carcass.remaining_biomass -= chunk
+        carcass.remaining_mass -= chunk
         slot.item = BiomassItem(amount=chunk, source_carcass=carcass)
         picked = True
         picked_amount += chunk
 
     if picked and world is not None:
         _remove_depleted_carcass(world, carcass)
-        if carcass.remaining_biomass <= 0 or carcass not in world.creatures:
+        if carcass.remaining_mass <= 0 or carcass not in world.creatures:
             _detach_carcass_from_inventory(inv, carcass)
         from src.sim.emitters import emit_item_found
 
@@ -197,7 +197,7 @@ def release_inventory_biomass(carrier) -> None:
         )
 
 
-def consume_inventory_biomass(creature, bite_gain: float = 1.35) -> float:
+def consume_inventory_for_kind(creature, bite_gain: float = 1.35, *, kind: str = "biomass") -> float:
     """先頭のバイオマススロットをその場で消費（満腹度回復）。"""
     inv = get_creature_inventory(creature)
     if inv is None:
@@ -228,7 +228,7 @@ def consume_inventory_biomass(creature, bite_gain: float = 1.35) -> float:
     return gained
 
 
-def total_biomass_amount(creature) -> float:
+def carried_mass_for_kind(creature) -> float:
     inv = get_creature_inventory(creature)
     if inv is None:
         return 0.0
@@ -239,8 +239,8 @@ def total_biomass_amount(creature) -> float:
     )
 
 
-def clear_inventory_biomass(creature) -> float:
-    """全バイオマススロットを空にし、合計量を返す（預け入れ用）。"""
+def clear_inventory_for_kind(creature, *, kind: str = "biomass") -> float:
+    """指定 kind のスロットを空にし、合計量を返す（預け入れ用）。"""
     inv = get_creature_inventory(creature)
     if inv is None:
         return 0.0
@@ -267,7 +267,7 @@ def format_inventory_status(creature) -> str | None:
             continue
         item = slot.item
         if isinstance(item, BiomassItem):
-            w = item.weight(biomass_weight_per_unit=inv.biomass_weight_per_unit)
+            w = item.weight(mass_per_unit=inv.mass_per_unit)
             src = ""
             if item.source_carcass is not None:
                 src = f"（元: {item.source_carcass.species.name}）"
@@ -276,7 +276,7 @@ def format_inventory_status(creature) -> str | None:
                 f"(重量 {w:.1f}){src}"
             )
         else:
-            w = item.weight(biomass_weight_per_unit=inv.biomass_weight_per_unit)
+            w = item.weight(mass_per_unit=inv.mass_per_unit)
             lines.append(f"  [{i + 1}] {item.kind} (重量 {w:.1f})")
     lines.append(f"総重量: {inv.total_weight:.1f}")
     return "\n".join(lines)

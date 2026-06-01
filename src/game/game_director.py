@@ -85,7 +85,7 @@ class GameDirector:
             else:
                 food_factor = min(
                     1.0,
-                    world.nest_system.affiliation_food_ratio(self.state.player_affiliation_id) / 0.5,
+                    world.nest_system.affiliation_fill_ratio(self.state.player_affiliation_id) / 0.5,
                 )
                 self.state.stability_level = max(0.0, min(1.0, 0.3 + food_factor * 0.7))
 

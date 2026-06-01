@@ -4,8 +4,8 @@
   "label": "共有倉庫（論理親）",
   "capabilities": {
     "storage": {
-      "max_food": 1000,
-      "initial_stored_food": 0
+      "max_mass": 1000,
+      "initial_mass": 0
     },
     "compound": {
       "role": "root",

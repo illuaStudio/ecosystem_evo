@@ -135,29 +135,29 @@ def get_haul_max_carry(creature, default: float = 50.0) -> float:
 
     return _max(creature, default=default)
 
-def nest_stored_food(creature, default: float = 0.0) -> float:
+def nest_stored_mass(creature, default: float = 0.0) -> float:
     from src.sim.utils.world_object_helpers import (
         get_creature_affiliation_root,
         get_creature_nest_parent_ids,
-        parent_stored_food,
+        parent_stored_mass,
     )
 
     if get_creature_nest_parent_ids(creature):
-        return parent_stored_food(creature, default=default)
+        return parent_stored_mass(creature, default=default)
 
     root = get_creature_affiliation_root(creature)
     if root is None or root.storage is None:
         return default
-    return float(root.storage.stored_food)
+    return float(root.storage.stored_mass)
 
-def nest_has_food(creature, min_food: float = 8.0) -> bool:
-    """stored_food が絶対量の下限を超えるか（粗い判定）。"""
-    return nest_stored_food(creature) > min_food
+def nest_has_storage(creature, min_mass: float = 8.0) -> bool:
+    """stored_mass が絶対量の下限を超えるか（粗い判定）。"""
+    return nest_stored_mass(creature) > min_mass
 
 
-def nest_has_usable_food(creature) -> bool:
+def nest_has_usable_storage(creature) -> bool:
     """巣の備蓄が食事に使えるか（備蓄 > 0 かつ満腹目標まで余地あり）。"""
-    if nest_stored_food(creature) <= 0:
+    if nest_stored_mass(creature) <= 0:
         return False
     return satiety_room_until_feed_target(creature) > 0
 
@@ -184,14 +184,14 @@ def nest_feed_satiety_gain_estimate(creature) -> float:
     from src.sim.utils.world_object_helpers import get_creature_affiliation_root
 
     root = get_creature_affiliation_root(creature)
-    if root is None or root.storage is None or root.storage.stored_food <= 0:
+    if root is None or root.storage is None or root.storage.stored_mass <= 0:
         return 0.0
 
     max_sat = float(creature.max_satiety)
     if float(creature.satiety) >= max_sat:
         return 0.0
 
-    take = min(root.storage.stored_food, float(feed_per_tick))
+    take = min(root.storage.stored_mass, float(feed_per_tick))
     gain = take * float(bite_gain)
     room = max_sat - float(creature.satiety)
     return min(gain, room)

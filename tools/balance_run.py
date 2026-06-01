@@ -43,7 +43,7 @@ class BalanceRunReport:
     milestones: list[MilestoneLog] = field(default_factory=list)
     worker_count_end: int = 0
     nest_food_end: float = 0.0
-    nest_food_ratio_end: float = 0.0
+    nest_fill_ratio_end: float = 0.0
     flags_end: dict[str, bool] = field(default_factory=dict)
 
 
@@ -124,7 +124,7 @@ def run_balance(
             ctx=ctx,
             key="start",
             label="開始",
-            detail=f"food={nest.stored_food:.0f}/{nest.max_food:.0f} "
+            detail=f"food={nest.stored_mass:.0f}/{nest.capacity:.0f} "
             f"workers={_worker_count(world, affiliation_id)}",
             seen=seen_milestones,
         )
@@ -138,7 +138,7 @@ def run_balance(
 
         nest = world.nest_system.get_affiliation_root(affiliation_id)
         if nest is not None:
-            ratio = nest.food_ratio
+            ratio = nest.fill_ratio
             if controller.state.has_flag("high_food_reached"):
                 _maybe_log_milestone(
                     report,
@@ -147,7 +147,7 @@ def run_balance(
                     ctx=ctx,
                     key="high_food",
                     label="繁殖解禁 (high_food_reached)",
-                    detail=f"food={nest.stored_food:.0f} ratio={ratio:.2f}",
+                    detail=f"food={nest.stored_mass:.0f} ratio={ratio:.2f}",
                     seen=seen_milestones,
                 )
             if controller.state.has_flag("queen_can_reproduce"):
@@ -234,8 +234,8 @@ def run_balance(
     report.worker_count_end = _worker_count(world, affiliation_id)
     report.flags_end = dict(controller.state.flags)
     if nest is not None:
-        report.nest_food_end = nest.stored_food
-        report.nest_food_ratio_end = nest.food_ratio
+        report.nest_food_end = nest.stored_mass
+        report.nest_fill_ratio_end = nest.fill_ratio
     return report
 
 
@@ -256,7 +256,7 @@ def print_report(report: BalanceRunReport) -> None:
     )
     print(
         f"終了: food={report.nest_food_end:.0f} "
-        f"({report.nest_food_ratio_end * 100:.1f}%), "
+        f"({report.nest_fill_ratio_end * 100:.1f}%), "
         f"workers={report.worker_count_end}"
     )
     print()

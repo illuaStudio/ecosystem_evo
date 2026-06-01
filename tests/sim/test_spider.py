@@ -122,7 +122,7 @@ class TestSpider(unittest.TestCase):
         bottom = factory.create("red_ant", world=world, x=500, y=567)
         for carcass in (top, bottom):
             become_legacy_corpse(carcass)
-            carcass.remaining_biomass = 60.0
+            carcass.remaining_mass = 60.0
         world.add_creature(spider)
         world.add_creature(top)
         world.add_creature(bottom)
@@ -168,7 +168,7 @@ class TestSpider(unittest.TestCase):
         self.assertTrue(try_pickup_loot(ant, loot))
         deposited = world.nest_system.deposit_carried(ant)
         self.assertGreater(deposited, 0)
-        self.assertGreater(nest.stored_food, 0)
+        self.assertGreater(nest.stored_mass, 0)
 
 
 if __name__ == "__main__":

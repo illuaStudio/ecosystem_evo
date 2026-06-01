@@ -1,5 +1,5 @@
 from src.sim.constants.micro_fauna import DEFAULT_MICRO_FAUNA_SPECIES
-from src.sim.entities.ground_loot import GroundLoot
+from src.sim.utils.field_pickup_helpers import is_field_pickup, pickup_radius
 from src.sim.utils.loot_helpers import (
     find_nearest_field_biomass_among,
     is_biomass_field_target,
@@ -35,7 +35,7 @@ from src.sim.utils.creature_helpers import (
     move_toward,
     move_toward_contact,
     needs_self_feed,
-    nest_has_usable_food,
+    nest_has_usable_storage,
     try_attack_only,
     try_pickup_carcass,
     try_predate,
@@ -71,13 +71,13 @@ class ChaseAction(Action):
             return False
 
         pad = float(self.params["contact_padding"])
-        if isinstance(target, GroundLoot):
-            reach = float(target.pickup_radius) + pad
+        if is_field_pickup(target):
+            reach = pickup_radius(target) + pad
         else:
             reach = contact_range(creature, target, pad)
         prey_species = self._prey_species()
 
-        if isinstance(target, GroundLoot) or not target.alive:
+        if is_field_pickup(target) or not target.alive:
             if not is_biomass_field_target(creature.world, target):
                 self._target = None
                 return False
@@ -113,7 +113,9 @@ class ChaseAction(Action):
         return chase_prey_species(self.params)
 
     def _trackable_prey(self, creature, target, species: tuple[str, ...]) -> bool:
-        if isinstance(target, GroundLoot) or (target is not None and not getattr(target, "alive", True)):
+        if is_field_pickup(target) or (
+            target is not None and not getattr(target, "alive", True)
+        ):
             return is_trackable_biomass_target(creature, target, species)
         return is_trackable_prey(creature, target, species)
 
@@ -220,10 +222,10 @@ class HuntAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action
 
     def _is_field_carcass_prey(self, creature, target) -> bool:
         """Hunt 対象種の現場バイオマス（地面ルート／旧死骸）。"""
-        if isinstance(target, GroundLoot):
+        if is_field_pickup(target):
             world = getattr(creature, "world", None)
             return (
-                target.source_species in self._prey_species()
+                target.pickup_species_filter in self._prey_species()
                 and loot_on_field(world, target)
             )
         if target is None or target.alive:
@@ -271,7 +273,9 @@ class HuntAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action
         return living
 
     def _trackable_prey(self, creature, target, species: tuple[str, ...]) -> bool:
-        if isinstance(target, GroundLoot) or (target is not None and not getattr(target, "alive", True)):
+        if is_field_pickup(target) or (
+            target is not None and not getattr(target, "alive", True)
+        ):
             return is_trackable_biomass_target(creature, target, species)
         return is_trackable_prey_creature(
             creature,
@@ -298,7 +302,7 @@ class HuntAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action
             return False
 
         if self._living_only() and (
-            isinstance(target, GroundLoot) or not getattr(target, "alive", True)
+            is_field_pickup(target) or not getattr(target, "alive", True)
         ):
             self._target = None
             return False
@@ -313,12 +317,12 @@ class HuntAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action
             return False
 
         pad = float(self.params["contact_padding"])
-        if isinstance(target, GroundLoot):
-            reach = float(target.pickup_radius) + pad
+        if is_field_pickup(target):
+            reach = pickup_radius(target) + pad
         else:
             reach = contact_range(creature, target, pad)
 
-        if isinstance(target, GroundLoot) or not getattr(target, "alive", True):
+        if is_field_pickup(target) or not getattr(target, "alive", True):
             if not is_biomass_field_target(creature.world, target):
                 self._target = None
                 return False
@@ -375,7 +379,7 @@ class HuntAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action
     def _nest_blocks_hunt(self, creature) -> bool:
         if self._defense_hunt() or self._territory_only():
             return False
-        return nest_has_usable_food(creature)
+        return nest_has_usable_storage(creature)
 
     def _nest_hunt_dampening(self, creature) -> float:
         """備蓄が十分な巣のすぐ近くでは狩り優先度を下げ、巣際の Hunt↔Return 往復を抑える。"""
@@ -389,8 +393,8 @@ class HuntAction(NestLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin, Action
             return 1.0
         if ns.distance_to_nest(creature) > float(self.params.get("nest_hunt_dampen_radius", 55.0)):
             return 1.0
-        if ns.affiliation_food_ratio(affiliation_id) < float(
-            self.params.get("nest_hunt_dampen_food_ratio", 0.75)
+        if ns.affiliation_fill_ratio(affiliation_id) < float(
+            self.params.get("nest_hunt_dampen_fill_ratio", 0.75)
         ):
             return 1.0
         return float(self.params.get("nest_hunt_dampen_factor", 0.2))

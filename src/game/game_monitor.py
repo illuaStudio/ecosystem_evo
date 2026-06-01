@@ -27,26 +27,26 @@ class GameMonitor:
         if world.nest_system.get_affiliation_root(affiliation_id) is None:
             return alerts
 
-        low_ratio = float(self.settings.get("low_food_ratio", 0.10))
-        food_ratio = world.nest_system.affiliation_food_ratio(affiliation_id)
-        if food_ratio < low_ratio:
+        low_ratio = float(self.settings.get("low_fill_ratio", 0.10))
+        fill_ratio = world.nest_system.affiliation_fill_ratio(affiliation_id)
+        if fill_ratio < low_ratio:
             if state.set_flag("low_food_warned"):
                 alerts.append(
                     MonitorAlert(
                         "low_food",
-                        f"備蓄が {food_ratio * 100:.0f}% まで低下しました",
+                        f"備蓄が {fill_ratio * 100:.0f}% まで低下しました",
                     )
                 )
-        elif food_ratio >= low_ratio * 1.5:
+        elif fill_ratio >= low_ratio * 1.5:
             state.flags["low_food_warned"] = False
 
-        high_ratio = float(self.settings.get("high_food_ratio", 0.50))
-        if food_ratio >= high_ratio:
+        high_ratio = float(self.settings.get("high_fill_ratio", 0.50))
+        if fill_ratio >= high_ratio:
             if state.set_flag("high_food_reached"):
                 alerts.append(
                     MonitorAlert(
                         "high_food",
-                        f"備蓄が {food_ratio * 100:.0f}% に達しました",
+                        f"備蓄が {fill_ratio * 100:.0f}% に達しました",
                     )
                 )
 

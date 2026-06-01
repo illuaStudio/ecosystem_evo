@@ -1,7 +1,7 @@
-"""マップ上の汎用オブジェクト（親子階層・備蓄・Shelter 接続点）。"""
+"""マップ上の汎用オブジェクト（親子階層・容器・Shelter 接続点）。"""
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional, Tuple
 
 from src.sim.components.object_storage import ObjectStorage
@@ -11,7 +11,7 @@ from src.sim.utils.object_capabilities import point_in_shape
 
 @dataclass
 class WorldObject:
-    """Sim 上の配置オブジェクト。親=備蓄、子=接続/Shelter。"""
+    """Sim 上の配置オブジェクト。親=容器ルート、子=接続/Shelter。"""
 
     id: str
     type_ref: str
@@ -33,6 +33,20 @@ class WorldObject:
     color: Tuple[int, int, int] = (120, 118, 110)
     zone_effects: Optional[ZoneEffects] = None
     compound_profile: str = ""
+    layer: str = ""
+    origin: str = "map"
+    lifecycle: str = "static"
+    pickup_radius: float = 12.0
+    pickup_modes: Tuple[str, ...] = ()
+    deplete_when_empty: bool = True
+    decay_rate: float = 0.0
+    initial_fill: float = 0.0
+    pickup_species_filter: str = ""
+    size_from_fill_ratio: bool = False
+
+    @property
+    def is_field_pickup(self) -> bool:
+        return self.layer == "field" and self.storage is not None
 
     @property
     def is_obstacle(self) -> bool:
@@ -58,7 +72,27 @@ class WorldObject:
 
     @property
     def is_root(self) -> bool:
+        if self.layer == "field":
+            return False
         return self.parent_id is None and self.storage is not None
+
+    def amount_for_kind(self, kind: str) -> float:
+        if self.storage is None:
+            return 0.0
+        return self.storage.stack.amount_for_kind(kind)
+
+    def is_pickup_depleted(self) -> bool:
+        if self.storage is None:
+            return True
+        return self.storage.stack.is_empty
+
+    def fill_ratio(self) -> float:
+        if self.initial_fill > 0 and self.storage is not None:
+            initial = max(float(self.initial_fill), 1.0)
+            return max(0.0, min(1.0, self.storage.stored_mass / initial))
+        if self.storage is None:
+            return 0.0
+        return self.storage.fill_ratio
 
     @property
     def is_access_point(self) -> bool:
@@ -74,7 +108,6 @@ class WorldObject:
 
     @property
     def compound_id(self) -> str:
-        """ルート=自身 id、接続点=parent_id（affiliation_id の汎化名）。"""
         return str(self.parent_id or self.id)
 
     @property
@@ -82,33 +115,27 @@ class WorldObject:
         return self.compound_id
 
     @property
-    def stored_food(self) -> float:
+    def stored_mass(self) -> float:
         if self.storage is None:
             return 0.0
-        return float(self.storage.stored_food)
+        return float(self.storage.stored_mass)
 
-    @stored_food.setter
-    def stored_food(self, amount: float) -> None:
+    @stored_mass.setter
+    def stored_mass(self, amount: float) -> None:
         if self.storage is None:
             return
-        cap = float(self.storage.max_food)
+        cap = float(self.storage.capacity)
         amount = max(0.0, float(amount))
-        self.storage.stored_food = min(amount, cap) if cap > 0 else amount
+        self.storage.stored_mass = min(amount, cap) if cap > 0 else amount
 
     @property
-    def max_food(self) -> float:
+    def capacity(self) -> float:
         if self.storage is None:
             return 0.0
-        return float(self.storage.max_food)
+        return float(self.storage.capacity)
 
-    @max_food.setter
-    def max_food(self, cap: float) -> None:
+    @capacity.setter
+    def capacity(self, cap: float) -> None:
         if self.storage is None:
             return
-        self.storage.max_food = max(0.0, float(cap))
-
-    @property
-    def food_ratio(self) -> float:
-        if self.storage is None:
-            return 0.0
-        return float(self.storage.food_ratio)
+        self.storage.capacity = max(0.0, float(cap))

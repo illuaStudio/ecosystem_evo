@@ -51,14 +51,14 @@ class AffiliationReproduceAction(ReproductionAction):
         "approach_speed_multiplier": 0.9,
     }
 
-    def _min_food_reserve(self, creature) -> float:
-        """最低備蓄は world.json affiliation.min_food_reserve（拠点設置と共通）。"""
+    def _min_storage_reserve(self, creature) -> float:
+        """最低備蓄は world.json affiliation.min_storage_reserve（拠点設置と共通）。"""
         world = getattr(creature, "world", None)
         if world is None:
             raise RuntimeError("AffiliationReproduceAction: world が未設定です")
-        from src.sim.utils.affiliation_config_helpers import get_min_food_reserve
+        from src.sim.utils.affiliation_config_helpers import get_min_storage_reserve
 
-        return get_min_food_reserve(world)
+        return get_min_storage_reserve(world)
 
     def _member_species(self) -> list[str]:
         return [str(s) for s in self.params["member_species"]]
@@ -134,11 +134,11 @@ class AffiliationReproduceAction(ReproductionAction):
         if members >= max_members:
             return False, f"個体数上限 ({members}/{max_members})"
 
-        reserve = self._min_food_reserve(creature)
+        reserve = self._min_storage_reserve(creature)
         needed = reserve + cost
-        from src.sim.utils.world_object_helpers import affiliation_stored_food
+        from src.sim.utils.world_object_helpers import affiliation_stored_mass
 
-        stored = affiliation_stored_food(creature.world, affiliation_id)
+        stored = affiliation_stored_mass(creature.world, affiliation_id)
         if stored < needed:
             return (
                 False,
@@ -234,7 +234,7 @@ class AffiliationReproduceAction(ReproductionAction):
             return 0.0
 
         cost = float(self.params["food_cost"])
-        reserve = self._min_food_reserve(creature)
+        reserve = self._min_storage_reserve(creature)
         max_members = max(1, int(self.params["max_affiliation_members"]))
         member_species = self._member_species()
         if member_species:
@@ -243,10 +243,10 @@ class AffiliationReproduceAction(ReproductionAction):
             members = ns.total_member_count(affiliation_id)
 
         headroom = max(0.0, (max_members - members) / max_members)
-        from src.sim.utils.world_object_helpers import affiliation_max_food, affiliation_stored_food
+        from src.sim.utils.world_object_helpers import affiliation_capacity, affiliation_stored_mass
 
-        stored = affiliation_stored_food(creature.world, affiliation_id)
-        cap = affiliation_max_food(creature.world, affiliation_id)
+        stored = affiliation_stored_mass(creature.world, affiliation_id)
+        cap = affiliation_capacity(creature.world, affiliation_id)
         surplus = stored - reserve - cost
         denom = max(1.0, cap - reserve - cost)
         food_factor = max(0.0, min(1.0, surplus / denom))

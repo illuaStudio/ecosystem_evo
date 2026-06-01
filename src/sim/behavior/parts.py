@@ -42,17 +42,17 @@ def warp_creature(creature, x: float, y: float) -> None:
     sync_legacy_pos(creature, update_last=True)
 
 
-def spawn_creature_biomass_loot(creature) -> None:
-    from src.sim.utils.loot_helpers import spawn_biomass_loot_from_creature
+def spawn_creature_drop(creature, params: dict | None = None) -> None:
+    from src.sim.utils.drop_helpers import apply_spawn_drop_step
 
-    spawn_biomass_loot_from_creature(creature)
+    apply_spawn_drop_step(creature, params or {})
 
 
-def convert_creature_biomass(creature) -> None:
+def convert_creature_corpse_mass(creature) -> None:
     size = float(creature.traits.get("base_size", 9.0))
-    biomass = size * 200.0
-    creature.corpse.remaining_biomass = biomass
-    creature.corpse.initial_biomass = biomass
+    mass = size * 200.0
+    creature.corpse.remaining_mass = mass
+    creature.corpse.initial_mass = mass
 
 
 def remove_creature_from_world(creature) -> bool:
@@ -167,8 +167,8 @@ _PART_BUILDERS = {
         speed_multiplier=float(p.get("speed_multiplier", 1.0)),
         arrival_radius=float(p.get("arrival_radius", 8.0)),
     ),
-    "convert_biomass": lambda _p: InstantPart(convert_creature_biomass),
-    "spawn_biomass_loot": lambda _p: InstantPart(spawn_creature_biomass_loot),
+    "convert_corpse_mass": lambda _p: InstantPart(convert_creature_corpse_mass),
+    "spawn_drop": lambda p: InstantPart(lambda c: spawn_creature_drop(c, p)),
     "remove": lambda _p: InstantPart(remove_creature_from_world, removes_creature=True),
     "decompose_until_empty": lambda _p: DecomposeUntilEmptyPart(),
 }

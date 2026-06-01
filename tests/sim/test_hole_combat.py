@@ -127,7 +127,7 @@ class TestHoleCombat(unittest.TestCase):
 
         red_nest = world.nest_system.get_creature_nest(red)
 
-        red_nest.stored_food = 5000
+        red_nest.stored_mass = 5000
 
 
 

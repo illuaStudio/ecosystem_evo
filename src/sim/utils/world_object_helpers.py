@@ -6,7 +6,7 @@ from typing import Optional, Sequence, Tuple
 
 from src.sim.shelter.types import ShelterRef
 from src.sim.utils.inventory_helpers import inventory_is_loaded
-from src.sim.utils.item_stack_helpers import transfer_biomass_storage_to_creature
+from src.sim.utils.item_stack_helpers import transfer_kind_storage_to_creature
 from src.sim.utils.position_helpers import entity_xy
 
 
@@ -47,18 +47,18 @@ def get_creature_affiliation_root(creature):
     return get_affiliation_root(world, cid)
 
 
-def affiliation_stored_food(world, affiliation_id: str, default: float = 0.0) -> float:
+def affiliation_stored_mass(world, affiliation_id: str, default: float = 0.0) -> float:
     root = get_affiliation_root(world, affiliation_id)
     if root is None or root.storage is None:
         return default
-    return float(root.storage.stored_food)
+    return float(root.storage.stored_mass)
 
 
-def affiliation_max_food(world, affiliation_id: str, default: float = 0.0) -> float:
+def affiliation_capacity(world, affiliation_id: str, default: float = 0.0) -> float:
     root = get_affiliation_root(world, affiliation_id)
     if root is None or root.storage is None:
         return default
-    return float(root.storage.max_food)
+    return float(root.storage.capacity)
 
 
 def owner_species_for_affiliation(world, affiliation_id: str) -> str:
@@ -173,7 +173,7 @@ def resolve_withdraw_target(creature) -> Tuple[Optional[object], Optional[object
 
 def deposit_carried_to_parent(creature) -> float:
     """インベントリ内バイオマスを親オブジェクト ItemStack へ。移した量を返す。"""
-    from src.sim.utils.inventory_helpers import clear_inventory_biomass
+    from src.sim.utils.inventory_helpers import clear_inventory_for_kind
 
     if not inventory_is_loaded(creature):
         return 0.0
@@ -184,21 +184,21 @@ def deposit_carried_to_parent(creature) -> float:
     if parent is None or parent.storage is None:
         return 0.0
 
-    amount = clear_inventory_biomass(creature)
+    amount = clear_inventory_for_kind(creature, kind="biomass")
     if amount <= 0:
         return 0.0
     return parent.storage.deposit(amount)
 
 
-def withdraw_biomass_from_parent(creature, amount: float) -> float:
-    """親 storage からバイオマスを取出してインベントリへ。"""
+def withdraw_from_parent_storage(creature, amount: float) -> float:
+    """親 storage から指定 kind を取出してインベントリへ。"""
     world = getattr(creature, "world", None)
     if world is None or amount <= 0:
         return 0.0
     _parent, _access = resolve_withdraw_target(creature)
     if _parent is None or _parent.storage is None:
         return 0.0
-    return transfer_biomass_storage_to_creature(creature, _parent.storage, amount)
+    return transfer_kind_storage_to_creature(creature, _parent.storage, amount)
 
 
 def resolve_shelter_from_parents(creature, threat=None) -> Optional[ShelterRef]:
@@ -258,14 +258,14 @@ def feed_creature_from_parent(creature, *, bite_gain: float = 1.2, feed_per_tick
         return 0.0
     parent_id = parent_ids[0]
     parent = cs.get_root(parent_id)
-    if parent is None or parent.storage is None or parent.storage.stored_food <= 0:
+    if parent is None or parent.storage is None or parent.storage.stored_mass <= 0:
         return 0.0
 
     max_sat = float(creature.max_satiety)
     if float(creature.satiety) >= max_sat:
         return 0.0
 
-    take = min(parent.storage.stored_food, float(feed_per_tick))
+    take = min(parent.storage.stored_mass, float(feed_per_tick))
     if take <= 0:
         return 0.0
 
@@ -274,7 +274,7 @@ def feed_creature_from_parent(creature, *, bite_gain: float = 1.2, feed_per_tick
     return take
 
 
-def parent_stored_food(creature, default: float = 0.0) -> float:
+def parent_stored_mass(creature, default: float = 0.0) -> float:
     world = getattr(creature, "world", None)
     if world is None:
         return default
@@ -284,7 +284,7 @@ def parent_stored_food(creature, default: float = 0.0) -> float:
     cs = _compound_system(world)
     if cs is None:
         return default
-    return cs.stored_food(parent_ids[0])
+    return cs.stored_mass(parent_ids[0])
 
 
 def creature_has_affiliation_target(creature) -> bool:
@@ -336,13 +336,13 @@ def affiliation_site_xy(world, affiliation_id: str) -> tuple[float, float]:
     return 0.0, 0.0
 
 
-def affiliation_food_ratio(world, affiliation_id: str) -> float:
+def affiliation_fill_ratio(world, affiliation_id: str) -> float:
     """備蓄率 0..1。"""
     root = get_affiliation_root(world, affiliation_id)
-    if root is not None and root.storage is not None and root.storage.max_food > 0:
+    if root is not None and root.storage is not None and root.storage.capacity > 0:
         return max(
             0.0,
-            min(1.0, root.storage.stored_food / root.storage.max_food),
+            min(1.0, root.storage.stored_mass / root.storage.capacity),
         )
     return 0.0
 

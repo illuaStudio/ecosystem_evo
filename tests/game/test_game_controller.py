@@ -14,7 +14,7 @@ from tests.sim.world_fixtures import (
     RED_ANT_PROFILE,
     affiliation_settings,
     load_test_world,
-    set_affiliation_stored_food,
+    set_affiliation_stored_mass,
 )
 
 
@@ -28,7 +28,7 @@ def _player_world(**overrides) -> World:
             profiles={
                 "red_ant": {
                     **RED_ANT_PROFILE,
-                    "initial_stored_food": 600,
+                    "initial_mass": 600,
                 },
                 "rival_ant": dict(RIVAL_ANT_PROFILE),
             },
@@ -59,7 +59,7 @@ class TestGameMonitor(unittest.TestCase):
 
         state = GameState(player_affiliation_id="red_ant")
 
-        set_affiliation_stored_food(world, "red_ant", nest.max_food * 0.05)
+        set_affiliation_stored_mass(world, "red_ant", nest.capacity * 0.05)
         alerts = monitor.check(world, state)
         self.assertEqual(len(alerts), 1)
         self.assertIn("低下", alerts[0].message)
@@ -102,9 +102,9 @@ class TestGameController(unittest.TestCase):
             for a in profile["actions"]
             if a["name"] == "AffiliationReproduceAction"
         )
-        from src.sim.utils.affiliation_config_helpers import get_min_food_reserve
+        from src.sim.utils.affiliation_config_helpers import get_min_storage_reserve
 
-        nest.stored_food = get_min_food_reserve(world) + float(params["food_cost"]) + 10
+        nest.stored_mass = get_min_storage_reserve(world) + float(params["food_cost"]) + 10
         action = AffiliationReproduceAction(**{**params, "spawn_cooldown": 0})
         action.execute(queen)
 
@@ -157,7 +157,7 @@ class TestGameController(unittest.TestCase):
 
         ctrl = self._controller(world)
         ctrl.reset_for_world(world, bridge=ctrl.bridge)
-        set_affiliation_stored_food(world, "red_ant", nest.max_food * 0.05)
+        set_affiliation_stored_mass(world, "red_ant", nest.capacity * 0.05)
 
         msgs = ctrl.on_tick(world)
         low_msgs = [m for m in msgs if m.source == "monitor" and "低下" in m.text]

@@ -109,9 +109,9 @@ class SeekShelterAction(Action):
             return 0.0
 
         if is_creature_sheltered(creature):
-            from src.sim.utils.creature_helpers import needs_nest_feed, nest_has_usable_food
+            from src.sim.utils.creature_helpers import needs_nest_feed, nest_has_usable_storage
 
-            if needs_nest_feed(creature) and nest_has_usable_food(creature):
+            if needs_nest_feed(creature) and nest_has_usable_storage(creature):
                 return 0.0
             return 0.88
 

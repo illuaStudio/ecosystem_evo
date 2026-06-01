@@ -3,7 +3,7 @@ import pygame
 
 from src.sim.components.inventory import BiomassItem
 from src.sim.utils.creature_helpers import hp_ratio, satiety_ratio
-from src.sim.utils.inventory_helpers import get_haul_max_carry, inventory_is_loaded, total_biomass_amount
+from src.sim.utils.inventory_helpers import get_haul_max_carry, inventory_is_loaded, carried_mass_for_kind
 from src.sim.utils.position_helpers import entity_xy
 
 # コロニー種の頭上ラベル（勢力色）
@@ -38,7 +38,7 @@ class CreatureRenderer:
         if sheltered and not show_sheltered_debug:
             return
 
-        if not creature.alive and creature.remaining_biomass <= 0:
+        if not creature.alive and creature.remaining_mass <= 0:
             return
 
         cx, cy = entity_xy(creature)
@@ -78,7 +78,7 @@ class CreatureRenderer:
         bar_x = sx - bar_w // 2
 
         if is_carcass:
-            biomass = creature.biomass_ratio() if hasattr(creature, "biomass_ratio") else 0.0
+            biomass = creature.corpse_fill_ratio() if hasattr(creature, "biomass_ratio") else 0.0
             bar_y = sy - size - 22
             bar_color = CreatureRenderer._biomass_bar_color(biomass)
             pygame.draw.rect(screen, (40, 40, 40), (bar_x, bar_y, bar_w, 7))
@@ -115,7 +115,7 @@ class CreatureRenderer:
                 inv = creature.inventory
                 cap = sum(s.max_mass for s in inv.slots) if inv.slots else get_haul_max_carry(creature)
                 max_carry = max(cap, 0.001)
-                chunk_ratio = min(1.0, total_biomass_amount(creature) / max_carry)
+                chunk_ratio = min(1.0, carried_mass_for_kind(creature) / max_carry)
                 prey_color = (120, 90, 70)
                 slot = inv.first_biomass_slot()
                 if (

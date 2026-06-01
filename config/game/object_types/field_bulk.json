@@ -1,0 +1,22 @@
+{
+  "id": "field_bulk",
+  "label": "Field bulk container",
+  "category": "field",
+  "capabilities": {
+    "container": {
+      "max_mass": 50000,
+      "slots": [{ "max_mass": 50000, "allowed_kinds": ["biomass"] }]
+    },
+    "pickup": {
+      "radius": 12,
+      "modes": ["consume", "haul"],
+      "lifecycle": "ephemeral",
+      "deplete_when_empty": true,
+      "decay": { "rate": 0.00003 }
+    },
+    "render": {
+      "color": [140, 120, 90],
+      "size_from_fill_ratio": true
+    }
+  }
+}

@@ -18,7 +18,7 @@ ESSENTIAL_TRAIT_KEYS = frozenset({
 
 # ESSENTIAL に無くても JSON にあればcreature.traitsへ渡す（CorpseComponent 等が参照）
 OPTIONAL_TRAIT_KEYS = frozenset({
-    "corpse_decompose_rate",
+    "corpse_decay_rate",
     "poison_resist",
     "starvation_hp_per_tick",
     "field_immunities",

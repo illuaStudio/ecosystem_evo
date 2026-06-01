@@ -217,7 +217,7 @@ def default_species_template(name: str) -> Dict[str, Any]:
             "metabolism_per_tick": 0.01,
             "satiety_hungry_below": 0.15,
             "satiety_full_above": 0.85,
-            "corpse_decompose_rate": 0.01,
+            "corpse_decay_rate": 0.01,
             "starvation_hp_per_tick": 0.001,
         },
         "mind": {"type": "utility", "actions": []},

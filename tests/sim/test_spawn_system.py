@@ -36,8 +36,8 @@ def _minimal_world_data(**overrides):
                     "nest_x": 120,
                     "nest_y": 120,
                     "territory_radius": 180,
-                    "max_food": 5000,
-                    "initial_stored_food": 80,
+                    "max_mass": 5000,
+                    "initial_mass": 80,
                 }
             }
         },

@@ -77,12 +77,12 @@ class Creature(BaseEntity):
         self.satiety = self.max_satiety
 
     @property
-    def remaining_biomass(self) -> float:
-        return self.corpse.remaining_biomass
+    def remaining_mass(self) -> float:
+        return self.corpse.remaining_mass
 
-    @remaining_biomass.setter
-    def remaining_biomass(self, value: float) -> None:
-        self.corpse.remaining_biomass = value
+    @remaining_mass.setter
+    def remaining_mass(self, value: float) -> None:
+        self.corpse.remaining_mass = value
 
     @property
     def compound_parent_object_ids(self) -> tuple[str, ...]:
@@ -93,12 +93,12 @@ class Creature(BaseEntity):
         self.nest_parent_object_ids = tuple(str(x) for x in value if x)
 
     @property
-    def initial_biomass(self) -> float:
-        return self.corpse.initial_biomass
+    def initial_mass(self) -> float:
+        return self.corpse.initial_mass
 
-    @initial_biomass.setter
-    def initial_biomass(self, value: float) -> None:
-        self.corpse.initial_biomass = value
+    @initial_mass.setter
+    def initial_mass(self, value: float) -> None:
+        self.corpse.initial_mass = value
 
     @property
     def repro_cooldown(self) -> int:
@@ -131,13 +131,13 @@ class Creature(BaseEntity):
         self.reproduction.set_cooldown(ticks)
 
     def is_dead(self) -> bool:
-        """生存中は HP 判定。死骸は残存バイオマスが尽きたら削除対象。"""
+        """生存中は HP 判定。死骸は残留量が尽きたら削除対象。"""
         if self.alive:
             return self.hp <= 0
         return self.corpse.is_depleted()
 
-    def biomass_ratio(self) -> float:
-        return self.corpse.biomass_ratio()
+    def corpse_fill_ratio(self) -> float:
+        return self.corpse.fill_ratio()
 
     def become_corpse(self, cause: str = "hp") -> None:
         self.corpse.become_corpse(cause=cause)

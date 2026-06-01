@@ -65,7 +65,7 @@ def _next_goal(state: "GameState", world: "World", affiliation_id: str) -> str |
 
     monitor = (config.game_player or {}).get("monitor") or {}
     if not state.has_flag("high_food_reached"):
-        pct = int(float(monitor.get("high_food_ratio", 0.50)) * 100)
+        pct = int(float(monitor.get("high_fill_ratio", 0.50)) * 100)
         return f"目標: 備蓄 {pct}% 以上"
     if not state.has_flag("queen_can_reproduce"):
         return "目標: 繁殖解禁"
@@ -131,8 +131,8 @@ def build_queen_panel_lines(
     if nest is not None:
         lines.append(
             (
-                f"巣 食料: {nest.stored_food:.0f}/{nest.max_food:.0f} "
-                f"({nest.food_ratio * 100:.0f}%)",
+                f"巣 食料: {nest.stored_mass:.0f}/{nest.capacity:.0f} "
+                f"({nest.fill_ratio * 100:.0f}%)",
                 (200, 230, 200),
             )
         )

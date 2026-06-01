@@ -98,15 +98,15 @@ class CompoundSystem:
         y: float,
         *,
         type_ref: str = "affiliation_site",
-        max_food: float = 400.0,
-        stored_food: float = 0.0,
+        max_mass: float = 400.0,
+        stored_mass: float = 0.0,
         compound_profile: str = "",
     ) -> WorldObject:
         existing = self.get_root(compound_id)
         if existing is not None:
             return existing
-        cap = float(max_food)
-        food = max(0.0, min(float(stored_food), cap))
+        cap = float(max_mass)
+        food = max(0.0, min(float(stored_mass), cap))
         root = WorldObject(
             id=str(compound_id),
             type_ref=type_ref,
@@ -115,8 +115,8 @@ class CompoundSystem:
             role="root",
             storage=ObjectStorage.from_config(
                 {
-                    "max_food": cap,
-                    "initial_stored_food": food,
+                    "max_mass": cap,
+                    "initial_mass": food,
                 }
             ),
             label=str(compound_id),
@@ -201,8 +201,8 @@ class CompoundSystem:
     def withdraw_from_parent(self, parent_id: str, amount: float) -> float:
         return self._ws.withdraw_from_parent(parent_id, amount)
 
-    def stored_food(self, parent_id: str) -> float:
-        return self._ws.stored_food(parent_id)
+    def stored_mass(self, parent_id: str) -> float:
+        return self._ws.stored_mass(parent_id)
 
     def sync_access_hp(self, parent_id: str, access_id: str, hp: float) -> None:
         self._ws.sync_access_hp(parent_id, access_id, hp)

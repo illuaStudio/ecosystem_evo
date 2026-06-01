@@ -18,7 +18,6 @@ from src.sim.systems.spawn_system import SpawnSystem
 from src.sim.systems.world_spawner import WorldSpawner
 from src.sim.systems.world_object_system import WorldObjectSystem
 from src.sim.systems.compound_system import CompoundSystem
-from src.sim.systems.ground_loot_system import GroundLootSystem
 from src.sim.utils.world_instances import normalize_world_layout
 
 
@@ -121,7 +120,6 @@ class World:
         self.zone_system.init_from_layout(layout)
         self.obstacle_system = ObstacleSystem(self)
         self.obstacle_system.init_from_layout(layout)
-        self.ground_loot_system = GroundLootSystem(self)
         self.spawner = WorldSpawner(self)
         self.spawn_system = SpawnSystem(self)
         self.spawn_system.init_from_config(
@@ -200,7 +198,7 @@ class World:
         self._combat_pairs_this_tick = set()
         self.spawn_system.update(dt)
         self.nest_system.update(dt)
-        self.ground_loot_system.update(dt)
+        self.world_object_system.update_field_objects(dt)
         self.rebuild_spatial_grid()
         for creature in self.creatures[:]:
             creature.update(dt)

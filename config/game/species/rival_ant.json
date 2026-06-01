@@ -15,13 +15,13 @@
     "metabolism_per_tick": 0.05,
     "satiety_hungry_below": 0.15,
     "satiety_full_above": 0.85,
-    "corpse_decompose_rate": 0.01,
+    "corpse_decay_rate": 0.01,
     "starvation_hp_per_tick": 0.006
   },
   "inventory": {
     "slot_count": 1,
     "slots": [{ "max_mass": 50.0, "allowed_kinds": ["biomass"] }],
-    "biomass_weight_per_unit": 1.0,
+    "mass_per_unit": 1.0,
     "carry_speed_reference_weight": 160.0
   },
   "mind": {

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import math
 import uuid
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Sequence
 
 from src.sim.components.object_storage import ObjectStorage
 from src.sim.entities.world_object import WorldObject
@@ -29,8 +29,21 @@ if TYPE_CHECKING:
 SITE_LAYERS = ROOT_LAYERS
 OBSTACLE_LAYERS = frozenset({"obstacle"})
 ZONE_LAYERS = frozenset({"zone"})
+FIELD_LAYERS = frozenset({"field"})
 RESERVED_INSTANCE_KEYS = frozenset(
-    {"id", "layer", "type", "x", "y", "parent", "role", "editor_group", "affiliation_id"}
+    {
+        "id",
+        "layer",
+        "type",
+        "x",
+        "y",
+        "parent",
+        "role",
+        "editor_group",
+        "affiliation_id",
+        "origin",
+        "pickup_species_filter",
+    }
 )
 
 
@@ -78,26 +91,26 @@ class WorldObjectSystem:
                 )
                 storage = capability_block(merged, "storage")
                 compound = capability_block(merged, "compound")
-                max_food = float(
+                max_mass = float(
                     raw.get(
-                        "max_food",
-                        profile.get("max_food", storage.get("max_food", 400.0)),
+                        "max_mass",
+                        profile.get("max_mass", storage.get("max_mass", 400.0)),
                     )
                 )
                 initial = float(
                     raw.get(
-                        "initial_stored_food",
+                        "initial_mass",
                         profile.get(
-                            "initial_stored_food",
-                            storage.get("initial_stored_food", 0.0),
+                            "initial_mass",
+                            storage.get("initial_mass", 0.0),
                         ),
                     )
                 )
                 storage = ObjectStorage.from_config(
                     {
                         **storage,
-                        "max_food": max_food,
-                        "initial_stored_food": initial,
+                        "max_mass": max_mass,
+                        "initial_mass": initial,
                     }
                 )
                 self.objects[obj_id] = WorldObject(
@@ -245,6 +258,29 @@ class WorldObjectSystem:
                     half_h=half_h,
                     zone_effects=effects,
                 )
+                continue
+
+            if layer in FIELD_LAYERS:
+                if obj_id in self.objects:
+                    continue
+                type_ref = str(raw.get("type", "field_bulk"))
+                type_def = config.get_object_type(type_ref)
+                merged = merge_type_with_instance(
+                    type_def,
+                    raw,
+                    reserved_keys=RESERVED_INSTANCE_KEYS,
+                )
+                obj = self._build_field_object(
+                    obj_id,
+                    type_ref,
+                    merged,
+                    raw,
+                    origin=str(raw.get("origin", "map")),
+                )
+                fill = raw.get("fill")
+                if fill:
+                    self._apply_fill(obj, fill, creature=None)
+                self.objects[obj_id] = obj
 
     def _ensure_default_access_children(self, layout: Dict) -> None:
         affiliation_settings = dict(layout.get("affiliation") or {})
@@ -421,11 +457,11 @@ class WorldObjectSystem:
             return 0.0
         return parent.storage.withdraw(amount)
 
-    def stored_food(self, parent_id: str) -> float:
+    def stored_mass(self, parent_id: str) -> float:
         parent = self.get(parent_id)
         if parent is None or parent.storage is None:
             return 0.0
-        return float(parent.storage.stored_food)
+        return float(parent.storage.stored_mass)
 
     def find_access_at(
         self,
@@ -460,15 +496,15 @@ class WorldObjectSystem:
         x: float,
         y: float,
         *,
-        max_food: float = 400.0,
-        stored_food: float = 0.0,
+        max_mass: float = 400.0,
+        stored_mass: float = 0.0,
     ) -> WorldObject:
         """runtime Nest から affiliation_site を生成。"""
         existing = self.get(affiliation_id)
         if existing is not None and existing.is_root:
             return existing
-        cap = float(max_food)
-        food = max(0.0, min(float(stored_food), cap))
+        cap = float(max_mass)
+        food = max(0.0, min(float(stored_mass), cap))
         root = WorldObject(
             id=str(affiliation_id),
             type_ref="affiliation_site",
@@ -476,7 +512,7 @@ class WorldObjectSystem:
             y=float(y),
             role="root",
             storage=ObjectStorage.from_config(
-                {"max_food": cap, "initial_stored_food": food}
+                {"max_mass": cap, "initial_mass": food}
             ),
             label=str(affiliation_id),
             compound_profile="affiliation",
@@ -499,3 +535,161 @@ class WorldObjectSystem:
         children = self._children.get(parent_id, [])
         if access_id in children:
             children.remove(access_id)
+
+    def _container_config_from_merged(self, merged: Dict[str, Any]) -> Dict[str, Any]:
+        container = capability_block(merged, "container")
+        if container:
+            return dict(container)
+        return dict(capability_block(merged, "storage"))
+
+    def _build_field_object(
+        self,
+        obj_id: str,
+        type_ref: str,
+        merged: Dict[str, Any],
+        raw: Dict[str, Any],
+        *,
+        origin: str = "map",
+    ) -> WorldObject:
+        type_def = config.get_object_type(type_ref)
+        container_cfg = self._container_config_from_merged(merged)
+        pickup = capability_block(merged, "pickup")
+        decay = pickup.get("decay") if isinstance(pickup.get("decay"), dict) else {}
+        decay_rate = float(
+            raw.get(
+                "decay_rate",
+                decay.get("rate", pickup.get("decay_rate", 0.00003)),
+            )
+        )
+        storage = ObjectStorage.from_config(container_cfg)
+        color = resolve_render_color(merged, (140, 120, 90))
+        render = capability_block(merged, "render")
+        modes = pickup.get("modes", ["consume", "haul"])
+        if isinstance(modes, str):
+            modes = [modes]
+        return WorldObject(
+            id=obj_id,
+            type_ref=type_ref,
+            x=float(raw.get("x", merged.get("x", 0.0))),
+            y=float(raw.get("y", merged.get("y", 0.0))),
+            storage=storage,
+            label=str(raw.get("label", type_def.get("label", type_ref))),
+            color=color,
+            layer="field",
+            origin=str(origin),
+            lifecycle=str(pickup.get("lifecycle", "ephemeral")),
+            pickup_radius=float(pickup.get("radius", 12.0)),
+            pickup_modes=tuple(str(m) for m in modes),
+            deplete_when_empty=bool(pickup.get("deplete_when_empty", True)),
+            decay_rate=decay_rate,
+            pickup_species_filter=str(raw.get("pickup_species_filter", "")),
+            size_from_fill_ratio=bool(render.get("size_from_fill_ratio", False)),
+        )
+
+    def _apply_fill(
+        self,
+        obj: WorldObject,
+        fill: Dict[str, Any],
+        *,
+        creature=None,
+    ) -> None:
+        if obj.storage is None:
+            return
+        mode = str(fill.get("mode", "creature_metric"))
+        if mode == "creature_metric" and creature is not None:
+            trait_key = str(fill.get("from_trait", "base_size"))
+            scale = float(fill.get("scale", 200.0))
+            size = float(creature.traits.get(trait_key, 9.0))
+            amount = max(0.0, size * scale)
+            obj.storage.stack.set_amount_for_kind("biomass", amount)
+            obj.initial_fill = amount
+            return
+        if mode == "fixed_amount":
+            amount = max(0.0, float(fill.get("amount", 0.0)))
+            obj.storage.stack.set_amount_for_kind("biomass", amount)
+            obj.initial_fill = amount
+
+    def spawn_instance(
+        self,
+        *,
+        type_ref: str,
+        x: float,
+        y: float,
+        fill: Dict[str, Any] | None = None,
+        overrides: Dict[str, Any] | None = None,
+        origin: str = "spawn",
+        creature=None,
+    ) -> WorldObject:
+        type_def = config.get_object_type(type_ref)
+        instance = {"layer": "field", "type": type_ref, "x": x, "y": y}
+        if overrides:
+            instance.update(overrides)
+        merged = merge_type_with_instance(
+            type_def,
+            instance,
+            reserved_keys=RESERVED_INSTANCE_KEYS,
+        )
+        obj_id = f"field_{uuid.uuid4().hex[:10]}"
+        raw = {
+            "x": float(x),
+            "y": float(y),
+            **(overrides or {}),
+        }
+        obj = self._build_field_object(
+            obj_id,
+            type_ref,
+            merged,
+            raw,
+            origin=origin,
+        )
+        self._apply_fill(obj, dict(fill or {"mode": "creature_metric"}), creature=creature)
+        self.objects[obj_id] = obj
+        return obj
+
+    def remove_instance(self, object_id: str) -> None:
+        self.objects.pop(str(object_id), None)
+
+    def iter_field_pickups(self) -> List[WorldObject]:
+        return [obj for obj in self.objects.values() if obj.is_field_pickup]
+
+    def iter_field_pickup_in_radius(
+        self,
+        x: float,
+        y: float,
+        radius: float,
+        *,
+        species_names: Iterable[str] | None = None,
+    ) -> List[WorldObject]:
+        names = set(species_names) if species_names is not None else None
+        r = float(radius)
+        out: List[WorldObject] = []
+        for obj in self.iter_field_pickups():
+            if obj.is_pickup_depleted():
+                continue
+            if names is not None and obj.pickup_species_filter not in names:
+                continue
+            if math.hypot(obj.x - x, obj.y - y) <= r:
+                out.append(obj)
+        return out
+
+    def update_field_objects(self, dt: float = 1.0) -> None:
+        dt = float(dt)
+        to_remove: List[str] = []
+        for obj in list(self.iter_field_pickups()):
+            if obj.is_pickup_depleted():
+                if obj.deplete_when_empty and obj.lifecycle == "ephemeral":
+                    to_remove.append(obj.id)
+                continue
+            if obj.decay_rate > 0 and obj.storage is not None:
+                initial = max(float(obj.initial_fill), 1.0)
+                decay = min(
+                    obj.amount_for_kind("biomass"),
+                    initial * float(obj.decay_rate) * dt,
+                )
+                if decay > 0:
+                    obj.storage.stack.withdraw_kind("biomass", decay)
+            if obj.is_pickup_depleted() and obj.deplete_when_empty:
+                if obj.lifecycle == "ephemeral":
+                    to_remove.append(obj.id)
+        for oid in to_remove:
+            self.remove_instance(oid)

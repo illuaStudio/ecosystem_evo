@@ -17,7 +17,7 @@ class TestFeedAtNestNotStuck(unittest.TestCase):
         world.add_creature(predator)
 
         nest = world.nest_system.get_creature_nest(predator)
-        nest.stored_food = 120.0
+        nest.stored_mass = 120.0
         predator.satiety = predator.max_satiety * 0.08
 
         action = FeedAtNestAction(feed_radius=38)
@@ -38,12 +38,12 @@ class TestFeedAtNestNotStuck(unittest.TestCase):
         ant = factory.create("red_ant", world=world, x=400, y=500)
         spider = factory.create("Spider", world=world, x=300, y=500)
         spider.alive = False
-        spider.remaining_biomass = 200.0
+        spider.remaining_mass = 200.0
         world.add_creature(ant)
         world.add_creature(spider)
 
         nest = world.nest_system.get_creature_nest(ant)
-        nest.stored_food = 300.0
+        nest.stored_mass = 300.0
         ant.satiety = ant.max_satiety * 0.10
 
         action = FeedAtNestAction(

@@ -12,13 +12,13 @@ class TestCorpseDecompose(unittest.TestCase):
         spider = factory.create("Spider", world=world, x=100, y=100)
         world.add_creature(spider)
         spider.become_corpse()
-        loot = next(iter(world.ground_loot_system.loots.values()))
-        initial = loot.biomass_amount()
+        loot = next(iter(world.world_object_system.iter_field_pickups()))
+        initial = loot.amount_for_kind("biomass")
         self.assertGreater(initial, 100)
 
         ticks = 0
-        while world.ground_loot_system.loots and ticks < 5000:
-            world.ground_loot_system.update(10.0)
+        while world.world_object_system.iter_field_pickups() and ticks < 5000:
+            world.world_object_system.update_field_objects(10.0)
             ticks += 1
 
         self.assertGreater(ticks, 80)

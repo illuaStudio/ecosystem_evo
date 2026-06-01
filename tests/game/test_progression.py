@@ -8,7 +8,7 @@ from src.game.progression import ProgressionEvaluator, apply_unlock, load_progre
 from src.sim.bridge import SimBridge
 from src.sim.entities.creature_factory import CreatureFactory
 from src.sim.systems.world import World
-from tests.sim.world_fixtures import affiliation_settings, load_test_world, set_affiliation_stored_food
+from tests.sim.world_fixtures import affiliation_settings, load_test_world, set_affiliation_stored_mass
 
 
 def _player_world(**overrides) -> World:
@@ -59,7 +59,7 @@ class TestProgressionUnlock(unittest.TestCase):
         self.assertEqual([a["name"] for a in queen.mind.action_defs], ["FeedAtNestAction"])
 
         state.set_flag("high_food_reached")
-        set_affiliation_stored_food(world, "red_ant", nest.max_food * 0.55)
+        set_affiliation_stored_mass(world, "red_ant", nest.capacity * 0.55)
 
         evaluator = ProgressionEvaluator()
         msgs = evaluator.evaluate(bridge, state, world)
@@ -139,7 +139,7 @@ class TestProgressionUnlock(unittest.TestCase):
         )
         ctrl.reset_for_world(world, bridge=bridge)
 
-        set_affiliation_stored_food(world, "red_ant", nest.max_food * 0.55)
+        set_affiliation_stored_mass(world, "red_ant", nest.capacity * 0.55)
         msgs = ctrl.on_tick(world)
 
         progression_msgs = [m for m in msgs if m.source == "progression"]

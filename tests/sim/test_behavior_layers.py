@@ -15,7 +15,7 @@ from src.sim.utils.position_helpers import entity_xy
 
 
 class TestDeathPolicy(unittest.TestCase):
-    def test_default_policy_spawns_ground_loot(self):
+    def test_default_policy_spawns_field_pickup(self):
         world = World()
         factory = CreatureFactory()
         spider = factory.create("Spider", world=world, x=100, y=100)
@@ -23,9 +23,11 @@ class TestDeathPolicy(unittest.TestCase):
         spider.become_corpse()
         self.assertFalse(spider.alive)
         self.assertNotIn(spider, world.creatures)
-        self.assertEqual(len(world.ground_loot_system.loots), 1)
-        loot = next(iter(world.ground_loot_system.loots.values()))
-        self.assertGreater(loot.biomass_amount(), 0.0)
+        pickups = [
+            o for o in world.world_object_system.iter_field_pickups()
+        ]
+        self.assertEqual(len(pickups), 1)
+        self.assertGreater(pickups[0].amount_for_kind("biomass"), 0.0)
 
     def test_immediate_remove_policy(self):
         world = World()
@@ -38,12 +40,12 @@ class TestDeathPolicy(unittest.TestCase):
 
     def test_normalize_aliases(self):
         self.assertEqual(
-            normalize_death_policy("biomass_corpse"),
-            ("spawn_biomass_loot", "remove"),
+            normalize_death_policy("field_drop"),
+            ({"step": "spawn_drop", "type": "field_bulk"}, "remove"),
         )
         self.assertEqual(
-            normalize_death_policy("biomass_corpse_legacy"),
-            ("convert_biomass", "decompose_until_empty"),
+            normalize_death_policy("corpse_on_creature"),
+            ("convert_corpse_mass", "decompose_until_empty"),
         )
         self.assertEqual(normalize_death_policy("remove"), ("remove",))
 
@@ -55,17 +57,17 @@ class TestPostLifeDecompose(unittest.TestCase):
         spider = factory.create("Spider", world=world, x=100, y=100)
         world.add_creature(spider)
         spider.become_corpse()
-        self.assertEqual(len(world.ground_loot_system.loots), 1)
-        loot = next(iter(world.ground_loot_system.loots.values()))
-        initial = loot.biomass_amount()
+        pickups = list(world.world_object_system.iter_field_pickups())
+        self.assertEqual(len(pickups), 1)
+        initial = pickups[0].amount_for_kind("biomass")
 
         ticks = 0
-        while world.ground_loot_system.loots and ticks < 5000:
-            world.ground_loot_system.update(10.0)
+        while world.world_object_system.iter_field_pickups() and ticks < 5000:
+            world.world_object_system.update_field_objects(10.0)
             ticks += 1
 
         self.assertGreater(ticks, 0)
-        self.assertEqual(len(world.ground_loot_system.loots), 0)
+        self.assertEqual(len(world.world_object_system.iter_field_pickups()), 0)
 
 
 class TestSharedParts(unittest.TestCase):
@@ -100,7 +102,7 @@ class TestSharedParts(unittest.TestCase):
             ant,
             {
                 "steps": [
-                    "convert_biomass",
+                    "convert_corpse_mass",
                     {"step": "warp_to", "x": 400, "y": 300},
                     "remove",
                 ]
