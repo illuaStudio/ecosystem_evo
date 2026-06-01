@@ -1,0 +1,16 @@
+{
+  "id": "affiliation_access",
+  "category": "affiliation",
+  "label": "所属拠点接続点",
+  "capabilities": {
+    "access": {
+      "role": "access",
+      "shelter": true,
+      "deposit": true
+    },
+    "combat": {
+      "max_hp": 120
+    }
+  }
+}
+
