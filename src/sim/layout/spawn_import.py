@@ -17,6 +17,14 @@ _SPAWN_KEYS = (
     "use_biome_weight",
     "margin",
     "label",
+    "start_trigger",
+    "enabled_at_load",
+    "initial_burst_count",
+    "lifetime_budget",
+    "replenish_batch_size",
+    "replenish_cooldown_ticks",
+    "spawn_at_center",
+    "creature_spawn_source",
 )
 
 

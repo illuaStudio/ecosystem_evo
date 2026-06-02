@@ -76,6 +76,25 @@ class ClearCreatureDirective:
     creature_id: int
 
 
+@dataclass(frozen=True)
+class PlaceSpawnEmitter:
+    """スポーンエミッター用 WorldObject を配置（spawn capability 付き）。"""
+
+    emitter_id: str
+    x: float
+    y: float
+    spawn_config: dict[str, Any] = field(default_factory=dict)
+    label: str = ""
+
+
+@dataclass(frozen=True)
+class SetSpawnEmitterEnabled:
+    """エミッターの ON/OFF。ON 時に initial_burst があれば実行。"""
+
+    emitter_id: str
+    enabled: bool
+
+
 SimCommand = Union[
     SpawnCreature,
     SetCreatureMind,
@@ -84,6 +103,8 @@ SimCommand = Union[
     EnterCreatureShelter,
     IssueCreatureDirective,
     ClearCreatureDirective,
+    PlaceSpawnEmitter,
+    SetSpawnEmitterEnabled,
 ]
 
 

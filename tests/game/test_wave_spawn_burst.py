@@ -70,8 +70,7 @@ class TestWaveSpawnBurst(unittest.TestCase):
                 creature.hp = 0.0
                 creature.become_corpse(cause="hp")
                 killed += 1
-        wd._prune_dead(world)
-
+        world.spawn_system.update(1.0)
         wd.tick(world, bridge)
         self.assertEqual(wd.enemies_alive(world), 8)
 

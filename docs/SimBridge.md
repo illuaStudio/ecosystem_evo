@@ -17,6 +17,10 @@
 | `SetSpeciesMind` | 種名一致の全個体に AI 適用（`affiliation_id` で絞り可） |
 | `SetAffiliationCasteMind` | **同一コロニー内の種別**全個体に AI 適用 |
 | `EnterCreatureShelter` | 個体を巣穴 shelter へ |
+| `PlaceSpawnEmitter` | 座標にスポーンエミッター WorldObject を配置（`spawn_config` は `SpawnCapability` 相当） |
+| `SetSpawnEmitterEnabled` | エミッターの ON/OFF。`start_trigger: on_enable` なら初回 ON で `initial_burst_count` バースト。戻り `count` はバースト匹数 |
+
+ウェーブ敵は Game の `WaveDirector` が穴ごとに `PlaceSpawnEmitter` → ウェーブ開始時に `SetSpawnEmitterEnabled(True)`。補充・予算は Sim `SpawnSystem` が `world.update` 毎に処理。
 
 ### SimBridge の公開アクセサ（コマンド以外）
 

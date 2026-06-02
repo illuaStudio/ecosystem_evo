@@ -8,8 +8,10 @@ from src.sim.commands import (
     ClearCreatureDirective,
     EnterCreatureShelter,
     IssueCreatureDirective,
+    PlaceSpawnEmitter,
     SetAffiliationCasteMind,
     SetCreatureMind,
+    SetSpawnEmitterEnabled,
     SetSpeciesMind,
     SimCommand,
     SimCommandResult,
@@ -85,6 +87,10 @@ class SimBridge:
             return self._issue_creature_directive(command)
         if isinstance(command, ClearCreatureDirective):
             return self._clear_creature_directive(command)
+        if isinstance(command, PlaceSpawnEmitter):
+            return self._place_spawn_emitter(command)
+        if isinstance(command, SetSpawnEmitterEnabled):
+            return self._set_spawn_emitter_enabled(command)
         return SimCommandResult(False, type(command).__name__, "未知の命令")
 
     def execute_all(self, commands: list[SimCommand]) -> list[SimCommandResult]:
@@ -229,6 +235,43 @@ class SimBridge:
             creature=creature,
             creatures=[creature],
             count=1,
+        )
+
+    def _place_spawn_emitter(self, cmd: PlaceSpawnEmitter) -> SimCommandResult:
+        from src.sim.components.spawn_capability import SpawnCapability
+        from src.sim.entities.world_object import WorldObject
+
+        ws = self.world.world_object_system
+        eid = str(cmd.emitter_id)
+        if ws.get(eid) is not None:
+            return SimCommandResult(
+                False,
+                "PlaceSpawnEmitter",
+                f"emitter id {eid!r} already exists",
+            )
+        cap = SpawnCapability.from_mapping(dict(cmd.spawn_config or {}))
+        obj = WorldObject(
+            id=eid,
+            type_ref="spawn",
+            x=float(cmd.x),
+            y=float(cmd.y),
+            label=str(cmd.label or cap.label or "spawn"),
+            layer="spawn",
+            origin="game",
+            spawn=cap,
+        )
+        ws.objects[eid] = obj
+        self.world.spawn_system.rebuild_from_world_objects()
+        return SimCommandResult(True, "PlaceSpawnEmitter", count=1)
+
+    def _set_spawn_emitter_enabled(self, cmd: SetSpawnEmitterEnabled) -> SimCommandResult:
+        spawned = self.world.spawn_system.set_emitter_enabled(
+            str(cmd.emitter_id), bool(cmd.enabled)
+        )
+        return SimCommandResult(
+            True,
+            "SetSpawnEmitterEnabled",
+            count=int(spawned),
         )
 
     @staticmethod

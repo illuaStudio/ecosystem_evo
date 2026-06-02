@@ -8,7 +8,9 @@ from src.game.spawn_profiles import SpawnProfileLoader
 from src.sim.bridge import SimBridge
 from src.sim.commands import (
     EnterCreatureShelter,
+    PlaceSpawnEmitter,
     SetCreatureMind,
+    SetSpawnEmitterEnabled,
     SimCommand,
     SpawnCreature,
 )
@@ -27,6 +29,34 @@ def spawn_creature(
         SpawnCreature(species=species, x=x, y=y, source=source)  # type: ignore[arg-type]
     )
     return result.creature if result.ok else None
+
+
+def place_spawn_emitter(
+    bridge: SimBridge,
+    emitter_id: str,
+    x: float,
+    y: float,
+    spawn_config: dict[str, Any],
+    *,
+    label: str = "",
+) -> bool:
+    result = bridge.execute(
+        PlaceSpawnEmitter(
+            emitter_id=str(emitter_id),
+            x=float(x),
+            y=float(y),
+            spawn_config=dict(spawn_config),
+            label=str(label),
+        )
+    )
+    return bool(result.ok)
+
+
+def set_spawn_emitter_enabled(bridge: SimBridge, emitter_id: str, enabled: bool) -> int:
+    result = bridge.execute(
+        SetSpawnEmitterEnabled(emitter_id=str(emitter_id), enabled=bool(enabled))
+    )
+    return int(result.count) if result.ok else 0
 
 
 def apply_mind_profile(

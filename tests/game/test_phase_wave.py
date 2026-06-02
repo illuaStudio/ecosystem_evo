@@ -201,11 +201,12 @@ class TestPhaseWave(unittest.TestCase):
     def test_wave_spawner_does_not_create_rival_ant_faction_root(self):
         """Wave setup must not add a rival_ant compound root (phantom B nest)."""
         world = _player_world()
+        bridge = SimBridge(world)
         wd = WaveDirector.from_json(player_affiliation_id="red_ant")
         wd.begin_wave(0)
         ws = world.world_object_system
         before_ids = set(ws.objects.keys())
-        wd._ensure_nests(world)
+        wd._ensure_nests(world, bridge)
         new_ids = set(ws.objects.keys()) - before_ids
         self.assertNotIn("rival_ant", new_ids)
         self.assertTrue(any(str(i).startswith("enemy_wave_") for i in new_ids))

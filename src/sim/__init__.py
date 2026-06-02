@@ -2,8 +2,10 @@
 from src.sim.bridge import SimBridge
 from src.sim.commands import (
     EnterCreatureShelter,
+    PlaceSpawnEmitter,
     SetAffiliationCasteMind,
     SetCreatureMind,
+    SetSpawnEmitterEnabled,
     SetSpeciesMind,
     SimCommand,
     SimCommandResult,
@@ -23,8 +25,10 @@ __all__ = [
     "DeathEvent",
     "EnterCreatureShelter",
     "ItemFoundEvent",
+    "PlaceSpawnEmitter",
     "SetAffiliationCasteMind",
     "SetCreatureMind",
+    "SetSpawnEmitterEnabled",
     "SetSpeciesMind",
     "SimBridge",
     "SimCommand",
