@@ -72,6 +72,9 @@ class GameApp:
 
     def reset_simulation(self, world_name: str = "Grassland"):
         config.reload_all()
+        from src.game.sim_seed import apply_config_simulation_seed
+
+        apply_config_simulation_seed()
         pygame.display.set_caption(
             f"{config.game_app['game_title']} v{config.game_app['version']}"
         )

@@ -212,8 +212,16 @@ def run_balance(
     verbose: bool = False,
     dev_ticks: int | None = None,
     min_soldiers: int | None = None,
+    seed: int | None = None,
 ) -> BalanceRunReport:
     config.reload_all()
+    from src.game.sim_seed import apply_config_simulation_seed, apply_simulation_seed
+
+    if seed is not None:
+        apply_simulation_seed(int(seed))
+    else:
+        apply_config_simulation_seed()
+
     ctx = default_sim_rate_context()
     runner = SimRunner()
 
@@ -508,6 +516,12 @@ def main() -> int:
         action="store_true",
         help="Print game messages each step",
     )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="Override config/sim/engine.json seed (apply before World load)",
+    )
     args = parser.parse_args()
 
     report = run_balance(
@@ -516,6 +530,7 @@ def main() -> int:
         verbose=args.verbose,
         dev_ticks=args.dev_ticks,
         min_soldiers=args.min_soldiers,
+        seed=args.seed,
     )
     print_report(report)
     return 0

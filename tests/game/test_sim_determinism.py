@@ -7,7 +7,7 @@ from src.config import config
 from src.game.game_controller import GameController
 from src.game.sim_bridge_factory import make_sim_bridge
 from src.game.sim_runner import SimRunner
-from src.game.sim_seed import apply_simulation_seed
+from src.game.sim_seed import apply_config_simulation_seed, apply_simulation_seed
 from src.game.sim_tick_pipeline import advance_paired_sim_steps, advance_sim_gate
 from src.sim.systems.world import World
 
@@ -52,8 +52,8 @@ def _run_until_sim_steps(
     simulation_speed: float,
 ) -> tuple:
     """total_sim_steps 回の step_once（sim 停止時は on_tick のみ）まで進める。"""
-    apply_simulation_seed(seed)
     config.reload_all()
+    apply_simulation_seed(seed)
     world = World("Grassland")
     bridge = make_sim_bridge(world)
     controller = GameController(_game_config_fast_defense(), bridge=bridge)
@@ -105,6 +105,22 @@ class TestSimDeterminism(unittest.TestCase):
         self.assertEqual(fp_32x[0], total_steps)
         self.assertEqual(fp_1x[2:], fp_32x[2:])
         self.assertLess(fp_32x[1], fp_1x[1])
+
+    def test_config_seed_before_world_reproducible(self):
+        """engine.json の seed は World() より前に効く（balance_run 再現用）。"""
+        config.reload_all()
+        config.sim["seed"] = 42
+        apply_config_simulation_seed()
+        w1 = World("Grassland")
+        fp1 = _creature_fingerprint(w1)
+
+        config.reload_all()
+        config.sim["seed"] = 42
+        apply_config_simulation_seed()
+        w2 = World("Grassland")
+        fp2 = _creature_fingerprint(w2)
+        self.assertEqual(fp1, fp2)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -59,13 +59,6 @@ class GameController:
     def reset_for_world(
         self, world: "World | None" = None, bridge: SimBridge | None = None
     ) -> None:
-        from src.config import config
-        from src.game.sim_seed import apply_simulation_seed
-
-        seed = config.sim.get("seed")
-        if seed is not None:
-            apply_simulation_seed(int(seed))
-
         if bridge is not None:
             self.bridge = bridge
             self.director.set_bridge(bridge)
