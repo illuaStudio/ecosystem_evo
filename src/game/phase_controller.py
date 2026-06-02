@@ -116,9 +116,13 @@ class PhaseController:
             return []
         if self._next_wave_index >= len(wave_director.waves):
             return []
-        if self.phase_ticks < self.config.development_ticks_before_defense:
-            return []
         if not self._soldiers_ready(world):
+            return []
+        # First defense: start as soon as enough soldiers exist (player expectation).
+        # Later waves: also wait development_ticks in this phase (breathing room after clear).
+        min_s = self.config.min_soldiers_before_defense
+        needs_dev_ticks = self._next_wave_index > 0 or min_s <= 0
+        if needs_dev_ticks and self.phase_ticks < self.config.development_ticks_before_defense:
             return []
         return self.start_defense_wave(wave_director)
 

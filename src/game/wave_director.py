@@ -39,6 +39,9 @@ class WaveNestDef:
     hole_max_hp: float = 180.0
     max_alive: int = 12
     spawn_interval_ticks: int = 20
+    spawn_burst_size: int = 8
+    # First pulse spawns up to this many (defaults to max_alive when omitted in JSON).
+    initial_burst_size: int | None = None
     spawns: tuple[WaveNestSpawnDef, ...] = ()
 
 
@@ -55,6 +58,7 @@ class _NestSpawnState:
     budgets: dict[str, int] = field(default_factory=dict)
     spawn_cursor: int = 0
     spawn_cooldown: int = 0
+    initial_burst_done: bool = False
 
     def remaining_budget(self) -> int:
         return int(sum(max(0, int(v)) for v in self.budgets.values()))
@@ -72,6 +76,7 @@ class WaveDirector:
     _holes: list[str] = field(default_factory=list)
     _spawner_root_ids: list[str] = field(default_factory=list)
     _nest_states: list[_NestSpawnState] = field(default_factory=list)
+    _burst_announced: bool = False
 
     @classmethod
     def from_json(
@@ -106,14 +111,24 @@ class WaveDirector:
                     )
                     if not holes or not spawns:
                         continue
+                    max_alive = max(0, int(nest_raw.get("max_alive", 12)))
+                    burst = max(1, int(nest_raw.get("spawn_burst_size", max_alive or 8)))
+                    raw_initial = nest_raw.get("initial_burst_size")
+                    initial_burst = (
+                        max(0, int(raw_initial))
+                        if raw_initial is not None
+                        else None
+                    )
                     nests.append(
                         WaveNestDef(
                             holes=holes,
                             hole_max_hp=float(nest_raw.get("hole_max_hp", 180.0)),
-                            max_alive=max(0, int(nest_raw.get("max_alive", 12))),
+                            max_alive=max_alive,
                             spawn_interval_ticks=max(
                                 0, int(nest_raw.get("spawn_interval_ticks", 20))
                             ),
+                            spawn_burst_size=burst,
+                            initial_burst_size=initial_burst,
                             spawns=spawns,
                         )
                     )
@@ -138,6 +153,7 @@ class WaveDirector:
         self._wave_active = False
         self._all_spawned = False
         self._nests_ready = False
+        self._burst_announced = False
         self._holes.clear()
         self._spawner_root_ids.clear()
         self._nest_states.clear()
@@ -187,6 +203,7 @@ class WaveDirector:
         self._spawned_ids.clear()
         self._all_spawned = False
         self._nests_ready = False
+        self._burst_announced = False
         self._holes.clear()
         self._spawner_root_ids.clear()
         self._nest_states.clear()
@@ -224,7 +241,8 @@ class WaveDirector:
         self._prune_dead(world)
 
         if not self._all_spawned:
-            self._tick_spawners(world, bridge)
+            burst_msgs = self._tick_spawners(world, bridge)
+            messages.extend(burst_msgs)
 
         if self._all_spawned and self.enemies_alive(world) == 0 and self._all_holes_destroyed(world):
             self._teardown_wave_objects(world)
@@ -314,56 +332,111 @@ class WaveDirector:
                 live_ids.add(cid)
         self._spawned_ids = live_ids
 
-    def _tick_spawners(self, world: "World", bridge: "SimBridge") -> None:
+    def _tick_spawners(self, world: "World", bridge: "SimBridge") -> list[GameMessage]:
         wave = self.current_wave
         if wave is None:
             self._all_spawned = True
-            return
+            return []
 
         # Stop spawning if every hole is gone.
         if self._all_holes_destroyed(world):
             self._all_spawned = True
-            return
+            return []
 
+        messages: list[GameMessage] = []
         any_remaining_budget = False
+        wave_burst_total = 0
+
         for i, nest in enumerate(wave.nests):
             if i >= len(self._nest_states):
                 continue
             state = self._nest_states[i]
 
+            if state.remaining_budget() <= 0:
+                continue
+            any_remaining_budget = True
+
+            if not state.initial_burst_done:
+                target = nest.initial_burst_size
+                if target is None:
+                    target = nest.max_alive if nest.max_alive > 0 else nest.spawn_burst_size
+                limit = min(int(target), state.remaining_budget())
+                if nest.max_alive > 0:
+                    limit = min(limit, nest.max_alive)
+                spawned = self._spawn_batch(world, bridge, nest, state, limit)
+                state.initial_burst_done = True
+                state.spawn_cooldown = max(0, int(nest.spawn_interval_ticks))
+                wave_burst_total += spawned
+                continue
+
             if state.spawn_cooldown > 0:
-                any_remaining_budget = any_remaining_budget or state.remaining_budget() > 0
                 state.spawn_cooldown -= 1
                 continue
 
-            if nest.max_alive > 0 and self.enemies_alive(world) >= nest.max_alive:
-                any_remaining_budget = any_remaining_budget or state.remaining_budget() > 0
+            if nest.max_alive > 0:
+                deficit = nest.max_alive - self.enemies_alive(world)
+                if deficit <= 0:
+                    continue
+                limit = min(deficit, nest.spawn_burst_size, state.remaining_budget())
+            else:
+                limit = min(nest.spawn_burst_size, state.remaining_budget())
+
+            if limit <= 0:
                 continue
+
+            self._spawn_batch(world, bridge, nest, state, limit)
+            state.spawn_cooldown = max(0, int(nest.spawn_interval_ticks))
+
+        if wave_burst_total > 0 and not self._burst_announced:
+            self._burst_announced = True
+            messages.append(
+                GameMessage(
+                    text=f"敵の巣穴から侵入蟻が一気に湧き出した（{wave_burst_total} 匹）",
+                    source="phase",
+                    priority=4,
+                )
+            )
+
+        if not any_remaining_budget:
+            self._all_spawned = True
+        return messages
+
+    def _spawn_batch(
+        self,
+        world: "World",
+        bridge: "SimBridge",
+        nest: WaveNestDef,
+        state: _NestSpawnState,
+        limit: int,
+    ) -> int:
+        """Spawn up to `limit` enemies from live holes; returns count actually spawned."""
+        spawned = 0
+        attempts = 0
+        max_attempts = max(limit * 3, limit)
+        while spawned < limit and attempts < max_attempts:
+            attempts += 1
+            if nest.max_alive > 0 and self.enemies_alive(world) >= nest.max_alive:
+                break
+            if state.remaining_budget() <= 0:
+                break
 
             hole_obj = self._pick_live_hole(world, state.spawn_cursor)
             state.spawn_cursor += 1
             if hole_obj is None:
-                any_remaining_budget = any_remaining_budget or state.remaining_budget() > 0
-                continue
+                break
 
             species = self._pick_next_species(state)
             if species is None:
-                continue
+                break
 
-            any_remaining_budget = True
             creature = self._spawn_enemy_at(
                 world, bridge, species, float(hole_obj.x), float(hole_obj.y)
             )
-            # Always consume budget + apply cooldown once we attempt a spawn.
-            # Otherwise, spawn failures (population cap / placement) can cause
-            # infinite spawning attempts.
             state.budgets[species] = max(0, int(state.budgets.get(species, 0)) - 1)
-            state.spawn_cooldown = max(0, int(nest.spawn_interval_ticks))
             if creature is not None:
                 self._spawned_ids.add(id(creature))
-
-        if not any_remaining_budget:
-            self._all_spawned = True
+                spawned += 1
+        return spawned
 
     def _pick_live_hole(self, world: "World", cursor: int) -> Any | None:
         if not self._holes:

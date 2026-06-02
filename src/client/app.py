@@ -154,8 +154,12 @@ class GameApp:
             if self.game_controller.user_message:
                 self.user_message = self.game_controller.user_message
             return
-        self.sim_runner.tick(self.world)
-        tick_messages = self.game_controller.on_tick(self.world)
+        sim_steps = self.sim_runner.tick(self.world)
+        if sim_steps <= 0:
+            return
+        tick_messages = []
+        for _ in range(sim_steps):
+            tick_messages.extend(self.game_controller.on_tick(self.world))
         self.message_feed.push(tick_messages)
         if self.debug_game_messages or self.show_debug:
             for msg in tick_messages:

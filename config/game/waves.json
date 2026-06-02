@@ -11,8 +11,10 @@
             { "x": 900, "y": 230 }
           ],
           "hole_max_hp": 180,
-          "max_alive": 10,
-          "spawn_interval_ticks": 18,
+          "max_alive": 24,
+          "initial_burst_size": 24,
+          "spawn_burst_size": 6,
+          "spawn_interval_ticks": 28,
           "spawns": [
             { "species": "invader_ant", "budget": 60 }
           ]
@@ -31,8 +33,10 @@
             { "x": 960, "y": 170 }
           ],
           "hole_max_hp": 220,
-          "max_alive": 16,
-          "spawn_interval_ticks": 14,
+          "max_alive": 36,
+          "initial_burst_size": 36,
+          "spawn_burst_size": 8,
+          "spawn_interval_ticks": 22,
           "spawns": [
             { "species": "invader_ant", "budget": 120 }
           ]

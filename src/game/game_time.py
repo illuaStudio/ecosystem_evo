@@ -8,15 +8,16 @@ if TYPE_CHECKING:
 
 
 def sim_ticks_per_real_second() -> float:
-    from src.config import config
+    from src.config import config as cfg
 
-    fps = float(config.client.get("fps", 60))
-    speed = float(config.sim.get("simulation_speed", 1.0))
-    # World._sim_time is advanced by dt passed to World.update().
-    # The main loop runs World.update(dt=sim_ticks_per_step*speed) only once per
-    # sim tick, which itself occurs every sim_ticks_per_step render frames.
-    # Therefore sim_ticks_per_step cancels out and _sim_time grows at ~fps*speed.
-    return max(1.0, fps * speed)
+    fps = float(cfg.client.get("fps", 60))
+    ticks_per_step = max(1, int(cfg.sim.get("sim_ticks_per_step", 10)))
+    speed = float(cfg.sim.get("simulation_speed", 1.0))
+    # One sim gate per (ticks_per_step) render frames; each gate runs ~speed
+    # step_once calls (each with dt=ticks_per_step). sim_ticks_per_step cancels:
+    # _sim_time grows at ~fps*speed per real second.
+    gates_per_sec = fps / float(ticks_per_step)
+    return max(1.0, gates_per_sec * ticks_per_step * speed)
 
 
 def elapsed_seconds(world: "World | None") -> float:

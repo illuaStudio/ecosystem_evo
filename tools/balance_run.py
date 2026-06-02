@@ -1,9 +1,9 @@
 """描画なしでシミュを高速回し、進行マイルストーンとイベントを記録する。
 
 Client と同じ tick 配線（SimRunner + GameController.on_tick、ストーリー中は sim 停止）を使う。
-防衛フェーズは **両方** を満たしたときに自動開始:
-  - development_ticks_before_defense（既定 400 step）以上
-  - min_soldiers_before_defense（既定 3 匹）以上の兵隊アリ
+防衛フェーズの自動開始:
+  - 初回: min_soldiers_before_defense（既定 3 匹）以上の兵隊アリ
+  - 2 ウェーブ目以降: 上記に加え development_ticks_before_defense（既定 400 step）の開発クールダウン
 
 Usage:
   python tools/balance_run.py
@@ -245,7 +245,7 @@ def run_balance(
             detail=(
                 f"food={nest.stored_mass:.0f}/{nest.capacity:.0f} "
                 f"{_population_detail(world, affiliation_id, soldier_species)} "
-                f"defense_when=step>={dev_before} AND soldiers>={min_soldiers}"
+                f"defense_when=soldiers>={min_soldiers} (wave1) or step>={dev_before}+soldiers (wave2+)"
             ),
             seen=seen_milestones,
         )
@@ -256,8 +256,12 @@ def run_balance(
 
     for step in range(1, max_steps + 1):
         if client_api.should_advance_sim(controller):
-            runner.tick(world)
-        messages = controller.on_tick(world)
+            sim_steps = runner.tick(world)
+            messages = []
+            for _ in range(sim_steps):
+                messages.extend(controller.on_tick(world))
+        else:
+            messages = controller.on_tick(world)
 
         phase_now = controller.phase.value
         if phase_now != prev_phase:

@@ -68,6 +68,21 @@ class TestPhaseAI(unittest.TestCase):
         for _ in range(count):
             ctrl.spawn_creature("red_ant_soldier", source="test")
 
+    def test_first_defense_starts_at_three_soldiers_without_dev_tick_wait(self):
+        """初回防衛は兵隊3匹で開始（development_ticks の待ちは不要）。"""
+        world = _world()
+        bridge = SimBridge(world)
+        ctrl = GameController(
+            _cfg(development_ticks_before_defense=400), bridge=bridge
+        )
+        ctrl.reset_for_world(world, bridge=bridge)
+        world.events.drain()
+        self._ensure_queen(ctrl, world)
+
+        self._spawn_soldiers(ctrl, world, 3)
+        ctrl.on_tick(world)
+        self.assertEqual(ctrl.phase, GamePhase.DEFENSE)
+
     def test_defense_waits_for_three_soldiers(self):
         world = _world()
         bridge = SimBridge(world)
