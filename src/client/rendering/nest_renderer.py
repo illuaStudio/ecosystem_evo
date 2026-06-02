@@ -1,7 +1,7 @@
 # nest_renderer.py
 import pygame
 
-from src.game.client_api import try_get_colony_orchestrator
+from src.game import client_api
 from src.sim.utils.territory_helpers import get_territory_radius_for_affiliation, iter_territory_centers
 
 DEFAULT_FACTION_STYLE = {
@@ -200,7 +200,7 @@ class NestRenderer:
         """選択中のコロニーへの colony_access 設置可否をカーソル位置に表示。"""
         if not affiliation_id:
             return
-        ns = try_get_colony_orchestrator(world)
+        ns = client_api.try_get_colony_orchestrator(world)
         if ns is None:
             return
 
@@ -220,7 +220,7 @@ class NestRenderer:
             owner_species_for_affiliation,
         )
 
-        nest_system = try_get_colony_orchestrator(world)
+        nest_system = client_api.try_get_colony_orchestrator(world)
         if nest_system is None:
             return
 

@@ -1,11 +1,14 @@
 """プレイヤー女王の HUD 表示用ヘルパー（Client 層）。"""
 from __future__ import annotations
 
-from src.game.colony_session import get_colony_orchestrator
+from src.game import client_api
 
 
 def colony(world):
-    return get_colony_orchestrator(world)
+    """Client から Game の colony データにアクセスする際は必ず client_api 経由。
+    異なるAI (Client担当 / Game担当) が並行開発できるための境界。
+    """
+    return client_api.try_get_colony_orchestrator(world)
 
 from typing import TYPE_CHECKING
 
@@ -21,6 +24,10 @@ ACTION_LABELS = {
     "AffiliationReproduceAction": "産卵",
     "SeekShelterAction": "巣穴待機",
 }
+
+# Client は game.ai の内部を直接 import しない。
+# 代わりに client_api のヘルパーを使う（Game層のAIが内部実装を隠蔽）。
+from src.game import client_api
 
 
 def find_colony_queen(world: "World", affiliation_id: str):
@@ -40,20 +47,8 @@ def find_colony_queen(world: "World", affiliation_id: str):
 
 
 def _find_colony_reproduce_action(queen):
-    from src.sim.ai.mind import ACTION_BY_NAME
-    from src.game.ai.reproduction_actions import AffiliationReproduceAction
-
-    mind = getattr(queen, "mind", None)
-    if mind is None:
-        return None
-    for action_def in mind.action_defs:
-        if action_def.get("name") == "AffiliationReproduceAction":
-            cls = ACTION_BY_NAME.get("AffiliationReproduceAction", AffiliationReproduceAction)
-            return cls.from_config(
-                action_def.get("params", {}),
-                source=f"queen/{action_def.get('name')}",
-            )
-    return None
+    # 実装は client_api 側に隠蔽。Client はクラス名や from_config の詳細を知らない。
+    return client_api.find_queen_reproduction_action(queen)
 
 
 def _progression_label(state: "GameState") -> str:
@@ -153,9 +148,11 @@ def build_queen_panel_lines(
             lines.append(
                 (f"産卵CD: 残り {queen.repro_cooldown} tick", (180, 180, 255))
             )
-        ok, reason = repro.reproduction_readiness(queen)
-        color: Color = (160, 255, 160) if ok else (255, 200, 160)
-        lines.append((f"産卵: {reason}", color))
+        readiness = client_api.get_queen_reproduction_readiness(queen)
+        if readiness is not None:
+            ok, reason = readiness
+            color: Color = (160, 255, 160) if ok else (255, 200, 160)
+            lines.append((f"産卵: {reason}", color))
     elif game_state is not None and not game_state.has_flag("queen_can_reproduce"):
         lines.append(("産卵: ゲーム進行待ち", (200, 200, 200)))
 

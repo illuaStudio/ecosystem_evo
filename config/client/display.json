@@ -7,5 +7,6 @@
   "fullscreen": false,
   "debug_hud": true,
   "debug_sim_events": false,
-  "debug_game_messages": false
+  "debug_game_messages": false,
+  "show_field_biomass": false
 }

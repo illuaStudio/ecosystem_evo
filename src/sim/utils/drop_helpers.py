@@ -19,7 +19,7 @@ def apply_spawn_drop_step(creature, params: Mapping[str, Any] | None = None) -> 
     type_ref = str(spec.get("type", "field_bulk"))
     fill = spec.get("fill")
     if fill is None:
-        fill = {"mode": "creature_metric"}
+        fill = {"mode": "creature_metric", "scale": 55.0}
 
     cx, cy = entity_xy(creature)
     overrides: Dict[str, Any] = dict(spec.get("overrides") or {})

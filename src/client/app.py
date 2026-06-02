@@ -15,9 +15,10 @@ from src.sim.systems.world import World
 
 
 def colony(world):
-    from src.game.colony_session import get_colony_orchestrator
-
-    return get_colony_orchestrator(world)
+    """Client から Game の colony データにアクセスする際は必ず client_api 経由。
+    異なるAI (Client担当 / Game担当) が並行開発できるための境界。
+    """
+    return client_api.try_get_colony_orchestrator(world)
 
 
 class GameApp:

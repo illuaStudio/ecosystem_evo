@@ -22,6 +22,7 @@ class PhaseController:
     story_text: str = ""
     _story_acknowledged: bool = False
     _next_wave_index: int = 0
+    _waves_cycled: bool = False
 
     @classmethod
     def from_config(cls, game_config: dict | None) -> "PhaseController":
@@ -38,6 +39,7 @@ class PhaseController:
         self.story_text = ""
         self._story_acknowledged = False
         self._next_wave_index = 0
+        self._waves_cycled = False
 
     def should_run_sim(self) -> bool:
         return self.phase is not GamePhase.STORY
@@ -49,6 +51,10 @@ class PhaseController:
     @property
     def next_wave_index(self) -> int:
         return self._next_wave_index
+
+    @property
+    def waves_cycled(self) -> bool:
+        return self._waves_cycled
 
     def acknowledge_story(self) -> None:
         if self.phase is GamePhase.STORY:
@@ -116,24 +122,53 @@ class PhaseController:
         return messages
 
     def _tick_story(self, wave_director: WaveDirector) -> list[GameMessage]:
-        _ = wave_director
         if not self.config.auto_resume_after_story:
             if self._story_acknowledged:
-                return self._enter_development()
+                return self._enter_development(wave_director)
             return []
         if self._story_acknowledged or self.phase_ticks >= self.config.story_ticks_before_resume:
-            return self._enter_development()
+            return self._enter_development(wave_director)
         return []
 
-    def _enter_development(self) -> list[GameMessage]:
+    def on_player_defeated(self, wave_director: WaveDirector) -> list[GameMessage]:
+        """プレイヤー勢力敗北時: 防衛を中断しストーリーフェーズへ。"""
+        if self.phase is not GamePhase.DEFENSE:
+            return []
+        wave_director.abort_wave()
+        self.story_text = self.config.story_on_defeat
+        self.phase = GamePhase.STORY
+        self.phase_ticks = 0
+        self._story_acknowledged = False
+        msgs: list[GameMessage] = [
+            GameMessage(
+                text=self.story_text,
+                source="story",
+                priority=5,
+            )
+        ]
+        return msgs
+
+    def _enter_development(self, wave_director: WaveDirector) -> list[GameMessage]:
+        msgs: list[GameMessage] = []
+        if (
+            self.config.cycle_waves
+            and self._next_wave_index >= len(wave_director.waves)
+            and len(wave_director.waves) > 0
+        ):
+            self._next_wave_index = 0
+            self._waves_cycled = True
+            msgs.append(
+                GameMessage(
+                    text="全ウェーブを撃退しました。次の襲撃に備え、開発フェーズが再開しました。",
+                    source="phase",
+                    priority=3,
+                )
+            )
         self.phase = GamePhase.DEVELOPMENT
         self.phase_ticks = 0
         self.story_text = ""
         self._story_acknowledged = False
-        msgs: list[GameMessage] = []
-        if self._next_wave_index < 1:
-            pass
-        else:
+        if not msgs and self._next_wave_index > 0:
             msgs.append(
                 GameMessage(
                     text="開発フェーズに戻りました。",

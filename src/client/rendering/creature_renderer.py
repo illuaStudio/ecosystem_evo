@@ -1,6 +1,9 @@
 # creature_renderer.py
+import math
+
 import pygame
 
+from src.client.sprite_manager import get_default_sprite_manager
 from src.sim.components.inventory import BiomassItem
 from src.sim.utils.creature_helpers import hp_ratio, satiety_ratio
 from src.sim.utils.inventory_helpers import get_haul_max_carry, inventory_is_loaded, carried_mass_for_kind
@@ -60,15 +63,41 @@ class CreatureRenderer:
                 trail_color = (max(0, color[0] - 80), max(0, color[1] - 80), max(0, color[2] - 80))
                 pygame.draw.line(screen, trail_color, (lx, ly), (sx, sy), max(2, size // 2))
 
-        pygame.draw.circle(screen, color, (sx, sy), size + 2)
-        outline = (100, 200, 255) if sheltered and show_sheltered_debug else (255, 255, 255)
-        pygame.draw.circle(screen, outline, (sx, sy), size + 2, 2)
-        if sheltered and show_sheltered_debug:
-            pygame.draw.circle(screen, (100, 200, 255), (sx, sy), size + 10, 1)
+        # === 画像描画優先（SpriteManager経由） ===
+        manager = get_default_sprite_manager()
+        has_real_sprites = bool(manager._sprites)
 
+        sprite = manager.get_for_creature(
+            creature.species.name,
+            size,
+            carrying=inventory_is_loaded(creature),
+            color_override=color if not has_real_sprites else None,
+        )
+
+        # 方向（velocityから簡易計算）
+        angle = 0.0
+        vel = getattr(creature, "velocity", None)
+        if vel and hasattr(vel, "x") and (abs(vel.x) + abs(vel.y) > 0.01):
+            angle = math.degrees(math.atan2(vel.y, vel.x))
+
+        sprite = manager.get_rotated(sprite, angle)
+
+        # 中央配置でblit
+        sw, sh = sprite.get_size()
+        screen.blit(sprite, (sx - sw // 2, sy - sh // 2))
+
+        # 選択・シェルター時の強調（画像の上に追加で描画）
         if is_selected:
             pygame.draw.circle(screen, (255, 240, 120), (sx, sy), size + 12, 2)
             pygame.draw.circle(screen, (255, 200, 80), (sx, sy), size + 16, 1)
+        if sheltered and show_sheltered_debug:
+            pygame.draw.circle(screen, (100, 200, 255), (sx, sy), size + 10, 1)
+
+        # 画像が全くない場合のみ、従来のシェイプ描画にフォールバック
+        if not has_real_sprites:
+            pygame.draw.circle(screen, color, (sx, sy), size + 2)
+            outline = (100, 200, 255) if sheltered and show_sheltered_debug else (255, 255, 255)
+            pygame.draw.circle(screen, outline, (sx, sy), size + 2, 2)
 
         bar_w = int(size * 3.0)
         bar_x = sx - bar_w // 2

@@ -55,3 +55,20 @@ class TestLayerImportBoundaries:
     def test_game_does_not_import_client(self):
         bad = _collect_cross_imports("game", {"client"})
         assert bad == [], "Game must not import Client:\n" + "\n".join(bad)
+
+
+def test_client_uses_public_game_api_for_parallel_development():
+    """Client担当AIとGame担当AIがそれぞれ独立して作業できるように、
+    Clientは game 内部（colony_session や game.ai 実装など）を直接 import せず、
+    client_api 等の公開面のみを使う。
+    違反すると Game側のリファクタで Client が壊れやすくなる。
+    詳細: docs/Client_Game_Layer_Boundary_for_Parallel_AI_Development.md
+    """
+    bad_imports: list[str] = []
+    forbidden_patterns = ("colony_session", "game.ai.reproduction_actions")
+    for path in _py_files_under("client"):
+        rel = path.relative_to(REPO_ROOT).as_posix()
+        for lineno, module in _imports_in_file(path):
+            if any(p in module for p in forbidden_patterns):
+                bad_imports.append(f"{rel}:{lineno} imports {module} (use client_api instead)")
+    assert bad_imports == [], "Client must not directly import Game internals:\n" + "\n".join(bad_imports)

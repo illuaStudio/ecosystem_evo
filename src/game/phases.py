@@ -17,6 +17,8 @@ class PhaseConfig:
     story_ticks_before_resume: int = 90
     auto_start_defense: bool = True
     auto_resume_after_story: bool = True
+    cycle_waves: bool = True
+    story_on_defeat: str = "コロニーの拠点がすべて失われました。開発フェーズに戻り、再建を始めましょう。"
 
 
 def phase_config_from_dict(raw: dict | None) -> PhaseConfig:
@@ -28,4 +30,11 @@ def phase_config_from_dict(raw: dict | None) -> PhaseConfig:
         story_ticks_before_resume=max(1, int(data.get("story_ticks_before_resume", 90))),
         auto_start_defense=bool(data.get("auto_start_defense", True)),
         auto_resume_after_story=bool(data.get("auto_resume_after_story", True)),
+        cycle_waves=bool(data.get("cycle_waves", True)),
+        story_on_defeat=str(
+            data.get(
+                "story_on_defeat",
+                "コロニーの拠点がすべて失われました。開発フェーズに戻り、再建を始めましょう。",
+            )
+        ),
     )

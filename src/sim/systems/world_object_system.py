@@ -723,7 +723,7 @@ class WorldObjectSystem:
         mode = str(fill.get("mode", "creature_metric"))
         if mode == "creature_metric" and creature is not None:
             trait_key = str(fill.get("from_trait", "base_size"))
-            scale = float(fill.get("scale", 200.0))
+            scale = float(fill.get("scale", 55.0))
             size = float(creature.traits.get(trait_key, 9.0))
             amount = max(0.0, size * scale)
             obj.storage.stack.set_amount_for_kind("biomass", amount)

@@ -4,11 +4,11 @@
   "category": "field",
   "capabilities": {
     "container": {
-      "max_mass": 50000,
-      "slots": [{ "max_mass": 50000, "allowed_kinds": ["biomass"] }]
+      "max_mass": 1200,
+      "slots": [{ "max_mass": 1200, "allowed_kinds": ["biomass"] }]
     },
     "pickup": {
-      "radius": 12,
+      "radius": 10,
       "modes": ["consume", "haul"],
       "lifecycle": "ephemeral",
       "deplete_when_empty": true

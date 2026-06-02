@@ -87,6 +87,12 @@ class WaveDirector:
         self._wave_active = False
         self._all_spawned = False
 
+    def abort_wave(self) -> None:
+        """防衛中断（プレイヤー敗北など）。"""
+        self._wave_active = False
+        self._pending.clear()
+        self._all_spawned = True
+
     @property
     def wave_index(self) -> int:
         return self._wave_index

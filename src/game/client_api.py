@@ -25,11 +25,15 @@ class GamePhaseView:
     story_pending: bool
     waves_total: int
     next_wave_index: int
+    waves_cycled: bool
+    all_waves_complete: bool
 
 
 def get_phase_view(controller: "GameController", world: "World") -> GamePhaseView:
     pc = controller.phase_controller
     wd = controller.wave_director
+    waves_total = len(wd.waves)
+    all_complete = waves_total > 0 and pc.next_wave_index >= waves_total and not wd.wave_active
     return GamePhaseView(
         phase=pc.phase.value,
         phase_ticks=pc.phase_ticks,
@@ -40,8 +44,10 @@ def get_phase_view(controller: "GameController", world: "World") -> GamePhaseVie
         wave_enemies_spawned=wd.enemies_spawned_total,
         story_text=pc.story_text,
         story_pending=pc.story_pending,
-        waves_total=len(wd.waves),
+        waves_total=waves_total,
         next_wave_index=pc.next_wave_index,
+        waves_cycled=pc.waves_cycled,
+        all_waves_complete=all_complete,
     )
 
 
@@ -102,5 +108,48 @@ def try_spawn_position(
     try:
         x, y = orch.spawn_position(species, affiliation_cfg)
         return float(x), float(y)
+    except Exception:
+        return None
+
+
+# ============================================================
+# Client 層向け Game 公開ヘルパー（Client/Game 並行開発のための境界）
+# Client担当AIはここからしか Game の colony や特定の game ロジックにアクセスしない。
+# Game担当AIは内部実装を変えても、この関数のシグネチャと戻り値を維持すれば Client を壊さない。
+# ============================================================
+
+def find_queen_reproduction_action(queen):
+    """女王の産卵 Action を解決して返す。Client はこのクラスの詳細を知らない。"""
+    if queen is None:
+        return None
+    mind = getattr(queen, "mind", None)
+    if mind is None:
+        return None
+    for action_def in mind.action_defs:
+        if action_def.get("name") == "AffiliationReproduceAction":
+            # 内部 import は client_api 内に閉じる
+            from src.sim.ai.mind import ACTION_BY_NAME
+            from src.game.ai.reproduction_actions import AffiliationReproduceAction
+
+            cls = ACTION_BY_NAME.get("AffiliationReproduceAction", AffiliationReproduceAction)
+            return cls.from_config(
+                action_def.get("params", {}),
+                source=f"queen/{action_def.get('name')}",
+            )
+    return None
+
+
+def get_queen_reproduction_readiness(queen) -> tuple[bool, str] | None:
+    """女王の産卵可能状態を (ok, reason) で返す。
+    queen.world から必要な Game/Sim データを解決。
+    Client は reproduction_readiness の内部や AffiliationReproduceAction を直接触らない。
+    """
+    if queen is None or not getattr(queen, "world", None):
+        return None
+    repro = find_queen_reproduction_action(queen)
+    if repro is None:
+        return None
+    try:
+        return repro.reproduction_readiness(queen)
     except Exception:
         return None

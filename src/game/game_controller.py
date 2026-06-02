@@ -170,6 +170,13 @@ class GameController:
     def acknowledge_story(self) -> None:
         self.phase_controller.acknowledge_story()
 
+    def _handle_phase_player_defeat(self) -> list[GameMessage]:
+        if self.phase_controller.phase is not GamePhase.DEFENSE:
+            return []
+        if not self.state.has_flag("player_affiliation_defeated"):
+            return []
+        return self.phase_controller.on_player_defeated(self.wave_director)
+
     @property
     def phase(self) -> GamePhase:
         return self.phase_controller.phase
@@ -196,6 +203,7 @@ class GameController:
                 self._log_game_event(event)
 
         tick_messages.extend(self.director.on_game_events(game_events, world))
+        tick_messages.extend(self._handle_phase_player_defeat())
 
         alerts = self.monitor.check(world, self.state)
         tick_messages.extend(self.director.on_monitor_alerts(alerts, world))

@@ -67,10 +67,10 @@
         "woodlouse",
         "grub"
       ],
-      "target_population": 8,
-      "spawn_rate_per_dt": 0.12,
+      "target_population": 4,
+      "spawn_rate_per_dt": 0.035,
       "radius": 85.0,
-      "max_spawns_per_tick": 2,
+      "max_spawns_per_tick": 1,
       "position_attempts": 10,
       "use_biome_weight": true
     },
@@ -83,8 +83,8 @@
         "species_pool": [
           "soil_mite"
         ],
-        "target_population": 6,
-        "spawn_rate_per_dt": 0.14
+        "target_population": 3,
+        "spawn_rate_per_dt": 0.04
       },
       "leaf_litter": {
         "label": "leaf_litter",
@@ -92,7 +92,7 @@
           "woodlouse",
           "grub"
         ],
-        "target_population": 7,
+        "target_population": 4,
         "radius": 70.0
       },
       "meadow_edge": {
@@ -101,7 +101,7 @@
           "springtail",
           "aphid_larva"
         ],
-        "target_population": 7,
+        "target_population": 4,
         "radius": 75.0
       }
     },
@@ -113,10 +113,10 @@
         "woodlouse",
         "grub"
       ],
-      "target_population": 40,
-      "spawn_rate_per_dt": 0.08,
+      "target_population": 12,
+      "spawn_rate_per_dt": 0.025,
       "nest_exclusion_radius": 120.0,
-      "max_spawns_per_tick": 4,
+      "max_spawns_per_tick": 1,
       "position_attempts": 12,
       "margin": 80
     },
@@ -141,11 +141,11 @@
         "entries": [
           {
             "species": "springtail",
-            "count": 2
+            "count": 1
           },
           {
             "species": "aphid_larva",
-            "count": 2
+            "count": 1
           },
           {
             "species": "soil_mite",
@@ -172,7 +172,7 @@
         "entries": [
           {
             "species": "soil_mite",
-            "count": 3
+            "count": 2
           }
         ]
       },
@@ -187,11 +187,11 @@
         "entries": [
           {
             "species": "woodlouse",
-            "count": 3
+            "count": 2
           },
           {
             "species": "grub",
-            "count": 3
+            "count": 2
           }
         ]
       },
@@ -206,11 +206,11 @@
         "entries": [
           {
             "species": "springtail",
-            "count": 2
+            "count": 1
           },
           {
             "species": "aphid_larva",
-            "count": 2
+            "count": 1
           }
         ]
       },
@@ -242,11 +242,11 @@
     ]
   },
   "population_limits": {
-    "springtail": 50,
-    "soil_mite": 50,
-    "aphid_larva": 50,
-    "woodlouse": 50,
-    "grub": 50,
+    "springtail": 18,
+    "soil_mite": 18,
+    "aphid_larva": 18,
+    "woodlouse": 18,
+    "grub": 18,
     "red_ant_queen": 3,
     "red_ant": 20,
     "red_ant_soldier": 10,

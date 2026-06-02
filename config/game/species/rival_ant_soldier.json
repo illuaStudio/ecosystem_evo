@@ -36,8 +36,8 @@
           "speed_multiplier": 1.35,
           "contact_padding": 8.0,
           "attack_power": 1.45,
-          "territory_only": true,
-          "nest_leash_radius": 165.0
+          "territory_only": false,
+          "nest_leash_radius": null
         }
       },
       {

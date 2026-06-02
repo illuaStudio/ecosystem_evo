@@ -11,6 +11,18 @@
           "interval_ticks": 25
         }
       ]
+    },
+    {
+      "id": "wave_2",
+      "label": "第二波",
+      "story_on_clear": "第二波も撃退しました。しばらく開発に専念できます。",
+      "spawns": [
+        {
+          "species": "rival_ant_soldier",
+          "count": 5,
+          "interval_ticks": 20
+        }
+      ]
     }
   ]
 }

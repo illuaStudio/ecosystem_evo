@@ -1,11 +1,15 @@
 # renderer.py
+import math
 import pygame
 
-from src.game.colony_session import get_colony_orchestrator
+from src.game import client_api
 
 
 def colony(world):
-    return get_colony_orchestrator(world)
+    """Client から Game の colony データにアクセスする際は必ず client_api 経由。
+    異なるAI (Client担当 / Game担当) が並行開発できるための境界。
+    """
+    return client_api.try_get_colony_orchestrator(world)
 
 from src.config import config
 from src.client.rendering.zone_renderer import ZoneRenderer
@@ -124,14 +128,15 @@ class Renderer:
             )
 
         wos = getattr(world, "world_object_system", None)
-        if wos is not None:
+        if wos is not None and config.client.get("show_field_biomass", False):
             for obj in wos.iter_field_pickups():
                 if obj.is_pickup_depleted():
                     continue
                 sx = int(obj.x - camera.x)
                 sy = int(obj.y - camera.y)
                 ratio = obj.fill_ratio if obj.size_from_fill_ratio else 1.0
-                radius = max(4, int(6 + ratio * 10))
+                ratio = max(0.0, min(1.0, ratio))
+                radius = max(3, min(9, int(3 + math.sqrt(ratio) * 5)))
                 pygame.draw.circle(self.screen, obj.color, (sx, sy), radius)
                 pygame.draw.circle(self.screen, (40, 36, 32), (sx, sy), radius, 1)
 

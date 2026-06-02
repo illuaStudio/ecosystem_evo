@@ -1,7 +1,7 @@
 # input_handler.py
 import pygame
 
-from src.game.colony_session import try_get_colony_orchestrator
+from src.game import client_api
 from src.sim.utils.creature_helpers import distance_to_point
 
 
@@ -84,7 +84,7 @@ class InputHandler:
             self.engine.selected_creature = best
             return
 
-        nest_system = try_get_colony_orchestrator(self.engine.world)
+        nest_system = client_api.try_get_colony_orchestrator(self.engine.world)
         if nest_system is not None:
             affiliation_id = nest_system.find_affiliation_at(wx, wy)
             if affiliation_id is not None:
@@ -123,7 +123,7 @@ class InputHandler:
     def _add_affiliation_access_at_cursor(self) -> None:
         """マウス位置に colony_access を追加（選択中の巣、なければカーソル付近の巣）。"""
         world = self.engine.world
-        nest_system = try_get_colony_orchestrator(world)
+        nest_system = client_api.try_get_colony_orchestrator(world)
         if nest_system is None:
             return
 

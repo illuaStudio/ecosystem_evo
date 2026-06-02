@@ -1,13 +1,18 @@
 """描画なしでシミュを高速回し、進行マイルストーンとイベントを記録する。
 
+Client と同じ tick 配線（SimRunner + GameController.on_tick、ストーリー中は sim 停止）を使う。
+防衛フェーズは development_ticks_before_defense 到達後（既定 400 step）に開始。
+
 Usage:
   python tools/balance_run.py
   python tools/balance_run.py --steps 5000 --verbose
+  python tools/balance_run.py --dev-ticks 50 --steps 2000
   python tools/balance_run.py --world Grassland --seed 42
 """
 from __future__ import annotations
 
 import argparse
+import copy
 import sys
 import time
 from dataclasses import dataclass, field
@@ -18,16 +23,16 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from src.config import config
+from src.game import client_api
 from src.game.game_controller import GameController
-from src.game.sim_runner import SimRunner
 from src.game.sim_bridge_factory import make_sim_bridge
+from src.game.sim_runner import SimRunner
 from src.sim.systems.world import World
 from tools.dev_launcher_fields import default_sim_rate_context
-from src.game.colony_session import get_colony_orchestrator
 
 
 def colony(world):
-    return get_colony_orchestrator(world)
+    return client_api.try_get_colony_orchestrator(world)
 
 
 @dataclass
@@ -50,6 +55,9 @@ class BalanceRunReport:
     nest_food_end: float = 0.0
     nest_fill_ratio_end: float = 0.0
     flags_end: dict[str, bool] = field(default_factory=dict)
+    phase_end: str = "development"
+    wave_index_end: int = -1
+    waves_cleared: int = 0
 
 
 def _sim_time(world: World) -> float:
@@ -64,14 +72,17 @@ def _real_sec(sim_time: float, ctx) -> float:
 
 
 def _worker_count(world: World, affiliation_id: str) -> int:
-    nest = colony(world).get_affiliation_root(affiliation_id)
+    orch = colony(world)
+    if orch is None:
+        return 0
+    nest = orch.get_affiliation_root(affiliation_id)
     if nest is None:
         return 0
     factions = getattr(world, "affiliation_species", {}) or {}
     species = [s for s in factions.get(affiliation_id, ["red_ant"]) if not s.endswith("_queen")]
     if not species:
         species = ["red_ant"]
-    return colony(world).count_affiliation_members(nest.id, species)
+    return orch.count_affiliation_members(nest.id, species)
 
 
 def _maybe_log_milestone(
@@ -100,28 +111,92 @@ def _maybe_log_milestone(
     )
 
 
+def _game_config(*, dev_ticks: int | None) -> dict:
+    cfg = copy.deepcopy(config.game_player)
+    if dev_ticks is not None:
+        phases = dict(cfg.get("phases") or {})
+        phases["development_ticks_before_defense"] = max(1, int(dev_ticks))
+        cfg["phases"] = phases
+    return cfg
+
+
+def _log_phase_snapshot(
+    report: BalanceRunReport,
+    *,
+    step: int,
+    world: World,
+    ctx,
+    controller: GameController,
+    seen: set[str],
+) -> None:
+    view = client_api.get_phase_view(controller, world)
+    phase = view.phase
+    if phase == "defense" and view.wave_active:
+        key = f"defense_wave_{view.wave_index}"
+        label = f"防衛フェーズ: {view.wave_label or view.wave_index + 1}"
+        detail = f"enemies_alive={view.wave_enemies_alive} spawned={view.wave_enemies_spawned}"
+        _maybe_log_milestone(
+            report,
+            step=step,
+            world=world,
+            ctx=ctx,
+            key=key,
+            label=label,
+            detail=detail,
+            seen=seen,
+        )
+    elif phase == "story" and view.story_pending:
+        key = f"story_{view.next_wave_index}"
+        snippet = (view.story_text or "")[:48]
+        _maybe_log_milestone(
+            report,
+            step=step,
+            world=world,
+            ctx=ctx,
+            key=key,
+            label="ストーリーフェーズ",
+            detail=snippet,
+            seen=seen,
+        )
+    elif phase == "development" and view.waves_cycled:
+        _maybe_log_milestone(
+            report,
+            step=step,
+            world=world,
+            ctx=ctx,
+            key="dev_after_cycle",
+            label="開発フェーズ（全ウェーブ周回後）",
+            detail=f"next_wave={view.next_wave_index}",
+            seen=seen,
+        )
+
+
 def run_balance(
     *,
     world_name: str = "Grassland",
     max_steps: int = 8000,
     verbose: bool = False,
+    dev_ticks: int | None = None,
 ) -> BalanceRunReport:
     config.reload_all()
     ctx = default_sim_rate_context()
     runner = SimRunner()
-    dt = runner.sim_dt()
 
     world = World(world_name)
     bridge = make_sim_bridge(world)
-    controller = GameController(bridge=bridge)
+    game_cfg = _game_config(dev_ticks=dev_ticks)
+    controller = GameController(game_cfg, bridge=bridge)
     controller.reset_for_world(world, bridge=bridge)
 
     affiliation_id = controller.state.player_affiliation_id
     report = BalanceRunReport()
     seen_milestones: set[str] = set()
+    prev_phase = controller.phase.value
 
-    nest = colony(world).get_affiliation_root(affiliation_id)
+    orch = colony(world)
+    nest = orch.get_affiliation_root(affiliation_id) if orch is not None else None
     if nest is not None:
+        dev_before = int((game_cfg.get("phases") or {}).get("development_ticks_before_defense", 400))
         _maybe_log_milestone(
             report,
             step=0,
@@ -130,7 +205,8 @@ def run_balance(
             key="start",
             label="開始",
             detail=f"food={nest.stored_mass:.0f}/{nest.capacity:.0f} "
-            f"workers={_worker_count(world, affiliation_id)}",
+            f"workers={_worker_count(world, affiliation_id)} "
+            f"defense_at_step={dev_before}",
             seen=seen_milestones,
         )
 
@@ -138,10 +214,39 @@ def run_balance(
     prev_workers = _worker_count(world, affiliation_id)
 
     for step in range(1, max_steps + 1):
-        world.update(dt)
+        if client_api.should_advance_sim(controller):
+            runner.tick(world)
         messages = controller.on_tick(world)
 
-        nest = colony(world).get_affiliation_root(affiliation_id)
+        phase_now = controller.phase.value
+        if phase_now != prev_phase:
+            labels = {
+                "development": "開発フェーズ",
+                "defense": "防衛フェーズ",
+                "story": "ストーリーフェーズ",
+            }
+            _maybe_log_milestone(
+                report,
+                step=step,
+                world=world,
+                ctx=ctx,
+                key=f"phase_enter_{phase_now}_{step}",
+                label=f"フェーズ: {labels.get(phase_now, phase_now)}",
+                detail=f"from={prev_phase}",
+                seen=seen_milestones,
+            )
+            prev_phase = phase_now
+
+        _log_phase_snapshot(
+            report,
+            step=step,
+            world=world,
+            ctx=ctx,
+            controller=controller,
+            seen=seen_milestones,
+        )
+
+        nest = orch.get_affiliation_root(affiliation_id) if orch is not None else None
         if nest is not None:
             ratio = nest.fill_ratio
             if controller.state.has_flag("high_food_reached"):
@@ -232,12 +337,16 @@ def run_balance(
                 seen=seen_milestones,
             )
 
+    view = client_api.get_phase_view(controller, world)
     report.steps = max_steps
     report.sim_time_end = _sim_time(world)
     report.real_sec_est_end = _real_sec(report.sim_time_end, ctx)
     report.wall_sec = time.perf_counter() - t0
     report.worker_count_end = _worker_count(world, affiliation_id)
     report.flags_end = dict(controller.state.flags)
+    report.phase_end = view.phase
+    report.wave_index_end = view.wave_index
+    report.waves_cleared = max(0, view.next_wave_index)
     if nest is not None:
         report.nest_food_end = nest.stored_mass
         report.nest_fill_ratio_end = nest.fill_ratio
@@ -260,8 +369,9 @@ def print_report(report: BalanceRunReport) -> None:
         f"(~ {report.real_sec_est_end:.1f} sec real-time equiv)"
     )
     print(
-        f"終了: food={report.nest_food_end:.0f} "
-        f"({report.nest_fill_ratio_end * 100:.1f}%), "
+        f"終了: phase={report.phase_end} wave_index={report.wave_index_end} "
+        f"waves_cleared={report.waves_cleared} "
+        f"food={report.nest_food_end:.0f} ({report.nest_fill_ratio_end * 100:.1f}%), "
         f"workers={report.worker_count_end}"
     )
     print()
@@ -284,6 +394,12 @@ def main() -> int:
     parser.add_argument("--world", default="Grassland", help="World name (default: Grassland)")
     parser.add_argument("--steps", type=int, default=8000, help="Sim steps (default: 8000)")
     parser.add_argument(
+        "--dev-ticks",
+        type=int,
+        default=None,
+        help="Override development_ticks_before_defense (default: player.json)",
+    )
+    parser.add_argument(
         "--verbose",
         action="store_true",
         help="Print game messages each step",
@@ -294,6 +410,7 @@ def main() -> int:
         world_name=args.world,
         max_steps=max(1, args.steps),
         verbose=args.verbose,
+        dev_ticks=args.dev_ticks,
     )
     print_report(report)
     return 0
