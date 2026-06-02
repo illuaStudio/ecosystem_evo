@@ -114,9 +114,9 @@ class NestRenderer:
         *,
         emphasize: bool = False,
     ) -> None:
-        sx = int(cx - camera.x)
-        sy = int(cy - camera.y)
-        pad = territory_r + 8
+        sx, sy = camera.world_to_screen(cx, cy)
+        z = camera.zoom
+        pad = max(4, int(8 * z))
         if not (
             -pad <= sx <= camera.screen_w + pad
             and -pad <= sy <= camera.screen_h + pad
@@ -163,7 +163,7 @@ class NestRenderer:
 
         for root in iter_active_affiliation_roots(world):
             affiliation_id = root.id
-            territory_r = int(get_territory_radius_for_affiliation(world, affiliation_id))
+            territory_r = max(1, int(get_territory_radius_for_affiliation(world, affiliation_id) * camera.zoom))
             if territory_r <= 0:
                 continue
 
@@ -205,11 +205,11 @@ class NestRenderer:
             return
 
         ok, _ = ns.can_place_hole(affiliation_id, wx, wy)
-        sx = int(wx - camera.x)
-        sy = int(wy - camera.y)
+        sx, sy = camera.world_to_screen(wx, wy)
         color = (100, 220, 140) if ok else (240, 90, 90)
-        pygame.draw.circle(screen, color, (sx, sy), 10, 2)
-        pygame.draw.circle(screen, (*color[:3], 60), (sx, sy), 6)
+        r = max(2, int(10 * camera.zoom))
+        pygame.draw.circle(screen, color, (sx, sy), r, max(1, int(2 * camera.zoom)))
+        pygame.draw.circle(screen, (*color[:3], 60), (sx, sy), max(2, int(6 * camera.zoom)))
 
     @staticmethod
     def draw(world, screen, camera, selected_affiliation_id: str | None = None) -> None:
@@ -227,8 +227,7 @@ class NestRenderer:
         for root in iter_active_affiliation_roots(world):
             affiliation_id = root.id
             site_x, site_y = affiliation_site_xy(world, affiliation_id)
-            sx = int(site_x - camera.x)
-            sy = int(site_y - camera.y)
+            sx, sy = camera.world_to_screen(site_x, site_y)
             if not (
                 -80 <= sx <= camera.screen_w + 80
                 and -80 <= sy <= camera.screen_h + 80
@@ -249,27 +248,27 @@ class NestRenderer:
                 _clamp_channel(ib[1] + fill * 100),
                 _clamp_channel(ib[2] + fill * 30),
             )
-            radius = 14 + int(fill * 10)
+            radius = max(2, int( (14 + fill * 10) * camera.zoom ))
             selected = selected_affiliation_id is not None and affiliation_id == selected_affiliation_id
             if selected:
-                pygame.draw.circle(screen, (255, 240, 120), (sx, sy), radius + 10, 2)
-            pygame.draw.circle(screen, outer, (sx, sy), radius + 4, 2)
+                pygame.draw.circle(screen, (255, 240, 120), (sx, sy), radius + max(2, int(10 * camera.zoom)), max(1, int(2 * camera.zoom)))
+            pygame.draw.circle(screen, outer, (sx, sy), radius + max(2, int(4 * camera.zoom)), max(1, int(2 * camera.zoom)))
             pygame.draw.circle(screen, inner, (sx, sy), radius)
             center_dot = (
                 _clamp_channel(ib[0] + 75),
                 _clamp_channel(ib[1] + 110),
                 _clamp_channel(ib[2] + 80),
             )
-            pygame.draw.circle(screen, center_dot, (sx, sy), 5)
+            pygame.draw.circle(screen, center_dot, (sx, sy), max(1, int(5 * camera.zoom)))
 
             access_fill = NestRenderer._faction_colony_access_color(faction)
             for access in iter_affiliation_access_for_display(world, affiliation_id):
-                hx = int(float(access.x) - camera.x)
-                hy = int(float(access.y) - camera.y)
+                hx, hy = camera.world_to_screen(float(access.x), float(access.y))
                 max_hp = float(getattr(access, "max_hp", 0) or 1)
                 hp = float(getattr(access, "hp", max_hp))
-                pygame.draw.circle(screen, access_fill, (hx, hy), 4)
-                pygame.draw.circle(screen, outer, (hx, hy), 6, 1)
+                r = max(1, int(4 * camera.zoom))
+                pygame.draw.circle(screen, access_fill, (hx, hy), r)
+                pygame.draw.circle(screen, outer, (hx, hy), max(2, int(6 * camera.zoom)), max(1, int(camera.zoom)))
                 NestRenderer._draw_access_hp(screen, hx, hy, hp, max_hp)
 
             if fill > 0.05:
@@ -316,10 +315,13 @@ class NestRenderer:
         defeated = get_defeated_affiliation_ids(world)
 
         for root in ws.iter_roots():
+            # Only show real colony roots (affiliation compounds). Enemy wave spawner roots
+            # are generic compounds and should not be rendered as "colonies".
+            if not getattr(root, "is_affiliation_compound", False):
+                continue
             if root.id in active or root.id in defeated:
                 continue
-            sx = int(root.x - camera.x)
-            sy = int(root.y - camera.y)
+            sx, sy = camera.world_to_screen(root.x, root.y)
             if not (
                 -80 <= sx <= camera.screen_w + 80
                 and -80 <= sy <= camera.screen_h + 80
@@ -330,8 +332,7 @@ class NestRenderer:
             dim = tuple(max(0, c // 2) for c in outer)
             pygame.draw.circle(screen, dim, (sx, sy), 12, 2)
             for child in ws.iter_access_points(root.id):
-                hx = int(child.x - camera.x)
-                hy = int(child.y - camera.y)
+                hx, hy = camera.world_to_screen(child.x, child.y)
                 pygame.draw.circle(screen, dim, (hx, hy), 3, 1)
             label = faction.get("label", root.id[:1])
             font = pygame.font.SysFont("msgothic", 10)

@@ -25,6 +25,7 @@ def _fast_game_config(**phase_overrides) -> dict:
         "auto_start_defense": True,
         "auto_resume_after_story": True,
         "cycle_waves": True,
+        "min_soldiers_before_defense": 0,
     }
     phases.update(phase_overrides)
     return {
@@ -79,7 +80,7 @@ def _advance_until(ctrl: GameController, world: World, *, phase: GamePhase, max_
 def _kill_wave_enemies(ctrl: GameController, world: World) -> None:
     for creature in list(world.creatures):
         if (
-            creature.species.name == "rival_ant_soldier"
+            creature.species.name == "invader_ant"
             and id(creature) in ctrl.wave_director._spawned_ids
         ):
             creature.hp = 0.0
@@ -87,16 +88,19 @@ def _kill_wave_enemies(ctrl: GameController, world: World) -> None:
 
 
 def _clear_active_wave(ctrl: GameController, world: World, *, max_ticks: int = 400) -> None:
-    """防衛中のウェーブ敵を倒し、ストーリーフェーズへ遷移させる。"""
+    """防衛中のウェーブ敵を倒し、開発フェーズへ戻す。"""
+    # New wave model: wave clears only when nest holes are destroyed and spawning is exhausted.
+    ctrl.wave_director.debug_exhaust_budgets()
+    ctrl.wave_director.debug_destroy_all_holes(world)
     for _ in range(max_ticks):
-        if ctrl.phase is GamePhase.STORY:
+        if ctrl.phase is GamePhase.DEVELOPMENT:
             return
         if ctrl.phase is GamePhase.DEFENSE:
             _kill_wave_enemies(ctrl, world)
         if client_api.should_advance_sim(ctrl):
             _sim_tick(world)
         ctrl.on_tick(world)
-    raise AssertionError("story phase not reached after clearing wave")
+    raise AssertionError("development phase not reached after clearing wave")
 
 
 class TestPhaseWave(unittest.TestCase):
@@ -108,10 +112,10 @@ class TestPhaseWave(unittest.TestCase):
         world.events.drain()
         return ctrl
 
-    def test_should_advance_sim_false_during_story(self):
+    def test_should_advance_sim_true_during_story_disabled(self):
         pc = PhaseController.from_config(_fast_game_config())
         pc.phase = GamePhase.STORY
-        self.assertFalse(pc.should_run_sim())
+        self.assertTrue(pc.should_run_sim())
 
     def test_manual_start_defense(self):
         cfg = _fast_game_config(auto_start_defense=False)
@@ -119,12 +123,12 @@ class TestPhaseWave(unittest.TestCase):
         bridge = SimBridge(world)
         ctrl = GameController(cfg, bridge=bridge)
         ctrl.reset_for_world(world, bridge=bridge)
-        self.assertTrue(client_api.request_start_defense(ctrl))
+        self.assertTrue(client_api.request_start_defense(ctrl, world))
         self.assertEqual(ctrl.phase, GamePhase.DEFENSE)
         self.assertTrue(ctrl.wave_director.wave_active)
-        self.assertFalse(client_api.request_start_defense(ctrl))
+        self.assertFalse(client_api.request_start_defense(ctrl, world))
 
-    def test_development_to_defense_to_story_loop(self):
+    def test_development_to_defense_to_development_loop(self):
         ctrl = self._controller()
         world = ctrl.bridge.world
 
@@ -140,12 +144,6 @@ class TestPhaseWave(unittest.TestCase):
 
         self.assertGreaterEqual(ctrl.wave_director.enemies_spawned_total, 1)
         _clear_active_wave(ctrl, world)
-
-        _advance_until(ctrl, world, phase=GamePhase.STORY, max_ticks=10)
-        view = client_api.get_phase_view(ctrl, world)
-        self.assertTrue(view.story_pending)
-        self.assertIn("先遣隊", view.story_text)
-
         _advance_until(ctrl, world, phase=GamePhase.DEVELOPMENT, max_ticks=20)
         self.assertEqual(ctrl.phase_controller.next_wave_index, 1)
 
@@ -167,8 +165,7 @@ class TestPhaseWave(unittest.TestCase):
                 ctrl.on_tick(world)
 
             _clear_active_wave(ctrl, world)
-            self.assertEqual(ctrl.phase, GamePhase.STORY)
-            _advance_until(ctrl, world, phase=GamePhase.DEVELOPMENT, max_ticks=20)
+            self.assertEqual(ctrl.phase, GamePhase.DEVELOPMENT)
 
         view = client_api.get_phase_view(ctrl, world)
         self.assertTrue(view.waves_cycled)
@@ -177,22 +174,22 @@ class TestPhaseWave(unittest.TestCase):
         _advance_until(ctrl, world, phase=GamePhase.DEFENSE, max_ticks=30)
         self.assertEqual(ctrl.wave_director.wave_index, 0)
 
-    def test_player_defeat_during_defense_enters_story(self):
+    def test_player_defeat_during_defense_returns_development(self):
         cfg = _fast_game_config(auto_start_defense=False)
         world = _player_world()
         bridge = SimBridge(world)
         ctrl = GameController(cfg, bridge=bridge)
         ctrl.reset_for_world(world, bridge=bridge)
-        self.assertTrue(client_api.request_start_defense(ctrl))
+        self.assertTrue(client_api.request_start_defense(ctrl, world))
 
         orch = client_api.try_get_colony_orchestrator(world)
         self.assertIsNotNone(orch)
         orch.defeat_affiliation("red_ant")
         ctrl.on_tick(world)
 
-        self.assertEqual(ctrl.phase, GamePhase.STORY)
+        self.assertEqual(ctrl.phase, GamePhase.DEVELOPMENT)
         view = client_api.get_phase_view(ctrl, world)
-        self.assertTrue(view.story_pending)
+        self.assertFalse(view.story_pending)
         self.assertFalse(ctrl.wave_director.wave_active)
 
     def test_wave_director_loads_config(self):
@@ -200,6 +197,27 @@ class TestPhaseWave(unittest.TestCase):
         self.assertGreaterEqual(len(wd.waves), 2)
         self.assertEqual(wd.waves[0].id, "wave_1")
         self.assertEqual(wd.waves[1].id, "wave_2")
+
+    def test_wave_spawner_does_not_create_rival_ant_faction_root(self):
+        """Wave setup must not add a rival_ant compound root (phantom B nest)."""
+        world = _player_world()
+        wd = WaveDirector.from_json(player_affiliation_id="red_ant")
+        wd.begin_wave(0)
+        ws = world.world_object_system
+        before_ids = set(ws.objects.keys())
+        wd._ensure_nests(world)
+        new_ids = set(ws.objects.keys()) - before_ids
+        self.assertNotIn("rival_ant", new_ids)
+        self.assertTrue(any(str(i).startswith("enemy_wave_") for i in new_ids))
+        wave_roots = [r for r in ws.iter_roots() if str(r.id).startswith("enemy_wave_")]
+        self.assertGreater(len(wave_roots), 0)
+        for r in wave_roots:
+            self.assertFalse(r.is_affiliation_compound)
+        wd._teardown_wave_objects(world)
+        self.assertEqual(
+            len([r for r in ws.iter_roots() if str(r.id).startswith("enemy_wave_")]),
+            0,
+        )
 
     def test_client_api_phase_view(self):
         ctrl = self._controller()

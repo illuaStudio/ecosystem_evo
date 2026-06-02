@@ -4,11 +4,18 @@
       "id": "wave_1",
       "label": "第一波",
       "story_on_clear": "ライバル蟻の先遣隊を撃退しました。開発フェーズに戻り、コロニーを整えましょう。",
-      "spawns": [
+      "nests": [
         {
-          "species": "rival_ant_soldier",
-          "count": 3,
-          "interval_ticks": 25
+          "holes": [
+            { "x": 840, "y": 170 },
+            { "x": 900, "y": 230 }
+          ],
+          "hole_max_hp": 180,
+          "max_alive": 10,
+          "spawn_interval_ticks": 18,
+          "spawns": [
+            { "species": "invader_ant", "budget": 60 }
+          ]
         }
       ]
     },
@@ -16,11 +23,19 @@
       "id": "wave_2",
       "label": "第二波",
       "story_on_clear": "第二波も撃退しました。しばらく開発に専念できます。",
-      "spawns": [
+      "nests": [
         {
-          "species": "rival_ant_soldier",
-          "count": 5,
-          "interval_ticks": 20
+          "holes": [
+            { "x": 830, "y": 160 },
+            { "x": 900, "y": 220 },
+            { "x": 960, "y": 170 }
+          ],
+          "hole_max_hp": 220,
+          "max_alive": 16,
+          "spawn_interval_ticks": 14,
+          "spawns": [
+            { "species": "invader_ant", "budget": 120 }
+          ]
         }
       ]
     }

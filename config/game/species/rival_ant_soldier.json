@@ -1,11 +1,7 @@
 {
   "name": "rival_ant_soldier",
-  "description": "テスト用の敵対勢力兵隊（本番ワールドには出現しない）。",
-  "color": [
-    40,
-    60,
-    200
-  ],
+  "description": "レガシー: 2勢力simテスト専用。本番では invader_ant を使用。",
+  "color": [40, 60, 200],
   "affiliation": {
     "enabled": true,
     "affiliation_id": "rival_ant",
@@ -26,27 +22,9 @@
     "type": "utility",
     "actions": [
       {
-        "name": "CombatAction",
-        "weight": 5.0,
-        "params": {
-          "hostile_species": [],
-          "hostile_affiliation_ids": [
-            "red_ant"
-          ],
-          "speed_multiplier": 1.35,
-          "contact_padding": 8.0,
-          "attack_power": 1.45,
-          "territory_only": false,
-          "nest_leash_radius": null
-        }
-      },
-      {
         "name": "WanderAction",
-        "weight": 0.2,
-        "params": {
-          "angle_range": 24.0,
-          "speed_multiplier": 0.55
-        }
+        "weight": 1.0,
+        "params": { "angle_range": 24.0, "speed_multiplier": 0.55 }
       }
     ]
   },

@@ -1,38 +1,22 @@
 {
   "name": "rival_ant",
-  "description": "テスト用の敵対勢力ワーカー（本番ワールドには出現しない）。",
-  "color": [
-    60,
-    90,
-    230
-  ],
+  "description": "レガシー: 2勢力simテスト専用。本番ワールド・ウェーブでは使用しない。",
+  "color": [60, 120, 220],
   "affiliation": {
     "enabled": true,
-    "affiliation_id": "rival_ant"
+    "affiliation_id": "rival_ant",
+    "spawn_spread": 22.0
   },
   "traits": {
-    "base_size": 14.0,
-    "base_speed": 0.5,
-    "base_vision": 260.0,
-    "max_hp": 120.0,
+    "base_size": 18.0,
+    "base_speed": 0.58,
+    "base_vision": 220.0,
+    "max_hp": 160.0,
     "max_satiety": 100.0,
-    "metabolism_per_tick": 0.05,
+    "metabolism_per_tick": 0.06,
     "satiety_hungry_below": 0.15,
     "satiety_full_above": 0.85,
-    "starvation_hp_per_tick": 0.006
-  },
-  "inventory": {
-    "slot_count": 1,
-    "slots": [
-      {
-        "max_mass": 50.0,
-        "allowed_kinds": [
-          "biomass"
-        ]
-      }
-    ],
-    "mass_per_unit": 1.0,
-    "carry_speed_reference_weight": 160.0
+    "starvation_hp_per_tick": 0.0072
   },
   "mind": {
     "type": "utility",
@@ -40,10 +24,7 @@
       {
         "name": "WanderAction",
         "weight": 1.0,
-        "params": {
-          "angle_range": 35.0,
-          "speed_multiplier": 0.7
-        }
+        "params": { "angle_range": 24.0, "speed_multiplier": 0.55 }
       }
     ]
   },

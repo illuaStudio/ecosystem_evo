@@ -209,7 +209,15 @@ class GameDirector:
         if event.attacker is not None:
             from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
             attacker_cid = get_creature_affiliation_id(event.attacker)
-        if not attacker_cid or not is_rival_affiliation(world, player_id, attacker_cid):
+        attacker = event.attacker
+        is_wave_invader = (
+            attacker is not None
+            and getattr(getattr(attacker, "species", None), "name", "") == "invader_ant"
+        )
+        is_rival_attacker = bool(
+            attacker_cid and is_rival_affiliation(world, player_id, attacker_cid)
+        )
+        if not is_wave_invader and not is_rival_attacker:
             return []
 
         player_attacked = False

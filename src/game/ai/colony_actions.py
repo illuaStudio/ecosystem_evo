@@ -75,11 +75,21 @@ class ReturnToAffiliationDepositAction(Action):
         if affiliation is None or not inventory_is_loaded(creature) or not creature.world:
             return False
         if needs_self_feed(creature):
+            # While carrying, UtilityMind keeps the current action until it is completed.
+            # If we simply return here, the creature can get stuck holding this action
+            # and never switch to ScavengeCarriedAction / FeedAtNestAction.
+            self.completed = True
             return False
         colony = _orch(creature)
         if not creature_has_affiliation_target(creature):
+            self.completed = True
             return False
         deposit_radius = float(self.params["deposit_radius"])
+        if is_creature_sheltered(creature):
+            # Sheltered creatures cannot move. Treat shelter as "at site" and deposit.
+            colony.deposit_carried(creature)
+            self.completed = True
+            return False
         if colony.is_at_affiliation_site(creature, deposit_radius):
             colony.deposit_carried(creature)
             return False
@@ -170,8 +180,9 @@ class FeedAtAffiliationSiteAction(Action):
                 return False
             if not needs_affiliation_feed(creature) or not self._has_usable_food(creature):
                 return False
-            if not colony.is_at_affiliation_site(creature, feed_radius):
-                return False
+            # Sheltered creatures cannot move. The nearest access point distance check
+            # can fail due to how sheltered positions are represented; if they are
+            # sheltered and the affiliation has usable storage, allow feeding.
             feed_cfg = get_affiliation_feed_config(creature)
             colony.feed_creature(
                 creature,
@@ -224,7 +235,8 @@ class FeedAtAffiliationSiteAction(Action):
         if is_creature_sheltered(creature):
             if not self._wants_affiliation_feed(creature):
                 return 0.0
-            if not needs_affiliation_feed(creature) or not usable or not at_site:
+            # See execute(): sheltered creatures feed in-place.
+            if not needs_affiliation_feed(creature) or not usable:
                 return 0.0
             return 1.0
         if not self._wants_affiliation_feed(creature):

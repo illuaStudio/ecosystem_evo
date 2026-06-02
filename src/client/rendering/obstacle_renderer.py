@@ -12,12 +12,12 @@ class ObstacleRenderer:
             return
 
         pad = 4
+        z = camera.zoom
         for obs in system.obstacles:
-            sx = int(obs.x - camera.x)
-            sy = int(obs.y - camera.y)
+            sx, sy = camera.world_to_screen(obs.x, obs.y)
 
             if isinstance(obs, ObstacleCircle):
-                radius = int(obs.radius)
+                radius = max(1, int(obs.radius * z))
                 if not (
                     -radius - pad <= sx <= camera.screen_w + radius + pad
                     and -radius - pad <= sy <= camera.screen_h + radius + pad
@@ -26,11 +26,11 @@ class ObstacleRenderer:
                 fill = obs.color
                 outline = tuple(max(0, c - 35) for c in fill)
                 pygame.draw.circle(screen, fill, (sx, sy), radius)
-                pygame.draw.circle(screen, outline, (sx, sy), radius, 2)
+                pygame.draw.circle(screen, outline, (sx, sy), radius, max(1, int(2 * z)))
                 continue
 
-            hw = int(obs.half_w)
-            hh = int(obs.half_h)
+            hw = max(1, int(obs.half_w * z))
+            hh = max(1, int(obs.half_h * z))
             if not (
                 -hw - pad <= sx <= camera.screen_w + hw + pad
                 and -hh - pad <= sy <= camera.screen_h + hh + pad
@@ -40,4 +40,4 @@ class ObstacleRenderer:
             fill = obs.color
             outline = tuple(max(0, c - 35) for c in fill)
             pygame.draw.rect(screen, fill, rect)
-            pygame.draw.rect(screen, outline, rect, 2)
+            pygame.draw.rect(screen, outline, rect, max(1, int(2 * z)))

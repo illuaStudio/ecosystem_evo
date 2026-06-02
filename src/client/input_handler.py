@@ -39,6 +39,9 @@ class InputHandler:
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 3:
             self._handle_right_click(event)
 
+        # マウスホイールはカメラが処理（ズーム）
+        # camera.handle_event(event) はすでに上の方で呼ばれているので、ここでは追加不要
+
         # キー入力
         if event.type == pygame.KEYDOWN:
             self._handle_keydown(event)
@@ -58,8 +61,8 @@ class InputHandler:
 
     def _handle_right_click(self, event):
         """右クリックで生物または巣を選択（非表示の種は対象外）"""
-        wx = event.pos[0] + self.engine.camera.x
-        wy = event.pos[1] + self.engine.camera.y
+        # ズーム対応：screen_to_world を使う
+        wx, wy = self.engine.camera.screen_to_world(event.pos[0], event.pos[1])
         self.engine.selected_creature = None
         self.engine.selected_affiliation_id = None
 
@@ -114,6 +117,15 @@ class InputHandler:
             self.engine.show_sheltered = not getattr(
                 self.engine, "show_sheltered", False
             )
+        elif event.unicode in ('-', '－') or event.key == pygame.K_MINUS:
+            self._adjust_simulation_speed(0.5)
+        elif event.unicode in ('+', '=', '＋', '＝') or event.key in (pygame.K_EQUALS, pygame.K_PLUS):
+            self._adjust_simulation_speed(2.0)
+        elif event.key == pygame.K_0 or event.unicode == '0':
+            # 速度リセット
+            if getattr(self.engine, "sim_runner", None) is not None:
+                client_api.set_simulation_speed(self.engine.sim_runner, 1.0)
+                self.engine.notify("シミュ速度: x1.0 (reset)", source="client")
         elif getattr(self.engine, "species_visibility", None) is not None:
             if self.engine.species_visibility.toggle_group_by_hotkey(event.key):
                 self.engine.clear_selection_if_creature_hidden()
@@ -128,8 +140,7 @@ class InputHandler:
             return
 
         mx, my = pygame.mouse.get_pos()
-        wx = mx + self.engine.camera.x
-        wy = my + self.engine.camera.y
+        wx, wy = self.engine.camera.screen_to_world(mx, my)
 
         affiliation_id = self.engine.selected_affiliation_id
         if affiliation_id is None:
@@ -140,3 +151,15 @@ class InputHandler:
         _ok, msg = nest_system.try_place_hole(affiliation_id, wx, wy)
         self.engine.notify(msg, source="game")
         self.engine.selected_affiliation_id = affiliation_id
+
+    def _adjust_simulation_speed(self, factor: float) -> None:
+        """シミュレーション速度を factor 倍して設定（Game層の client_api 経由）。"""
+        if getattr(self.engine, "sim_runner", None) is None:
+            return
+        try:
+            current = client_api.get_simulation_speed(self.engine.sim_runner)
+            new_speed = current * float(factor)
+            applied = client_api.set_simulation_speed(self.engine.sim_runner, new_speed)
+            self.engine.notify(f"シミュ速度: x{applied:.1f}", source="client")
+        except Exception:
+            pass

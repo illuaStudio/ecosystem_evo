@@ -250,7 +250,8 @@
     "red_ant_queen": 3,
     "red_ant": 20,
     "red_ant_soldier": 10,
-    "red_ant_vanguard": 10
+    "red_ant_vanguard": 10,
+    "invader_ant": 200
   },
   "affiliation": {
     "access_deposit_cost": 250.0,
@@ -279,6 +280,7 @@
       "red_ant": [
         "red_ant",
         "red_ant_soldier",
+        "red_ant_queen",
         "red_ant_vanguard"
       ]
     },

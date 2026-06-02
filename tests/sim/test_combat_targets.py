@@ -203,6 +203,5 @@ class TestCombatTargets(unittest.TestCase):
         self.assertIsNotNone(ref)
         self.assertIs(ref.creature, blue_w)
 
-
 if __name__ == "__main__":
     unittest.main()

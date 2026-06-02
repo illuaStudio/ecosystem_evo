@@ -64,8 +64,8 @@
     ]
   },
   "affiliation_feed": {
-    "feed_per_tick": 0.5,
-    "bite_gain": 1.15
+    "feed_per_tick": 5.0,
+    "bite_gain": 1.4
   },
   "death_policy": "field_drop"
 }

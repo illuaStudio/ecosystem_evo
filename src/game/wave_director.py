@@ -1,8 +1,11 @@
-"""防衛フェーズ: ウェーブ定義の読み込み・敵スポーン・クリア判定。"""
+"""防衛フェーズ: ウェーブ定義の読み込み・敵スポーン・クリア判定。
+
+敵は「空中スポーン」ではなく、破壊可能な敵巣穴（compound access）から湧く。
+巣穴（穴=access）がすべて破壊され、かつ敵が残っていなければウェーブクリア。
+"""
 from __future__ import annotations
 
 import json
-import math
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -19,10 +22,24 @@ _WAVES_PATH = (
 
 
 @dataclass(frozen=True)
-class WaveSpawnDef:
+class WaveNestSpawnDef:
     species: str
-    count: int = 1
-    interval_ticks: int = 0
+    budget: int = 1
+
+
+@dataclass(frozen=True)
+class WaveNestHoleDef:
+    x: float
+    y: float
+
+
+@dataclass(frozen=True)
+class WaveNestDef:
+    holes: tuple[WaveNestHoleDef, ...] = ()
+    hole_max_hp: float = 180.0
+    max_alive: int = 12
+    spawn_interval_ticks: int = 20
+    spawns: tuple[WaveNestSpawnDef, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -30,13 +47,17 @@ class WaveDef:
     id: str
     label: str
     story_on_clear: str
-    spawns: tuple[WaveSpawnDef, ...] = ()
+    nests: tuple[WaveNestDef, ...] = ()
 
 
 @dataclass
-class _PendingSpawn:
-    species: str
-    ticks_until: int
+class _NestSpawnState:
+    budgets: dict[str, int] = field(default_factory=dict)
+    spawn_cursor: int = 0
+    spawn_cooldown: int = 0
+
+    def remaining_budget(self) -> int:
+        return int(sum(max(0, int(v)) for v in self.budgets.values()))
 
 
 @dataclass
@@ -44,54 +65,93 @@ class WaveDirector:
     waves: tuple[WaveDef, ...] = ()
     player_affiliation_id: str = "red_ant"
     _wave_index: int = -1
-    _pending: list[_PendingSpawn] = field(default_factory=list)
     _spawned_ids: set[int] = field(default_factory=set)
-    _spawn_cursor: int = 0
     _wave_active: bool = False
     _all_spawned: bool = False
+    _nests_ready: bool = False
+    _holes: list[str] = field(default_factory=list)
+    _spawner_root_ids: list[str] = field(default_factory=list)
+    _nest_states: list[_NestSpawnState] = field(default_factory=list)
 
     @classmethod
-    def from_json(cls, path: Path | None = None, *, player_affiliation_id: str) -> "WaveDirector":
+    def from_json(
+        cls,
+        path: Path | None = None,
+        *,
+        player_affiliation_id: str,
+    ) -> "WaveDirector":
         file_path = path or _WAVES_PATH
         waves: list[WaveDef] = []
         if file_path.exists():
             with open(file_path, encoding="utf-8") as f:
                 data = json.load(f)
             for raw in data.get("waves") or []:
-                spawns = tuple(
-                    WaveSpawnDef(
-                        species=str(s.get("species", "")),
-                        count=max(1, int(s.get("count", 1))),
-                        interval_ticks=max(0, int(s.get("interval_ticks", 0))),
+                nests: list[WaveNestDef] = []
+                for nest_raw in raw.get("nests") or []:
+                    holes = tuple(
+                        WaveNestHoleDef(
+                            x=float(h.get("x", 0.0)),
+                            y=float(h.get("y", 0.0)),
+                        )
+                        for h in (nest_raw.get("holes") or [])
+                        if h is not None
                     )
-                    for s in raw.get("spawns") or []
-                    if s.get("species")
-                )
-                if not spawns:
+                    spawns = tuple(
+                        WaveNestSpawnDef(
+                            species=str(s.get("species", "")),
+                            budget=max(0, int(s.get("budget", s.get("count", 0)))),
+                        )
+                        for s in (nest_raw.get("spawns") or [])
+                        if s.get("species")
+                    )
+                    if not holes or not spawns:
+                        continue
+                    nests.append(
+                        WaveNestDef(
+                            holes=holes,
+                            hole_max_hp=float(nest_raw.get("hole_max_hp", 180.0)),
+                            max_alive=max(0, int(nest_raw.get("max_alive", 12))),
+                            spawn_interval_ticks=max(
+                                0, int(nest_raw.get("spawn_interval_ticks", 20))
+                            ),
+                            spawns=spawns,
+                        )
+                    )
+                if not nests:
                     continue
                 waves.append(
                     WaveDef(
                         id=str(raw.get("id", f"wave_{len(waves)}")),
                         label=str(raw.get("label", "")),
                         story_on_clear=str(raw.get("story_on_clear", "")),
-                        spawns=spawns,
+                        nests=tuple(nests),
                     )
                 )
-        return cls(waves=tuple(waves), player_affiliation_id=player_affiliation_id)
+        return cls(
+            waves=tuple(waves),
+            player_affiliation_id=player_affiliation_id,
+        )
 
     def reset(self) -> None:
         self._wave_index = -1
-        self._pending.clear()
         self._spawned_ids.clear()
-        self._spawn_cursor = 0
         self._wave_active = False
         self._all_spawned = False
+        self._nests_ready = False
+        self._holes.clear()
+        self._spawner_root_ids.clear()
+        self._nest_states.clear()
 
-    def abort_wave(self) -> None:
+    def abort_wave(self, world: "World | None" = None) -> None:
         """防衛中断（プレイヤー敗北など）。"""
+        if world is not None:
+            self._teardown_wave_objects(world)
         self._wave_active = False
-        self._pending.clear()
         self._all_spawned = True
+        self._nests_ready = False
+        self._holes.clear()
+        self._spawner_root_ids.clear()
+        self._nest_states.clear()
 
     @property
     def wave_index(self) -> int:
@@ -124,10 +184,12 @@ class WaveDirector:
         return len(self._spawned_ids)
 
     def begin_wave(self, wave_index: int) -> list[GameMessage]:
-        self._pending.clear()
         self._spawned_ids.clear()
-        self._spawn_cursor = 0
         self._all_spawned = False
+        self._nests_ready = False
+        self._holes.clear()
+        self._spawner_root_ids.clear()
+        self._nest_states.clear()
         if wave_index < 0 or wave_index >= len(self.waves):
             self._wave_active = False
             self._wave_index = -1
@@ -135,12 +197,9 @@ class WaveDirector:
         self._wave_index = wave_index
         self._wave_active = True
         wave = self.waves[wave_index]
-        delay = 0
-        for spawn_def in wave.spawns:
-            for i in range(spawn_def.count):
-                if i > 0:
-                    delay += spawn_def.interval_ticks
-                self._pending.append(_PendingSpawn(species=spawn_def.species, ticks_until=delay))
+        for nest in wave.nests:
+            budgets = {s.species: int(s.budget) for s in nest.spawns if s.budget > 0}
+            self._nest_states.append(_NestSpawnState(budgets=budgets))
         msgs: list[GameMessage] = []
         if wave.label:
             msgs.append(
@@ -159,21 +218,16 @@ class WaveDirector:
 
         messages: list[GameMessage] = []
 
-        if not self._all_spawned:
-            for entry in self._pending:
-                if entry.ticks_until > 0:
-                    entry.ticks_until -= 1
-            ready = [e for e in self._pending if e.ticks_until <= 0]
-            for entry in ready:
-                self._pending.remove(entry)
-                creature = self._spawn_enemy(world, bridge, entry.species, self._spawn_cursor)
-                self._spawn_cursor += 1
-                if creature is not None:
-                    self._spawned_ids.add(id(creature))
-            if not self._pending:
-                self._all_spawned = True
+        if not self._nests_ready:
+            self._ensure_nests(world)
 
-        if self._all_spawned and self.enemies_alive(world) == 0:
+        self._prune_dead(world)
+
+        if not self._all_spawned:
+            self._tick_spawners(world, bridge)
+
+        if self._all_spawned and self.enemies_alive(world) == 0 and self._all_holes_destroyed(world):
+            self._teardown_wave_objects(world)
             self._wave_active = False
             wave = self.current_wave
             if wave is not None and wave.story_on_clear:
@@ -188,17 +242,160 @@ class WaveDirector:
 
         return messages, False
 
-    def _spawn_enemy(
+    def _ensure_nests(self, world: "World") -> None:
+        wave = self.current_wave
+        if wave is None:
+            self._nests_ready = True
+            self._all_spawned = True
+            return
+
+        self._teardown_wave_objects(world)
+        self._holes.clear()
+        self._spawner_root_ids.clear()
+
+        # Per-hole spawner compounds at waves.json coordinates only.
+        for nest_idx, nest in enumerate(wave.nests):
+            for hole_idx, hole in enumerate(nest.holes):
+                root_id = f"enemy_wave_{wave.id}_n{nest_idx}_h{hole_idx}"
+                world.compound_system.ensure_root(
+                    root_id,
+                    float(hole.x),
+                    float(hole.y),
+                    type_ref="enemy_nest_site",
+                    max_mass=1.0,
+                    stored_mass=0.0,
+                    compound_profile="generic",
+                )
+                self._spawner_root_ids.append(root_id)
+                access = world.compound_system.add_access_point(
+                    root_id,
+                    float(hole.x),
+                    float(hole.y),
+                    type_ref="enemy_nest_hole",
+                    max_hp=float(nest.hole_max_hp),
+                    shelter=False,
+                    deposit_access=False,
+                    withdraw_access=False,
+                )
+                if access is not None:
+                    self._holes.append(access.id)
+
+        self._nests_ready = True
+
+    def _teardown_wave_objects(self, world: "World") -> None:
+        """Remove wave spawner roots/access (not player/rival faction sites)."""
+        cs = world.compound_system
+        for hid in list(self._holes):
+            cs.remove_access_point(hid)
+        self._holes.clear()
+        ws = world.world_object_system
+        for root_id in list(self._spawner_root_ids):
+            for child in list(ws.get_children(root_id)):
+                cs.remove_access_point(child.id)
+            ws.objects.pop(root_id, None)
+            ws._children.pop(root_id, None)
+        self._spawner_root_ids.clear()
+
+    def _all_holes_destroyed(self, world: "World") -> bool:
+        if not self._holes:
+            return True
+        ws = world.world_object_system
+        for hid in self._holes:
+            obj = ws.get(hid)
+            if obj is not None and not obj.is_destroyed:
+                return False
+        return True
+
+    def _prune_dead(self, world: "World") -> None:
+        live_ids: set[int] = set()
+        for creature in getattr(world, "creatures", ()) or ():
+            cid = id(creature)
+            if cid in self._spawned_ids and getattr(creature, "alive", True):
+                live_ids.add(cid)
+        self._spawned_ids = live_ids
+
+    def _tick_spawners(self, world: "World", bridge: "SimBridge") -> None:
+        wave = self.current_wave
+        if wave is None:
+            self._all_spawned = True
+            return
+
+        # Stop spawning if every hole is gone.
+        if self._all_holes_destroyed(world):
+            self._all_spawned = True
+            return
+
+        any_remaining_budget = False
+        for i, nest in enumerate(wave.nests):
+            if i >= len(self._nest_states):
+                continue
+            state = self._nest_states[i]
+
+            if state.spawn_cooldown > 0:
+                any_remaining_budget = any_remaining_budget or state.remaining_budget() > 0
+                state.spawn_cooldown -= 1
+                continue
+
+            if nest.max_alive > 0 and self.enemies_alive(world) >= nest.max_alive:
+                any_remaining_budget = any_remaining_budget or state.remaining_budget() > 0
+                continue
+
+            hole_obj = self._pick_live_hole(world, state.spawn_cursor)
+            state.spawn_cursor += 1
+            if hole_obj is None:
+                any_remaining_budget = any_remaining_budget or state.remaining_budget() > 0
+                continue
+
+            species = self._pick_next_species(state)
+            if species is None:
+                continue
+
+            any_remaining_budget = True
+            creature = self._spawn_enemy_at(
+                world, bridge, species, float(hole_obj.x), float(hole_obj.y)
+            )
+            # Always consume budget + apply cooldown once we attempt a spawn.
+            # Otherwise, spawn failures (population cap / placement) can cause
+            # infinite spawning attempts.
+            state.budgets[species] = max(0, int(state.budgets.get(species, 0)) - 1)
+            state.spawn_cooldown = max(0, int(nest.spawn_interval_ticks))
+            if creature is not None:
+                self._spawned_ids.add(id(creature))
+
+        if not any_remaining_budget:
+            self._all_spawned = True
+
+    def _pick_live_hole(self, world: "World", cursor: int) -> Any | None:
+        if not self._holes:
+            return None
+        ws = world.world_object_system
+        n = len(self._holes)
+        for k in range(n):
+            hid = self._holes[(cursor + k) % n]
+            obj = ws.get(hid)
+            if obj is None:
+                continue
+            if obj.is_destroyed:
+                continue
+            return obj
+        return None
+
+    def _pick_next_species(self, state: _NestSpawnState) -> str | None:
+        for species, budget in list(state.budgets.items()):
+            if int(budget) > 0:
+                return str(species)
+        return None
+
+    def _spawn_enemy_at(
         self,
         world: "World",
         bridge: "SimBridge",
         species: str,
-        slot: int,
+        x: float,
+        y: float,
     ) -> Any | None:
         from src.game.command_builder import spawn_creature as bridge_spawn
 
-        total = max(1, self.enemies_spawned_total + len(self._pending) + 1)
-        x, y = _wave_spawn_xy(world, self.player_affiliation_id, slot, total)
         creature = bridge_spawn(bridge, species, x=x, y=y, source="game")
         if creature is not None:
             from src.game.command_builder import apply_spawn_profile
@@ -206,31 +403,15 @@ class WaveDirector:
             apply_spawn_profile(bridge, creature)
         return creature
 
+    # ---- test helpers (non-gameplay) -------------------------------------------------
 
-def _wave_spawn_xy(
-    world: "World",
-    player_affiliation_id: str,
-    slot: int,
-    total: int,
-) -> tuple[float, float]:
-    cx = float(world.width) * 0.5
-    cy = float(world.height) * 0.5
-    try:
-        from src.game.colony_session import try_get_colony_orchestrator
+    def debug_exhaust_budgets(self) -> None:
+        """Force spawners to stop (for unit tests)."""
+        for st in self._nest_states:
+            for k in list(st.budgets.keys()):
+                st.budgets[k] = 0
+        self._all_spawned = True
 
-        orch = try_get_colony_orchestrator(world)
-        if orch is not None:
-            root = orch.get_affiliation_root(player_affiliation_id)
-            if root is not None:
-                cx, cy = float(root.x), float(root.y)
-    except Exception:
-        pass
-
-    angle = (2.0 * math.pi * float(slot)) / max(1.0, float(total))
-    dist = 280.0
-    x = cx + math.cos(angle) * dist
-    y = cy + math.sin(angle) * dist
-    margin = 80.0
-    x = max(margin, min(float(world.width) - margin, x))
-    y = max(margin, min(float(world.height) - margin, y))
-    return x, y
+    def debug_destroy_all_holes(self, world: "World") -> None:
+        """Force all wave holes to be destroyed/removed (for unit tests)."""
+        self._teardown_wave_objects(world)

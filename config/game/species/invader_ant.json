@@ -1,0 +1,60 @@
+{
+  "name": "invader_ant",
+  "description": "防衛ウェーブの侵入蟻。コロニーに所属せず、赤アリの個体と巣のみを襲う。",
+  "color": [40, 60, 200],
+  "traits": {
+    "base_size": 18.0,
+    "base_speed": 0.58,
+    "base_vision": 220.0,
+    "max_hp": 160.0,
+    "max_satiety": 100.0,
+    "metabolism_per_tick": 0.06,
+    "satiety_hungry_below": 0.15,
+    "satiety_full_above": 0.85,
+    "starvation_hp_per_tick": 0.0072
+  },
+  "mind": {
+    "type": "utility",
+    "actions": [
+      {
+        "name": "CombatAction",
+        "weight": 8.0,
+        "params": {
+          "hostile_species": [
+            "red_ant",
+            "red_ant_soldier",
+            "red_ant_vanguard",
+            "red_ant_queen"
+          ],
+          "hostile_affiliation_ids": [],
+          "speed_multiplier": 1.35,
+          "contact_padding": 8.0,
+          "attack_power": 1.45,
+          "territory_only": false,
+          "nest_leash_radius": null
+        }
+      },
+      {
+        "name": "RaidColonyAction",
+        "weight": 7.5,
+        "params": {
+          "hostile_affiliation_ids": ["red_ant"],
+          "speed_multiplier": 1.35,
+          "contact_padding": 8.0,
+          "attack_power": 1.45,
+          "nest_leash_radius": null,
+          "max_search_radius": null
+        }
+      },
+      {
+        "name": "WanderAction",
+        "weight": 0.2,
+        "params": {
+          "angle_range": 24.0,
+          "speed_multiplier": 0.55
+        }
+      }
+    ]
+  },
+  "death_policy": "field_drop"
+}

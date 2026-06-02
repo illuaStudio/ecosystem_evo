@@ -197,6 +197,15 @@ class GameApp:
     def draw(self):
         self.clear_selection_if_creature_hidden()
         self._update_camera_pan_insets()
+
+        # Game層提供のシミュ時間・速度をHUD表示用に取得
+        sim_time = 0.0
+        sim_speed = 1.0
+        if self.world is not None:
+            sim_time = client_api.get_sim_time_seconds(self.world)
+        if self.sim_runner is not None:
+            sim_speed = client_api.get_simulation_speed(self.sim_runner)
+
         self.renderer.draw(
             self.world.creatures,
             self.camera,
@@ -212,6 +221,8 @@ class GameApp:
             player_affiliation_id=self.game_controller.state.player_affiliation_id,
             game_state=self.game_controller.state,
             species_visibility=self.species_visibility,
+            sim_time=sim_time,
+            sim_speed=sim_speed,
         )
 
     def run(self):

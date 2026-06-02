@@ -1,6 +1,8 @@
 """ゲーム層: 勢力拠点（巣穴）への攻撃行動。"""
 from __future__ import annotations
 
+import math
+
 from src.game.ai.tracking import (
     AffiliationLeashMixin,
     CreatureTargetMixin,
@@ -10,17 +12,24 @@ from src.sim.ai.actions.base import Action
 from src.sim.combat.target_damage import apply_damage_to_target
 from src.sim.combat.target_query import (
     affiliation_access_in_range,
+    distance_to_target,
     find_nearest_affiliation_access,
     find_nearest_hostile_creature,
     is_trackable_hostile_creature,
     is_valid_affiliation_access,
+    iter_targets,
     target_closeness,
     target_position,
+    vision_range,
 )
+from src.sim.combat.target_ref import TargetKind, TargetRef
 from src.sim.utils.affiliation_group_helpers import (
     get_rival_affiliation_ids,
+    is_affiliation_defeated,
     is_creature_affiliation_defeated,
 )
+from src.sim.utils.position_helpers import entity_xy
+from src.sim.utils.world_object_helpers import get_affiliation_root
 from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
 from src.sim.utils.creature_helpers import (
     closeness_ratio,
@@ -32,6 +41,108 @@ from src.sim.utils.creature_helpers import (
     needs_self_feed,
     try_attack_only,
 )
+
+
+def _colony_can_attack_wave_spawner(creature) -> bool:
+    """Real colony members may destroy wave spawner holes (not a rival faction)."""
+    if creature is None or is_creature_affiliation_defeated(creature):
+        return False
+    my_id = get_creature_affiliation_id(creature)
+    if not my_id or str(my_id).startswith("enemy_wave_"):
+        return False
+    world = getattr(creature, "world", None)
+    if world is None:
+        return False
+    return get_affiliation_root(world, my_id) is not None
+
+
+def _find_nearest_wave_spawner_hole(
+    creature,
+    *,
+    max_distance: float | None = None,
+) -> TargetRef | None:
+    if not creature.world or not _colony_can_attack_wave_spawner(creature):
+        return None
+    if max_distance is None:
+        max_d = vision_range(creature)
+    else:
+        max_d = float(max_distance)
+    unlimited = math.isinf(max_d)
+    cx, cy = entity_xy(creature)
+    best: TargetRef | None = None
+    best_d = float("inf")
+    for ref in iter_targets(creature.world, (TargetKind.WORLD_OBJECT,)):
+        access = ref.world_object
+        if access is None:
+            continue
+        if str(getattr(access, "type_ref", "")) != "enemy_nest_hole":
+            continue
+        tx, ty = float(access.x), float(access.y)
+        d = math.hypot(tx - cx, ty - cy)
+        if (not unlimited) and d > max_d:
+            continue
+        if d >= best_d:
+            continue
+        best_d = d
+        best = ref
+    return best
+
+
+def _find_nearest_hostile_colony_access(
+    creature,
+    hostile_affiliation_ids: tuple[str, ...],
+    *,
+    max_distance: float | None = None,
+) -> TargetRef | None:
+    """Unaffiliated raiders / game rules: nearest colony access (not wave spawner holes)."""
+    if not creature.world or not hostile_affiliation_ids:
+        return None
+    if max_distance is None:
+        max_d = vision_range(creature)
+    else:
+        max_d = float(max_distance)
+    unlimited = math.isinf(max_d)
+    cx, cy = entity_xy(creature)
+    best: TargetRef | None = None
+    best_d = float("inf")
+    colonies = tuple(str(x) for x in hostile_affiliation_ids if x)
+    for ref in iter_targets(creature.world, (TargetKind.WORLD_OBJECT,)):
+        affiliation_id = ref.affiliation_id
+        access = ref.world_object
+        if access is None or not affiliation_id:
+            continue
+        if str(getattr(access, "type_ref", "")) == "enemy_nest_hole":
+            continue
+        if affiliation_id not in colonies:
+            continue
+        if is_affiliation_defeated(creature.world, affiliation_id):
+            continue
+        if float(getattr(access, "hp", 0)) <= 0 or access.is_destroyed:
+            continue
+        tx, ty = float(access.x), float(access.y)
+        d = math.hypot(tx - cx, ty - cy)
+        if (not unlimited) and d > max_d:
+            continue
+        if d >= best_d:
+            continue
+        best_d = d
+        best = ref
+    return best
+
+
+def _game_damage_world_access(creature, ref: TargetRef, amount: float) -> float:
+    """Apply hole damage without faction-rival sim checks (game-authorized targets only)."""
+    world = creature.world
+    access = ref.world_object
+    parent_id = str(ref.affiliation_id or getattr(access, "parent_id", "") or "")
+    if world is None or access is None or not parent_id or amount <= 0:
+        return 0.0
+    dealt = world.compound_system.damage_access(access, parent_id, float(amount))
+    if dealt > 0:
+        from src.sim.emitters import maybe_emit_combat_from_damage
+
+        maybe_emit_combat_from_damage(world, creature, ref, dealt)
+    return dealt
 
 
 class AttackHoleAction(AffiliationLeashMixin, Action):
@@ -51,6 +162,7 @@ class AttackHoleAction(AffiliationLeashMixin, Action):
         "max_search_radius": None,
         "ignore_territory": False,
         "yield_to_intruders": True,
+        "attack_wave_spawner_holes": False,
     }
 
     def __init__(self, **params):
@@ -91,6 +203,13 @@ class AttackHoleAction(AffiliationLeashMixin, Action):
         }
 
     def _find_spawn_target(self, creature):
+        if bool(self.params.get("attack_wave_spawner_holes")):
+            ref = _find_nearest_wave_spawner_hole(
+                creature,
+                max_distance=self._max_search_distance(creature),
+            )
+            if ref is not None:
+                return ref
         colonies = self._hostile_colonies(creature)
         if not colonies:
             return None
@@ -104,6 +223,9 @@ class AttackHoleAction(AffiliationLeashMixin, Action):
     def _spawn_target_valid(self, creature, ref) -> bool:
         if ref is None:
             return False
+        access = ref.world_object
+        if access is not None and str(getattr(access, "type_ref", "")) == "enemy_nest_hole":
+            return _colony_can_attack_wave_spawner(creature)
         return is_valid_affiliation_access(creature, ref, **self._spawn_filter_kwargs(creature))
 
     def calculate_utility(self, creature) -> float:
@@ -161,12 +283,16 @@ class AttackHoleAction(AffiliationLeashMixin, Action):
             creature, tx, ty, float(self.params["speed_multiplier"])
         )
         if dist <= reach:
-            apply_damage_to_target(
-                creature,
-                ref,
-                float(self.params["attack_power"]),
-                attacker_affiliation_id=get_creature_affiliation_id(creature) or "",
-            )
+            access = ref.world_object
+            if access is not None and str(getattr(access, "type_ref", "")) == "enemy_nest_hole":
+                _game_damage_world_access(creature, ref, float(self.params["attack_power"]))
+            else:
+                apply_damage_to_target(
+                    creature,
+                    ref,
+                    float(self.params["attack_power"]),
+                    attacker_affiliation_id=get_creature_affiliation_id(creature) or "",
+                )
             if not self._spawn_target_valid(creature, self._target_ref):
                 self._target_ref = None
         return False
@@ -228,7 +354,13 @@ class CombatAction(AffiliationLeashMixin, TerritoryOnlyMixin, CreatureTargetMixi
         if not enemies:
             return False
 
-        target = self._resolve_target(creature, enemies)
+        def _find(c):
+            return self._find_hostile(c, enemies)
+
+        def _trackable(c, t):
+            return t is not None and self._trackable(c, t, enemies)
+
+        target = self._resolve_creature_target(creature, find_fn=_find, trackable_fn=_trackable)
         if target is None:
             return False
 
@@ -255,25 +387,88 @@ class CombatAction(AffiliationLeashMixin, TerritoryOnlyMixin, CreatureTargetMixi
 
         if inventory_is_loaded(creature):
             return 0.0
+
         if is_beyond_nest_leash(creature, self._nest_leash()):
-            return 0.0
-        if self._territory_only() and needs_self_feed(creature):
             return 0.0
 
         enemies = self._enemies(creature)
         if not enemies:
             return 0.0
 
-        foe = self._find_hostile(creature, enemies)
-        if foe is None:
+        target = self._find_hostile(creature, enemies)
+        if target is None:
             return 0.0
 
-        closeness = closeness_ratio(creature, foe)
-        return min(1.0, 0.55 + closeness * 0.45)
+        close = closeness_ratio(creature, target)
+        return min(1.0, 0.35 + close * 0.65)
 
-    def _resolve_target(self, creature, enemies: tuple[str, ...]):
-        return self._resolve_creature_target(
+
+class RaidColonyAction(AffiliationLeashMixin, Action):
+    """無所属の侵入者など: 指定コロニーの巣接続点へ突撃（勢力ライバル判定は使わない）。
+
+    近くの敵個体は CombatAction 等に任せ、本行動は巣のみを対象とする。
+    """
+
+    DEFAULT_PARAMS = {
+        "hostile_affiliation_ids": (),
+        "speed_multiplier": 1.35,
+        "contact_padding": 10.0,
+        "attack_power": 1.45,
+        "nest_leash_radius": None,
+        "max_search_radius": None,
+    }
+
+    def _hostile_colonies(self, creature) -> tuple[str, ...]:
+        raw = list(self.params.get("hostile_affiliation_ids") or ())
+        return tuple(str(x) for x in raw if x)
+
+    def _nest_search_distance(self, creature) -> float:
+        raw = self.params.get("max_search_radius")
+        if raw is None:
+            return float("inf")
+        return float(raw)
+
+    def _find_colony_access(self, creature):
+        colonies = self._hostile_colonies(creature)
+        if not colonies:
+            return None
+        return _find_nearest_hostile_colony_access(
             creature,
-            find_fn=lambda c: self._find_hostile(c, enemies),
-            trackable_fn=lambda c, t: self._trackable(c, t, enemies),
+            colonies,
+            max_distance=self._nest_search_distance(creature),
         )
+
+    def calculate_utility(self, creature) -> float:
+        if not creature.world:
+            return 0.0
+        from src.sim.utils.inventory_helpers import inventory_is_loaded
+
+        if inventory_is_loaded(creature):
+            return 0.0
+        if is_beyond_nest_leash(creature, self._nest_leash()):
+            return 0.0
+        if self._find_colony_access(creature) is None:
+            return 0.0
+        return 0.85
+
+    def execute(self, creature) -> bool:
+        if not creature.world:
+            return False
+        from src.sim.utils.inventory_helpers import inventory_is_loaded
+
+        if inventory_is_loaded(creature):
+            return False
+        if self._abort_if_beyond_nest_leash(creature):
+            return False
+
+        ref = self._find_colony_access(creature)
+        if ref is None:
+            return False
+
+        tx, ty = target_position(ref)
+        pad = float(self.params["contact_padding"])
+        reach = pad + 12.0
+        dist = move_toward_point(creature, tx, ty, float(self.params["speed_multiplier"]))
+        if dist <= reach:
+            _game_damage_world_access(creature, ref, float(self.params["attack_power"]))
+        return False

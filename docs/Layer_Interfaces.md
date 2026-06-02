@@ -93,6 +93,7 @@ Game は Client を import しない
 | `get_defeated_affiliation_ids(world)` | 描画（敗北勢力の薄表示） |
 | `try_get_affiliation_fill_ratio(world, id)` | HUD（備蓄率） |
 | `try_get_colony_orchestrator(world)` | デバッグ・穴配置等（既存互換） |
+| `TargetView` / `get_hunt_target_view(creature)` / `get_combat_target_view(creature)` / `get_aggression_target_view(creature)` | 選択個体の狩り/戦闘対象を creature / WorldObject / PickupTarget にかかわらず安全に描画（詳細: `docs/Response_Game_TargetView_API_for_Client.md`） |
 
 ### Game の内部（Client が触らない）
 

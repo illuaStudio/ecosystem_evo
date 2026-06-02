@@ -30,6 +30,18 @@ class SimRunner:
         self.simulation_speed = float(self._config.get("simulation_speed", 1.0))
         self._render_ticks_until_sim = 0
 
+    def set_simulation_speed(self, speed: float) -> None:
+        """Adjust sim time acceleration (dt multiplier)."""
+        try:
+            s = float(speed)
+        except Exception:
+            return
+        # Keep within a sane range to avoid numerical instability.
+        self.simulation_speed = max(0.1, min(32.0, s))
+
+    def get_simulation_speed(self) -> float:
+        return float(self.simulation_speed)
+
     def sim_dt(self) -> float:
         return self.sim_ticks_per_step * self.simulation_speed
 
@@ -41,12 +53,35 @@ class SimRunner:
         return True
 
     def tick(self, world: "World") -> None:
-        dt = self.sim_dt()
-        # Run game maintenance (e.g. affiliation storage leaks) that used to be
-        # performed via direct hook injection (World.on_sim_tick). This keeps
-        # the sim layer (World) free of game-specific callbacks.
-        self._run_game_maintenance(world, dt)
-        world.update(dt)
+        """Advance simulation time.
+
+        Important: simulation_speed accelerates time *without* coarsening the dt.
+        If we simply multiply dt, per-tick effects (e.g. FeedAtNestAction's
+        feed_per_tick) become weaker relative to per-dt effects (metabolism),
+        causing behavior changes at high speeds. We therefore step multiple
+        sub-updates for speed>=1.0.
+        """
+        base_dt = float(self.sim_ticks_per_step)
+        speed = float(self.simulation_speed)
+        if speed <= 0:
+            return
+
+        if speed < 1.0:
+            dt = base_dt * speed
+            self._run_game_maintenance(world, dt)
+            world.update(dt)
+            return
+
+        whole = int(speed)
+        frac = speed - float(whole)
+
+        for _ in range(max(1, whole)):
+            self._run_game_maintenance(world, base_dt)
+            world.update(base_dt)
+        if frac > 1e-6:
+            dt = base_dt * frac
+            self._run_game_maintenance(world, dt)
+            world.update(dt)
 
     @staticmethod
     def _run_game_maintenance(world: "World", dt: float) -> None:

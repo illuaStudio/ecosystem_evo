@@ -1,7 +1,9 @@
 """描画なしでシミュを高速回し、進行マイルストーンとイベントを記録する。
 
 Client と同じ tick 配線（SimRunner + GameController.on_tick、ストーリー中は sim 停止）を使う。
-防衛フェーズは development_ticks_before_defense 到達後（既定 400 step）に開始。
+防衛フェーズは **両方** を満たしたときに自動開始:
+  - development_ticks_before_defense（既定 400 step）以上
+  - min_soldiers_before_defense（既定 3 匹）以上の兵隊アリ
 
 Usage:
   python tools/balance_run.py
@@ -25,6 +27,7 @@ if str(ROOT) not in sys.path:
 from src.config import config
 from src.game import client_api
 from src.game.game_controller import GameController
+from src.game.phase_ai import count_alive_soldiers
 from src.game.sim_bridge_factory import make_sim_bridge
 from src.game.sim_runner import SimRunner
 from src.sim.systems.world import World
@@ -52,6 +55,7 @@ class BalanceRunReport:
     wall_sec: float = 0.0
     milestones: list[MilestoneLog] = field(default_factory=list)
     worker_count_end: int = 0
+    soldier_count_end: int = 0
     nest_food_end: float = 0.0
     nest_fill_ratio_end: float = 0.0
     flags_end: dict[str, bool] = field(default_factory=dict)
@@ -71,18 +75,44 @@ def _real_sec(sim_time: float, ctx) -> float:
     return sim_time / rate
 
 
-def _worker_count(world: World, affiliation_id: str) -> int:
+def _worker_species(world: World, affiliation_id: str, soldier_species: tuple[str, ...]) -> list[str]:
+    """働きアリ種のみ（女王・兵隊・ヴァンガードを除く）。"""
+    factions = getattr(world, "affiliation_species", {}) or {}
+    exclude = set(soldier_species)
+    return [
+        s
+        for s in factions.get(affiliation_id, ["red_ant"])
+        if not s.endswith("_queen")
+        and not s.endswith("_vanguard")
+        and s not in exclude
+    ]
+
+
+def _worker_count(
+    world: World, affiliation_id: str, soldier_species: tuple[str, ...]
+) -> int:
     orch = colony(world)
     if orch is None:
         return 0
     nest = orch.get_affiliation_root(affiliation_id)
     if nest is None:
         return 0
-    factions = getattr(world, "affiliation_species", {}) or {}
-    species = [s for s in factions.get(affiliation_id, ["red_ant"]) if not s.endswith("_queen")]
+    species = _worker_species(world, affiliation_id, soldier_species)
     if not species:
-        species = ["red_ant"]
+        return 0
     return orch.count_affiliation_members(nest.id, species)
+
+
+def _soldier_count(world: World, affiliation_id: str, soldier_species: tuple[str, ...]) -> int:
+    return count_alive_soldiers(world, affiliation_id, soldier_species)
+
+
+def _population_detail(
+    world: World, affiliation_id: str, soldier_species: tuple[str, ...]
+) -> str:
+    workers = _worker_count(world, affiliation_id, soldier_species)
+    soldiers = _soldier_count(world, affiliation_id, soldier_species)
+    return f"workers={workers} soldiers={soldiers}"
 
 
 def _maybe_log_milestone(
@@ -111,11 +141,14 @@ def _maybe_log_milestone(
     )
 
 
-def _game_config(*, dev_ticks: int | None) -> dict:
+def _game_config(*, dev_ticks: int | None, min_soldiers: int | None) -> dict:
     cfg = copy.deepcopy(config.game_player)
-    if dev_ticks is not None:
+    if dev_ticks is not None or min_soldiers is not None:
         phases = dict(cfg.get("phases") or {})
-        phases["development_ticks_before_defense"] = max(1, int(dev_ticks))
+        if dev_ticks is not None:
+            phases["development_ticks_before_defense"] = max(1, int(dev_ticks))
+        if min_soldiers is not None:
+            phases["min_soldiers_before_defense"] = max(0, int(min_soldiers))
         cfg["phases"] = phases
     return cfg
 
@@ -177,6 +210,7 @@ def run_balance(
     max_steps: int = 8000,
     verbose: bool = False,
     dev_ticks: int | None = None,
+    min_soldiers: int | None = None,
 ) -> BalanceRunReport:
     config.reload_all()
     ctx = default_sim_rate_context()
@@ -184,11 +218,16 @@ def run_balance(
 
     world = World(world_name)
     bridge = make_sim_bridge(world)
-    game_cfg = _game_config(dev_ticks=dev_ticks)
+    game_cfg = _game_config(dev_ticks=dev_ticks, min_soldiers=min_soldiers)
     controller = GameController(game_cfg, bridge=bridge)
     controller.reset_for_world(world, bridge=bridge)
 
     affiliation_id = controller.state.player_affiliation_id
+    phases_cfg = dict(game_cfg.get("phases") or {})
+    dev_before = int(phases_cfg.get("development_ticks_before_defense", 400))
+    min_soldiers = int(phases_cfg.get("min_soldiers_before_defense", 3))
+    soldier_species = tuple(phases_cfg.get("soldier_species") or ("red_ant_soldier",))
+    milestone_workers = int((game_cfg.get("monitor") or {}).get("milestone_workers", 3))
     report = BalanceRunReport()
     seen_milestones: set[str] = set()
     prev_phase = controller.phase.value
@@ -196,7 +235,6 @@ def run_balance(
     orch = colony(world)
     nest = orch.get_affiliation_root(affiliation_id) if orch is not None else None
     if nest is not None:
-        dev_before = int((game_cfg.get("phases") or {}).get("development_ticks_before_defense", 400))
         _maybe_log_milestone(
             report,
             step=0,
@@ -204,14 +242,17 @@ def run_balance(
             ctx=ctx,
             key="start",
             label="開始",
-            detail=f"food={nest.stored_mass:.0f}/{nest.capacity:.0f} "
-            f"workers={_worker_count(world, affiliation_id)} "
-            f"defense_at_step={dev_before}",
+            detail=(
+                f"food={nest.stored_mass:.0f}/{nest.capacity:.0f} "
+                f"{_population_detail(world, affiliation_id, soldier_species)} "
+                f"defense_when=step>={dev_before} AND soldiers>={min_soldiers}"
+            ),
             seen=seen_milestones,
         )
 
     t0 = time.perf_counter()
-    prev_workers = _worker_count(world, affiliation_id)
+    prev_workers = _worker_count(world, affiliation_id, soldier_species)
+    prev_soldiers = _soldier_count(world, affiliation_id, soldier_species)
 
     for step in range(1, max_steps + 1):
         if client_api.should_advance_sim(controller):
@@ -225,6 +266,7 @@ def run_balance(
                 "defense": "防衛フェーズ",
                 "story": "ストーリーフェーズ",
             }
+            pop = _population_detail(world, affiliation_id, soldier_species)
             _maybe_log_milestone(
                 report,
                 step=step,
@@ -232,10 +274,29 @@ def run_balance(
                 ctx=ctx,
                 key=f"phase_enter_{phase_now}_{step}",
                 label=f"フェーズ: {labels.get(phase_now, phase_now)}",
-                detail=f"from={prev_phase}",
+                detail=f"from={prev_phase} {pop}",
                 seen=seen_milestones,
             )
             prev_phase = phase_now
+
+        if (
+            controller.phase.value == "development"
+            and controller.phase_controller.phase_ticks >= dev_before
+        ):
+            _maybe_log_milestone(
+                report,
+                step=step,
+                world=world,
+                ctx=ctx,
+                key="dev_threshold",
+                label="開発 tick 閾値到達（兵隊待ち）",
+                detail=(
+                    f"phase_ticks={controller.phase_controller.phase_ticks} "
+                    f"{_population_detail(world, affiliation_id, soldier_species)} "
+                    f"(need soldiers>={min_soldiers})"
+                ),
+                seen=seen_milestones,
+            )
 
         _log_phase_snapshot(
             report,
@@ -270,6 +331,16 @@ def run_balance(
                     label="女王: 産卵 AI 適用",
                     seen=seen_milestones,
                 )
+            if controller.state.has_flag("queen_can_spawn_soldiers"):
+                _maybe_log_milestone(
+                    report,
+                    step=step,
+                    world=world,
+                    ctx=ctx,
+                    key="queen_soldiers",
+                    label="女王: 兵隊アリ繁殖解禁",
+                    seen=seen_milestones,
+                )
             if controller.state.has_flag("first_reproduction"):
                 _maybe_log_milestone(
                     report,
@@ -278,7 +349,7 @@ def run_balance(
                     ctx=ctx,
                     key="first_repro",
                     label="最初の繁殖スポーン",
-                    detail=f"workers={_worker_count(world, affiliation_id)}",
+                    detail=_population_detail(world, affiliation_id, soldier_species),
                     seen=seen_milestones,
                 )
             if controller.state.has_flag("first_item_found"):
@@ -301,8 +372,9 @@ def run_balance(
                     flush=True,
                 )
 
-        workers = _worker_count(world, affiliation_id)
+        workers = _worker_count(world, affiliation_id, soldier_species)
         if workers > prev_workers:
+            soldiers = _soldier_count(world, affiliation_id, soldier_species)
             _maybe_log_milestone(
                 report,
                 step=step,
@@ -310,6 +382,7 @@ def run_balance(
                 ctx=ctx,
                 key=f"worker_plus_{workers}",
                 label=f"働きアリ +1 (合計 {workers})",
+                detail=f"soldiers={soldiers}",
                 seen=seen_milestones,
             )
         prev_workers = workers
@@ -322,27 +395,53 @@ def run_balance(
                 ctx=ctx,
                 key="workers_3",
                 label="働きアリ 3 匹以上",
-                detail=f"count={workers}",
+                detail=f"workers={workers}",
                 seen=seen_milestones,
             )
-        if workers >= 5:
+        if workers >= milestone_workers:
             _maybe_log_milestone(
                 report,
                 step=step,
                 world=world,
                 ctx=ctx,
-                key="workers_5",
-                label="働きアリ 5 匹 (milestone_workers)",
-                detail=f"count={workers}",
+                key="workers_milestone",
+                label=f"働きアリ {milestone_workers} 匹 (milestone_workers)",
+                detail=f"workers={workers}",
                 seen=seen_milestones,
             )
+
+        soldiers = _soldier_count(world, affiliation_id, soldier_species)
+        if soldiers > prev_soldiers:
+            _maybe_log_milestone(
+                report,
+                step=step,
+                world=world,
+                ctx=ctx,
+                key=f"soldier_plus_{soldiers}",
+                label=f"兵隊アリ +1 (合計 {soldiers})",
+                detail=f"workers={workers}",
+                seen=seen_milestones,
+            )
+        if soldiers >= min_soldiers and min_soldiers > 0:
+            _maybe_log_milestone(
+                report,
+                step=step,
+                world=world,
+                ctx=ctx,
+                key="soldiers_ready",
+                label=f"兵隊アリ {min_soldiers} 匹以上（防衛開始可能）",
+                detail=f"workers={workers} soldiers={soldiers}",
+                seen=seen_milestones,
+            )
+        prev_soldiers = soldiers
 
     view = client_api.get_phase_view(controller, world)
     report.steps = max_steps
     report.sim_time_end = _sim_time(world)
     report.real_sec_est_end = _real_sec(report.sim_time_end, ctx)
     report.wall_sec = time.perf_counter() - t0
-    report.worker_count_end = _worker_count(world, affiliation_id)
+    report.worker_count_end = _worker_count(world, affiliation_id, soldier_species)
+    report.soldier_count_end = _soldier_count(world, affiliation_id, soldier_species)
     report.flags_end = dict(controller.state.flags)
     report.phase_end = view.phase
     report.wave_index_end = view.wave_index
@@ -372,7 +471,7 @@ def print_report(report: BalanceRunReport) -> None:
         f"終了: phase={report.phase_end} wave_index={report.wave_index_end} "
         f"waves_cleared={report.waves_cleared} "
         f"food={report.nest_food_end:.0f} ({report.nest_fill_ratio_end * 100:.1f}%), "
-        f"workers={report.worker_count_end}"
+        f"働きアリ={report.worker_count_end}, 兵隊アリ={report.soldier_count_end}"
     )
     print()
     print("--- milestones ---")
@@ -400,6 +499,12 @@ def main() -> int:
         help="Override development_ticks_before_defense (default: player.json)",
     )
     parser.add_argument(
+        "--min-soldiers",
+        type=int,
+        default=None,
+        help="Override min_soldiers_before_defense (default: player.json)",
+    )
+    parser.add_argument(
         "--verbose",
         action="store_true",
         help="Print game messages each step",
@@ -411,6 +516,7 @@ def main() -> int:
         max_steps=max(1, args.steps),
         verbose=args.verbose,
         dev_ticks=args.dev_ticks,
+        min_soldiers=args.min_soldiers,
     )
     print_report(report)
     return 0

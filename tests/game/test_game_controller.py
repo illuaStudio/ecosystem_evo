@@ -131,15 +131,17 @@ class TestGameController(unittest.TestCase):
         emit_affiliation_defeated(world, "red_ant", "勢力 red_ant が敗北しました")
         msgs = ctrl.on_tick(world)
 
-        self.assertEqual(ctrl.user_message, "勢力 red_ant が敗北しました")
+        self.assertIn("勢力 red_ant が敗北しました", ctrl.user_message)
+        self.assertTrue(ctrl.user_message.startswith("["))
         self.assertEqual(len(msgs), 1)
+        self.assertTrue(msgs[0].text.startswith("["))
         self.assertEqual(ctrl.state.stability_level, 0.0)
 
     def test_first_enemy_contact_on_rival_attack(self):
         world = _player_world()
         factory = CreatureFactory()
         worker = factory.create("red_ant", world=world, x=120, y=120)
-        soldier = factory.create("rival_ant_soldier", world=world, x=125, y=120)
+        soldier = factory.create("invader_ant", world=world, x=125, y=120)
         world.add_creature(worker, spawn_source="initial")
         world.add_creature(soldier, spawn_source="initial")
         world.events.drain()

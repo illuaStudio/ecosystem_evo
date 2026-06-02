@@ -95,14 +95,14 @@ class ZoneRenderer:
             if style is None:
                 continue
 
-            sx = int(zone.x - camera.x)
-            sy = int(zone.y - camera.y)
+            sx, sy = camera.world_to_screen(zone.x, zone.y)
+            z = camera.zoom
             fill = _rgba(style.get("zone_fill"), POISON_FOG_STYLE["zone_fill"])
             line = _rgba(style.get("zone_line"), POISON_FOG_STYLE["zone_line"])
 
             if zone.is_rect:
-                half_w = int(zone.half_w)
-                half_h = int(zone.half_h)
+                half_w = max(1, int(zone.half_w * z))
+                half_h = max(1, int(zone.half_h * z))
                 if not (
                     -half_w - 20 <= sx <= camera.screen_w + half_w + 20
                     and -half_h - 20 <= sy <= camera.screen_h + half_h + 20
@@ -110,7 +110,7 @@ class ZoneRenderer:
                     continue
                 ZoneRenderer._draw_rect_zone(screen, sx, sy, half_w, half_h, fill, line)
             else:
-                radius = int(zone.radius)
+                radius = max(1, int(zone.radius * z))
                 if not (
                     -radius - 20 <= sx <= camera.screen_w + radius + 20
                     and -radius - 20 <= sy <= camera.screen_h + radius + 20
@@ -121,6 +121,6 @@ class ZoneRenderer:
             if zone.effects.hp_drain_per_dt > 0:
                 outer = _rgba(style.get("core_outer"), (*POISON_FOG_STYLE["core_outer"], 255))[:3]
                 inner = _rgba(style.get("core_inner"), (*POISON_FOG_STYLE["core_inner"], 255))[:3]
-                pygame.draw.circle(screen, outer, (sx, sy), 10, 2)
-                pygame.draw.circle(screen, inner, (sx, sy), 6)
-                pygame.draw.circle(screen, (210, 255, 190), (sx, sy), 2)
+                pygame.draw.circle(screen, outer, (sx, sy), max(2, int(10 * z)), max(1, int(2 * z)))
+                pygame.draw.circle(screen, inner, (sx, sy), max(2, int(6 * z)))
+                pygame.draw.circle(screen, (210, 255, 190), (sx, sy), max(1, int(2 * z)))

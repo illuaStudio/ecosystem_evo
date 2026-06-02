@@ -62,7 +62,13 @@ class SpeciesVisibilityManager:
     def is_creature_visible(self, creature) -> bool:
         if creature is None:
             return False
-        return self.is_species_visible(creature.species.name)
+        # 防御的ガード: 常に creature のはずだが、万一非クリーチャー（WorldObject など）が渡された場合
+        # 種族フィルタの対象外として表示する（攻撃者リストなど他経路の安全策）。
+        # 選択個体の hunt/combat ターゲットは client_api TargetView 経由で処理されるため、ここは呼ばれない。
+        species = getattr(creature, "species", None)
+        if species is None or not hasattr(species, "name"):
+            return True
+        return self.is_species_visible(species.name)
 
     def group_for_species(self, species_name: str) -> str | None:
         for gid, _label, names in self._groups:

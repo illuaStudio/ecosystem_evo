@@ -1,0 +1,24 @@
+{
+  "id": "enemy_nest_hole",
+  "category": "affiliation",
+  "label": "敵の巣穴（入口）",
+  "capabilities": {
+    "access": {
+      "role": "access",
+      "shelter": false,
+      "deposit": false,
+      "withdraw": false
+    },
+    "combat": {
+      "max_hp": 180
+    },
+    "collision": {
+      "shape": "circle",
+      "radius": 16
+    },
+    "render": {
+      "color": [120, 70, 70]
+    }
+  }
+}
+

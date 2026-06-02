@@ -56,19 +56,49 @@ def should_advance_sim(controller: "GameController") -> bool:
     return controller.phase_controller.should_run_sim()
 
 
+def get_sim_time_seconds(world: "World") -> float:
+    """シミュレーション内時間（world._sim_time, dt累積）を秒として返す。"""
+    return float(getattr(world, "_sim_time", 0.0))
+
+
+def get_simulation_speed(sim_runner) -> float:
+    """SimRunner の現在の加速倍率を返す（Client は SimRunner を保持している想定）。"""
+    try:
+        return float(sim_runner.get_simulation_speed())
+    except Exception:
+        return float(getattr(sim_runner, "simulation_speed", 1.0))
+
+
+def set_simulation_speed(sim_runner, speed: float) -> float:
+    """SimRunner の加速倍率を設定し、設定後の倍率を返す。"""
+    try:
+        sim_runner.set_simulation_speed(float(speed))
+    except Exception:
+        try:
+            sim_runner.simulation_speed = float(speed)
+        except Exception:
+            pass
+    return get_simulation_speed(sim_runner)
+
+
 def acknowledge_story(controller: "GameController") -> None:
     """ストーリー画面の続行（Client 入力用）。"""
     controller.phase_controller.acknowledge_story()
 
 
-def request_start_defense(controller: "GameController") -> bool:
+def request_start_defense(controller: "GameController", world: "World | None" = None) -> bool:
     """開発フェーズから手動で防衛開始。成功時 True。"""
     pc = controller.phase_controller
     wd = controller.wave_director
-    if not pc.request_start_defense(wd):
+    if world is None and controller.bridge is not None:
+        world = controller.bridge.world
+    if not pc.request_start_defense(wd, world):
         return False
     msgs = pc.start_defense_wave(wd)
-    controller.pending_messages.extend(msgs)
+    from src.game.game_message import stamp_messages
+
+    w = world if world is not None else (controller.bridge.world if controller.bridge else None)
+    controller.pending_messages.extend(stamp_messages(msgs, w))
     return True
 
 
@@ -153,3 +183,146 @@ def get_queen_reproduction_readiness(queen) -> tuple[bool, str] | None:
         return repro.reproduction_readiness(queen)
     except Exception:
         return None
+
+
+@dataclass(frozen=True)
+class TargetView:
+    """HuntAction / CombatAction のターゲットを Client 描画・HUD 用に正規化したビュー。
+
+    Client は creature / WorldObject / PickupTarget の区別を知らなくてよい。
+    """
+
+    kind: str  # "creature" | "carcass" | "field_biomass" | "other"
+    name: str
+    x: float
+    y: float
+    size: float
+    is_creature: bool
+    species_name: Optional[str] = None
+    is_alive: bool = True
+
+
+def _unwrap_action_target(target) -> object | None:
+    """HuntAction._target 等（creature / WorldObject / PickupTarget）を描画用エンティティに正規化。"""
+    if target is None:
+        return None
+    from src.sim.combat.pickup_target import PickupTarget
+
+    if isinstance(target, PickupTarget):
+        return target.world_object if target.world_object is not None else target
+    return target
+
+
+def _target_xy(raw_target, entity) -> tuple[float, float]:
+    from src.sim.combat.pickup_target import PickupTarget
+    from src.sim.utils.position_helpers import entity_xy
+
+    if isinstance(raw_target, PickupTarget):
+        return raw_target.position()
+    return entity_xy(entity)
+
+
+def _classify_target_kind(entity) -> str:
+    from src.sim.entities.world_object import WorldObject
+    from src.sim.utils.field_pickup_helpers import is_field_pickup
+
+    if entity is None:
+        return "other"
+    species = getattr(entity, "species", None)
+    if species is not None and hasattr(species, "name"):
+        return "creature" if getattr(entity, "alive", True) else "carcass"
+    if isinstance(entity, WorldObject):
+        if is_field_pickup(entity):
+            return "field_biomass"
+        return "carcass"
+    return "other"
+
+
+def _target_display_name(entity, kind: str) -> str:
+    from src.sim.utils.hunt_helpers import describe_creature_short
+
+    if kind in ("creature", "carcass"):
+        species = getattr(entity, "species", None)
+        if species is not None and hasattr(species, "name"):
+            try:
+                return describe_creature_short(entity)
+            except Exception:
+                pass
+    if kind == "field_biomass":
+        label = getattr(entity, "label", None) or getattr(entity, "type_ref", None) or "biomass"
+        try:
+            ratio = float(entity.fill_ratio)
+            return f"{label} (field {ratio * 100:.0f}%)"
+        except Exception:
+            return f"{label} (field)"
+    name = getattr(entity, "label", None) or getattr(entity, "type_ref", None) or type(entity).__name__
+    is_dead = not getattr(entity, "alive", True)
+    status = "死骸" if is_dead else "対象"
+    return f"{name} ({status})"
+
+
+def _target_draw_size(entity, kind: str) -> float:
+    traits = getattr(entity, "traits", None)
+    if traits:
+        return float(traits.get("base_size", 9))
+    from src.sim.entities.world_object import WorldObject
+    from src.sim.utils.field_pickup_helpers import is_field_pickup, pickup_radius
+
+    if isinstance(entity, WorldObject) and is_field_pickup(entity):
+        return pickup_radius(entity)
+    radius = getattr(entity, "radius", None) or getattr(entity, "pickup_radius", None)
+    if radius is not None:
+        return float(radius)
+    return 9.0
+
+
+def _build_target_view(raw_target) -> TargetView | None:
+    if raw_target is None:
+        return None
+    entity = _unwrap_action_target(raw_target)
+    if entity is None:
+        return None
+    kind = _classify_target_kind(entity)
+    is_creature = kind == "creature"
+    species_name: str | None = None
+    species = getattr(entity, "species", None)
+    if species is not None and hasattr(species, "name"):
+        species_name = str(species.name)
+    try:
+        x, y = _target_xy(raw_target, entity)
+    except AttributeError:
+        return None
+    size = _target_draw_size(entity, kind)
+    name = _target_display_name(entity, kind)
+    is_alive = bool(getattr(entity, "alive", True))
+    return TargetView(
+        kind=kind,
+        name=name,
+        x=float(x),
+        y=float(y),
+        size=size,
+        is_creature=is_creature,
+        species_name=species_name,
+        is_alive=is_alive,
+    )
+
+
+def get_hunt_target_view(creature) -> TargetView | None:
+    """creature の HuntAction ターゲットを Client 向けビューで返す。対象なしなら None。"""
+    from src.sim.utils.hunt_helpers import get_hunt_target
+
+    return _build_target_view(get_hunt_target(creature))
+
+
+def get_combat_target_view(creature) -> TargetView | None:
+    """creature の CombatAction ターゲットを Client 向けビューで返す。対象なしなら None。"""
+    from src.sim.utils.hunt_helpers import get_combat_target
+
+    return _build_target_view(get_combat_target(creature))
+
+
+def get_aggression_target_view(creature) -> TargetView | None:
+    """戦闘または狩りで追っている対象のビュー（戦闘を優先）。"""
+    from src.sim.utils.hunt_helpers import get_aggression_target
+
+    return _build_target_view(get_aggression_target(creature))

@@ -30,7 +30,7 @@ class TestInventory(unittest.TestCase):
     def test_carry_slows_speed(self):
         world = World()
         factory = CreatureFactory()
-        ant = factory.create("rival_ant", world=world, x=100, y=100)
+        ant = factory.create("red_ant", world=world, x=100, y=100)
         base = ant.get_current_speed()
         ant.inventory.slots[0].item = BiomassItem(amount=80.0)
         loaded = ant.get_current_speed()

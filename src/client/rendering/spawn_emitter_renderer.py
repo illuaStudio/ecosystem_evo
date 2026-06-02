@@ -67,9 +67,9 @@ class SpawnEmitterRenderer:
 
     @staticmethod
     def _draw_emitter(screen, camera, emitter: SpawnEmitter, fill, line, outer, inner) -> None:
-        sx = int(emitter.x - camera.x)
-        sy = int(emitter.y - camera.y)
-        radius = int(emitter.radius)
+        sx, sy = camera.world_to_screen(emitter.x, emitter.y)
+        z = camera.zoom
+        radius = max(1, int(emitter.radius * z))
         if not (
             -radius - 20 <= sx <= camera.screen_w + radius + 20
             and -radius - 20 <= sy <= camera.screen_h + radius + 20

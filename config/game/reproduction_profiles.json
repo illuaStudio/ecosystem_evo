@@ -7,7 +7,7 @@
         "weight": 5.0,
         "params": {
           "feed_radius": 38.0,
-          "approach_speed_multiplier": 0.95,
+          "approach_speed_multiplier": 1.15,
           "scavenge_species": null,
           "scavenge_contact_padding": 10.0,
           "approach_when_hungry": false
@@ -31,7 +31,7 @@
         "weight": 5.0,
         "params": {
           "feed_radius": 38.0,
-          "approach_speed_multiplier": 0.95,
+          "approach_speed_multiplier": 1.15,
           "scavenge_species": null,
           "scavenge_contact_padding": 10.0,
           "approach_when_hungry": false
@@ -52,7 +52,7 @@
           "member_species": [
             "red_ant"
           ],
-          "spawn_cooldown": 5000,
+          "spawn_cooldown": 1000,
           "spawn_radius": 35.0,
           "approach_speed_multiplier": 0.9
         }
@@ -67,7 +67,7 @@
         "weight": 5.0,
         "params": {
           "feed_radius": 38.0,
-          "approach_speed_multiplier": 0.95,
+          "approach_speed_multiplier": 1.15,
           "scavenge_species": null,
           "scavenge_contact_padding": 10.0,
           "approach_when_hungry": false
@@ -75,16 +75,16 @@
       },
       {
         "name": "AffiliationReproduceAction",
-        "weight": 5.0,
+        "weight": 7.0,
         "params": {
           "offspring": [
             {
               "species": "red_ant",
-              "weight": 0.7
+              "weight": 0.5
             },
             {
               "species": "red_ant_soldier",
-              "weight": 0.3
+              "weight": 0.5
             }
           ],
           "food_cost": 55.0,
@@ -93,7 +93,7 @@
             "red_ant",
             "red_ant_soldier"
           ],
-          "spawn_cooldown": 10800,
+          "spawn_cooldown": 1800,
           "spawn_radius": 35.0,
           "approach_speed_multiplier": 0.9
         }
@@ -118,7 +118,7 @@
           "member_species": [
             "red_ant"
           ],
-          "spawn_cooldown": 10800,
+          "spawn_cooldown": 1800,
           "spawn_radius": 35.0,
           "approach_speed_multiplier": 0.9
         }
@@ -130,16 +130,16 @@
     "actions": [
       {
         "name": "AffiliationReproduceAction",
-        "weight": 5.0,
+        "weight": 7.0,
         "params": {
           "offspring": [
             {
               "species": "red_ant",
-              "weight": 0.7
+              "weight": 0.5
             },
             {
               "species": "red_ant_soldier",
-              "weight": 0.3
+              "weight": 0.5
             }
           ],
           "food_cost": 55.0,
@@ -148,9 +148,70 @@
             "red_ant",
             "red_ant_soldier"
           ],
-          "spawn_cooldown": 10800,
+          "spawn_cooldown": 1800,
           "spawn_radius": 35.0,
           "approach_speed_multiplier": 0.9
+        }
+      }
+    ]
+  },
+  "queen_defense_combat": {
+    "description": "女王: 防衛戦闘（兵隊全滅時・高耐久）",
+    "actions": [
+      {
+        "name": "CombatAction",
+        "weight": 12.0,
+        "params": {
+          "hostile_species": ["invader_ant"],
+          "hostile_affiliation_ids": [],
+          "speed_multiplier": 1.85,
+          "contact_padding": 12.0,
+          "attack_power": 14.0,
+          "territory_only": false,
+          "nest_leash_radius": null
+        }
+      },
+      {
+        "name": "FeedAtNestAction",
+        "weight": 2.0,
+        "params": {
+          "feed_radius": 42.0,
+          "approach_speed_multiplier": 1.1,
+          "scavenge_species": null,
+          "scavenge_contact_padding": 10.0,
+          "approach_when_hungry": true
+        }
+      }
+    ]
+  },
+  "queen_post_defense": {
+    "description": "女王: 防衛後に巣へ戻る",
+    "actions": [
+      {
+        "name": "SeekShelterAction",
+        "weight": 8.0,
+        "params": {
+          "threat_species": ["Spider", "invader_ant"],
+          "speed_multiplier": 1.5
+        }
+      },
+      {
+        "name": "FeedAtNestAction",
+        "weight": 6.0,
+        "params": {
+          "feed_radius": 38.0,
+          "approach_speed_multiplier": 1.15,
+          "scavenge_species": null,
+          "scavenge_contact_padding": 10.0,
+          "approach_when_hungry": false
+        }
+      },
+      {
+        "name": "WanderAction",
+        "weight": 0.2,
+        "params": {
+          "angle_range": 15.0,
+          "speed_multiplier": 0.35
         }
       }
     ]

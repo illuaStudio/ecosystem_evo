@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from src.game.game_director import GameDirector
-from src.game.game_message import GameMessage
+from src.game.game_message import GameMessage, stamp_messages, with_elapsed
 from src.game.game_monitor import GameMonitor
 from src.game.game_state import GameState
 from src.game.phase_controller import PhaseController
@@ -49,6 +49,9 @@ class GameController:
         self.wave_director = WaveDirector.from_json(
             player_affiliation_id=self.state.player_affiliation_id
         )
+        from src.game.phase_ai import PhaseAIDirector
+
+        self.phase_ai = PhaseAIDirector.from_game_config(self._config)
         self.pending_messages: list[GameMessage] = []
         self.user_message: str = ""
         self.debug_sim_events: bool = False
@@ -66,8 +69,12 @@ class GameController:
         self.wave_director = WaveDirector.from_json(
             player_affiliation_id=affiliation_id
         )
+        from src.game.phase_ai import PhaseAIDirector
+
+        self.phase_ai = PhaseAIDirector.from_game_config(self._config)
         self.phase_controller.reset()
         self.wave_director.reset()
+        self.phase_ai.reset()
         self.pending_messages.clear()
         self.user_message = ""
         self.director.reset()
@@ -160,22 +167,25 @@ class GameController:
     def should_run_sim(self) -> bool:
         return self.phase_controller.should_run_sim()
 
-    def request_start_defense(self) -> bool:
-        if not self.phase_controller.request_start_defense(self.wave_director):
+    def request_start_defense(self, world: "World | None" = None) -> bool:
+        if world is None and self.bridge is not None:
+            world = self.bridge.world
+        if not self.phase_controller.request_start_defense(self.wave_director, world):
             return False
         msgs = self.phase_controller.start_defense_wave(self.wave_director)
-        self.pending_messages.extend(msgs)
+        stamped = stamp_messages(msgs, self.bridge.world if self.bridge else None)
+        self.pending_messages.extend(stamped)
         return True
 
     def acknowledge_story(self) -> None:
         self.phase_controller.acknowledge_story()
 
-    def _handle_phase_player_defeat(self) -> list[GameMessage]:
+    def _handle_phase_player_defeat(self, world: "World | None" = None) -> list[GameMessage]:
         if self.phase_controller.phase is not GamePhase.DEFENSE:
             return []
         if not self.state.has_flag("player_affiliation_defeated"):
             return []
-        return self.phase_controller.on_player_defeated(self.wave_director)
+        return self.phase_controller.on_player_defeated(self.wave_director, world)
 
     @property
     def phase(self) -> GamePhase:
@@ -184,8 +194,19 @@ class GameController:
     def on_tick(self, world: "World") -> list[GameMessage]:
         self._ensure_affiliation_assignments(world)
         tick_messages: list[GameMessage] = []
+        prev_phase = self.phase_controller.phase
         tick_messages.extend(
             self.phase_controller.on_tick(world, self.bridge, self.wave_director)
+        )
+        new_phase = self.phase_controller.phase
+        if prev_phase is not new_phase:
+            tick_messages.extend(
+                self.phase_ai.on_phase_changed(
+                    prev_phase, new_phase, world, self.bridge, self.state
+                )
+            )
+        tick_messages.extend(
+            self.phase_ai.on_tick(world, self.bridge, self.phase_controller, self.state)
         )
         events = world.events.drain()
         if self.debug_sim_events:
@@ -203,7 +224,7 @@ class GameController:
                 self._log_game_event(event)
 
         tick_messages.extend(self.director.on_game_events(game_events, world))
-        tick_messages.extend(self._handle_phase_player_defeat())
+        tick_messages.extend(self._handle_phase_player_defeat(world))
 
         alerts = self.monitor.check(world, self.state)
         tick_messages.extend(self.director.on_monitor_alerts(alerts, world))
@@ -211,7 +232,11 @@ class GameController:
         self.director.update_derived_levels(world)
         tick_messages.extend(self.director.evaluate_unlocks(world))
         self.user_message = self.director.user_message
+        tick_messages = stamp_messages(tick_messages, world)
         self.pending_messages.extend(tick_messages)
+        if self.user_message:
+            stamped = with_elapsed(self.user_message, world, source="game")
+            self.user_message = stamped.text
         return tick_messages
 
     @staticmethod

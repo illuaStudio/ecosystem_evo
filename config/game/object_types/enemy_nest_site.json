@@ -1,0 +1,17 @@
+{
+  "id": "enemy_nest_site",
+  "category": "affiliation",
+  "label": "敵の巣穴（親）",
+  "capabilities": {
+    "storage": {
+      "max_mass": 1,
+      "initial_mass": 0
+    },
+    "compound": {
+      "role": "root",
+      "profile": "generic",
+      "default_access_type": "enemy_nest_hole"
+    }
+  }
+}
+

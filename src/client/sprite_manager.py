@@ -33,12 +33,14 @@ class SpriteManager:
         # デフォルトは pygame_ui/assets/sprites/
         if base_path is None:
             # プロジェクトルートからの相対
-            self.base_path = Path(__file__).resolve().parents[3] / "pygame_ui" / "assets" / "sprites"
+            self.base_path = Path(__file__).resolve().parents[2] / "pygame_ui" / "assets" / "sprites"
         else:
             self.base_path = Path(base_path)
 
         self._sprites: dict[str, pygame.Surface] = {}
-        self._rotated_cache: dict[tuple[str, int], pygame.Surface] = {}  # (key, quantized_angle) -> surf
+        self._animations: dict[str, list[pygame.Surface]] = {}  # for animated sprite sheets, key -> list of frames
+        self._scaled_cache: dict[tuple[str, int], pygame.Surface] = {}  # (key, target_diameter) -> scaled unrotated
+        self._rotated_cache: dict[tuple[str, int], pygame.Surface] = {}  # (stable_key, quantized_angle) -> surf
         self._loaded = False
 
         # 回転量子化（度）。小さいほど高品質だがメモリ増。
@@ -68,7 +70,67 @@ class SpriteManager:
         # これにより「画像モード」に即切り替え可能（本物のPNGを置けば上書きされる）
         self._ensure_placeholders_for_known_species()
 
+        # 自動でよくあるアニメーションシートを検出してロード（walk, carry など）
+        self._auto_load_common_animations()
+
         print(f"[SpriteManager] Loaded/Generated {len(self._sprites)} sprites from {self.base_path}")
+
+    def load_sprite_sheet(self, key: str, sheet_path: str, num_frames: int, *, frame_width: Optional[int] = None):
+        """スプライトシートをロードしてアニメーションとして登録。
+        ユーザーの作り方:
+          - creatures/red_ant_walk.png を横長シートで作成（例: 6フレーム、全体 192x32 px → 各フレーム 32x32）
+          - シートを置くだけで load_all 時や初回 get 時に自動検出・ロードされる（_auto_load + lazy load）
+          - または手動: mgr.load_sprite_sheet("creatures/red_ant_walk", "creatures/red_ant_walk.png", 6)
+
+        対応状態（get_for_creature が自動選択）:
+          walk: 移動中
+          carry: 何か運んでいる時
+          （idle はまだ walk fallback）
+        """
+        path = Path(sheet_path)
+        if not path.is_absolute():
+            path = self.base_path / sheet_path
+
+        if not path.exists():
+            print(f"[SpriteManager] Sprite sheet not found: {path}")
+            return
+
+        try:
+            sheet = pygame.image.load(str(path)).convert_alpha()
+            sw, sh = sheet.get_size()
+            if frame_width is None:
+                frame_width = sw // num_frames if num_frames > 0 else sw
+            frames = []
+            for i in range(num_frames):
+                frame = sheet.subsurface(pygame.Rect(i * frame_width, 0, frame_width, sh)).copy()
+                frames.append(frame)
+            self._animations[key] = frames
+            print(f"[SpriteManager] Loaded animated sheet '{key}' with {num_frames} frames")
+        except Exception as e:
+            print(f"[SpriteManager] Failed to load sheet {path}: {e}")
+
+    def get_animated_frame(self, key: str, time_ms: int, fps: float = 8.0, *, fallback_size: int = 24) -> pygame.Surface:
+        """アニメーションフレームを取得。時間ベース。
+        time_ms: pygame.time.get_ticks() など。
+        fps: 1秒あたりのフレーム数。
+        シートがなければ通常の static sprite を返す。
+        シートファイルが存在すれば自動ロードを試みる。
+        """
+        if key not in self._animations:
+            # 自動ロード試行
+            sheet_path = self.base_path / (key + ".png")
+            if sheet_path.exists():
+                # デフォルトフレーム数でロード（後で正確な数で上書き可）
+                self.load_sprite_sheet(key, str(sheet_path), 6)
+
+        if key in self._animations and self._animations[key]:
+            frames = self._animations[key]
+            frame_count = len(frames)
+            frame_index = int((time_ms / 1000.0 * fps) % frame_count)
+            return frames[frame_index]
+
+        # アニメなし → 通常スプライトを返す（後方互換）
+        return self.get(key, fallback_size=fallback_size)
 
     def _get_placeholder(self, key: str, size: int = 24, color: tuple[int, int, int] = (200, 100, 100)) -> pygame.Surface:
         """画像が見つからない場合のフォールバック（円形シェイプ）。"""
@@ -97,13 +159,20 @@ class SpriteManager:
         # フォールバック
         return self._get_placeholder(key, size=fallback_size)
 
-    def get_scaled(self, key: str, target_size: int) -> pygame.Surface:
-        """指定サイズにスケールしたバージョンを返す（キャッシュは簡易版）。"""
+    def get_scaled(self, key: str, target_diameter: int) -> pygame.Surface:
+        """指定直径 (target_diameter x target_diameter) にスケールしたバージョンをキャッシュして返す。"""
+        cache_key = (key, target_diameter)
+        if cache_key in self._scaled_cache:
+            return self._scaled_cache[cache_key]
+
         base = self.get(key)
-        if base.get_width() == target_size * 2 and base.get_height() == target_size * 2:
+        if base.get_width() == target_diameter and base.get_height() == target_diameter:
+            self._scaled_cache[cache_key] = base
             return base
-        # シンプルに毎回スケール（後でキャッシュ強化）
-        return pygame.transform.smoothscale(base, (target_size * 2, target_size * 2))
+
+        scaled = pygame.transform.smoothscale(base, (target_diameter, target_diameter))
+        self._scaled_cache[cache_key] = scaled
+        return scaled
 
     def tint(self, surface: pygame.Surface, color: tuple[int, int, int]) -> pygame.Surface:
         """指定色でティント（乗算風）。元のアルファを保持。"""
@@ -118,20 +187,26 @@ class SpriteManager:
         tinted.blit(overlay, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
         return tinted
 
-    def get_rotated(self, surface: pygame.Surface, angle_degrees: float) -> pygame.Surface:
-        """回転したバージョンを返す（量子化 + キャッシュ）。"""
+    def get_rotated(self, surface: pygame.Surface, angle_degrees: float, stable_key: Optional[str] = None) -> pygame.Surface:
+        """回転したバージョンを返す（量子化 + キャッシュ）。
+        stable_key を渡すと id(surface) ではなくそれを使ってキャッシュする（推奨）。
+        これにより毎フレーム新しいscaled surfaceが来てもキャッシュが効く。
+        """
         if surface is None:
             return surface
 
-        # 量子化
         step = self.rotation_step
         quantized = int(round(angle_degrees / step) * step) % 360
 
-        cache_key = (id(surface), quantized)  # 簡易。実際はキー文字列の方が良い
+        if stable_key is not None:
+            cache_key = (stable_key, quantized)
+        else:
+            cache_key = (id(surface), quantized)
+
         if cache_key in self._rotated_cache:
             return self._rotated_cache[cache_key]
 
-        rotated = pygame.transform.rotate(surface, -quantized)  # pygameは反時計回り
+        rotated = pygame.transform.rotate(surface, -quantized)
         self._rotated_cache[cache_key] = rotated
         return rotated
 
@@ -142,26 +217,61 @@ class SpriteManager:
         *,
         carrying: bool = False,
         color_override: Optional[tuple[int, int, int]] = None,
+        animation_time_ms: Optional[int] = None,
+        walk_fps: float = 10.0,
     ) -> pygame.Surface:
-        """クリーチャー向けの便利ゲッター。"""
-        # 基本キー決定（後で拡張: _soldier など）
-        base_key = f"creatures/{species_name}"
+        """クリーチャー向けの便利ゲッター。アニメーション対応。
+        animation_time_ms を渡すと walk / carry アニメーションを試みる。
+        対応シート例:
+          creatures/red_ant_walk.png (6フレーム横並びシート)
+          creatures/red_ant_carry.png (静止 or アニメ)
+        """
+        display_diam = max(4, int(size * 2))
+
+        # アニメーション状態決定（Client側で velocity などから推定可能）
+        state = "walk" if animation_time_ms is not None else None
         if carrying:
-            # 運搬中は別キー or 後でオーバーレイ
-            base_key = f"creatures/{species_name}_carry"  # 存在しなければ通常にフォールバック
+            state = "carry"
 
-        sprite = self.get(base_key)
-        if color_override:
-            sprite = self.tint(sprite, color_override)
+        base_key = f"creatures/{species_name}"
+        anim_key = None
+        if state:
+            candidate = f"{base_key}_{state}"
+            if candidate in self._animations or (self.base_path / f"{candidate}.png").exists():
+                anim_key = candidate
 
-        scaled = self.get_scaled(base_key if base_key in self._sprites else f"creatures/{species_name}", int(size * 2))
+        if anim_key and animation_time_ms is not None:
+            # アニメーションフレーム取得（シートがあれば）
+            frame = self.get_animated_frame(anim_key, animation_time_ms, fps=walk_fps, fallback_size=display_diam)
+            # スケール
+            if frame.get_width() != display_diam or frame.get_height() != display_diam:
+                frame = pygame.transform.smoothscale(frame, (display_diam, display_diam))
+            if color_override:
+                frame = self.tint(frame, color_override)
+            return frame
+
+        # 通常（静止画 or プレースホルダ）
+        if carrying:
+            carry_key = f"creatures/{species_name}_carry"
+            if carry_key in self._sprites:
+                base_key = carry_key
+
+        scaled_key = base_key if base_key in self._sprites else f"creatures/{species_name}"
+        scaled = self.get_scaled(scaled_key, display_diam)
+
         if color_override:
             scaled = self.tint(scaled, color_override)
+
         return scaled
 
     def clear_caches(self) -> None:
         """回転キャッシュなどをクリア（リサイズ時など）。"""
         self._rotated_cache.clear()
+
+    @property
+    def has_sprites(self) -> bool:
+        """本物の画像またはプレースホルダがロード/生成されているか。"""
+        return bool(self._sprites)
 
     def _ensure_placeholders_for_known_species(self) -> None:
         """画像ファイルが一切ない場合でも、主要クリーチャーのプレースホルダを生成して
@@ -174,8 +284,7 @@ class SpriteManager:
             ("creatures/red_ant", (220, 60, 60)),
             ("creatures/red_ant_soldier", (180, 40, 40)),
             ("creatures/spider", (80, 80, 120)),
-            ("creatures/rival_ant", (60, 120, 220)),
-            ("creatures/rival_ant_soldier", (40, 90, 180)),
+            ("creatures/invader_ant", (40, 90, 180)),
             ("nests/red_ant", (200, 80, 50)),
             ("obstacles/rock", (120, 120, 120)),
             ("items/biomass", (100, 140, 60)),
@@ -197,6 +306,39 @@ class SpriteManager:
                 pass
 
             self._sprites[key] = surf
+
+    def _auto_load_common_animations(self):
+        """load_all 後に、よくあるアニメ状態のシートを自動検出してロード。
+        ユーザーが creatures/red_ant_walk.png などのシートを置いておけば自動で使われる。
+        フレーム数は横幅から簡易推定（最低4）。
+        静的な _carry.png などはシートとして扱わずスキップ（w <= h*2 くらいならシートとみなさない）。
+        """
+        common_states = ["walk", "carry", "idle", "attack"]
+        for category in ["creatures"]:
+            cat_dir = self.base_path / category
+            if not cat_dir.exists():
+                continue
+            for png in sorted(cat_dir.glob("*_*.png")):
+                stem = png.stem
+                if "_" not in stem:
+                    continue
+                parts = stem.split("_")
+                state = parts[-1]
+                if state not in common_states:
+                    continue
+                key = f"{category}/{stem}"
+                if key in self._animations:
+                    continue
+                try:
+                    sheet = pygame.image.load(str(png))
+                    w, h = sheet.get_size()
+                    # シートらしい幅広のものだけシートとして扱う (e.g. 幅が縦の2倍以上)
+                    if w <= h * 2:
+                        continue  # 静的画像の可能性が高いのでスキップ
+                    num_frames = max(4, min(12, w // max(h, 8)))
+                    self.load_sprite_sheet(key, str(png), num_frames)
+                except Exception:
+                    pass
 
 
 # グローバルシングルトン的な使い方（必要なら）

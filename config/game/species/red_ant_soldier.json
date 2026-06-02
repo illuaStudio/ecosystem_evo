@@ -53,13 +53,28 @@
         "weight": 5.0,
         "description": "テリトリー内の侵入した他勢力を排除（最優先）",
         "params": {
-          "hostile_species": [],
+          "hostile_species": ["invader_ant"],
           "hostile_affiliation_ids": [],
           "speed_multiplier": 1.35,
           "contact_padding": 8.0,
           "attack_power": 1.45,
           "territory_only": true,
           "nest_leash_radius": 165.0
+        }
+      },
+      {
+        "name": "AttackHoleAction",
+        "weight": 4.0,
+        "params": {
+          "attack_wave_spawner_holes": true,
+          "hostile_affiliation_ids": [],
+          "speed_multiplier": 1.25,
+          "attack_power": 1.2,
+          "contact_padding": 12.0,
+          "ignore_territory": true,
+          "nest_leash_radius": 165.0,
+          "max_search_radius": null,
+          "yield_to_intruders": true
         }
       },
       {
@@ -99,8 +114,8 @@
     ]
   },
   "affiliation_feed": {
-    "feed_per_tick": 0.5,
-    "bite_gain": 1.15
+    "feed_per_tick": 2.0,
+    "bite_gain": 1.2
   },
   "death_policy": "field_drop"
 }

@@ -19,6 +19,7 @@ class PhaseConfig:
     auto_resume_after_story: bool = True
     cycle_waves: bool = True
     story_on_defeat: str = "コロニーの拠点がすべて失われました。開発フェーズに戻り、再建を始めましょう。"
+    min_soldiers_before_defense: int = 3
 
 
 def phase_config_from_dict(raw: dict | None) -> PhaseConfig:
@@ -37,4 +38,5 @@ def phase_config_from_dict(raw: dict | None) -> PhaseConfig:
                 "コロニーの拠点がすべて失われました。開発フェーズに戻り、再建を始めましょう。",
             )
         ),
+        min_soldiers_before_defense=max(0, int(data.get("min_soldiers_before_defense", 3))),
     )

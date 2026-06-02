@@ -23,7 +23,6 @@ class TestWorldStart(unittest.TestCase):
         world = World()
         self.assertIn("red_ant", world.affiliation_species)
         self.assertNotIn("rival_ant", world.affiliation_species)
-        self.assertNotIn("rival_ant", world.affiliation_species)
         self.assertIn("red_ant", world.affiliation_styles)
 
     def test_initial_population(self):
@@ -35,12 +34,22 @@ class TestWorldStart(unittest.TestCase):
         )
         self.assertEqual(queens, 1)
         self.assertEqual(workers, 2)
-        self.assertEqual(micro_fauna, 20)
-        self.assertEqual(len(world.creatures), 23)
+        # Micro-fauna spawn tuning is expected to change; assert config-consistent values.
+        cfg = config.get_world("Grassland") or {}
+        initial_spawns = cfg.get("initial_spawns") or {}
+        groups = initial_spawns.get("groups") or []
+        expected_micro = 0
+        for g in groups:
+            for e in (g.get("entries") or []):
+                sp = e.get("species")
+                if sp in DEFAULT_MICRO_FAUNA_SPECIES:
+                    expected_micro += int(e.get("count") or 0)
+        self.assertEqual(micro_fauna, expected_micro)
+        self.assertEqual(len(world.creatures), queens + workers + micro_fauna)
 
     def test_species_still_in_config(self):
         self.assertIn("red_ant", config.species)
-        self.assertIn("rival_ant", config.species)
+        self.assertIn("invader_ant", config.species)
         for name in DEFAULT_MICRO_FAUNA_SPECIES:
             self.assertIn(name, config.species)
 

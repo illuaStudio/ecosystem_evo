@@ -145,6 +145,22 @@ class TestHungerBehavior(unittest.TestCase):
         ret = ReturnToNestAction()
         self.assertGreater(scavenge.calculate_utility(ant), ret.calculate_utility(ant))
 
+    def test_hungry_carrying_does_not_get_stuck_in_return_to_nest(self):
+        """ReturnToNestAction は飢餓時に completed になり、次 tick で ScavengeCarriedAction に切り替われる。"""
+        world = World()
+        ant, prey, ax, ay = self._ant_and_prey(world, ant_satiety_ratio=0.10)
+        loot = kill_creature(world, prey, ant)
+        pickup_field_biomass(ant, loot)
+
+        ret = ReturnToNestAction()
+        ant.current_action = ret
+        ret.execute(ant)
+        self.assertTrue(ret.is_completed())
+
+        # Next tick: mind should be free to pick ScavengeCarriedAction.
+        ant.current_action = ant.mind.decide_next_action(ant)
+        self.assertEqual(type(ant.current_action).__name__, "ScavengeCarriedAction")
+
     def test_hungry_carrying_eats_carcass(self):
         world = World()
         ant, prey, ax, ay = self._ant_and_prey(world, ant_satiety_ratio=0.10)

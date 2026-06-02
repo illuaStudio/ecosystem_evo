@@ -31,9 +31,7 @@ from src.sim.utils.creature_helpers import (
 from src.sim.utils.hunt_helpers import (
     describe_creature_short,
     find_attackers_for_target,
-    get_aggression_target,
     get_combat_target,
-    get_hunt_target,
 )
 from src.client.species_visibility import SpeciesVisibilityManager, VisibilityToggleRect
 from src.sim.shelter.state import is_creature_sheltered
@@ -77,6 +75,8 @@ class Renderer:
         player_affiliation_id: str = "",
         game_state=None,
         species_visibility: SpeciesVisibilityManager | None = None,
+        sim_time: float = 0.0,
+        sim_speed: float = 1.0,
     ):
         self._show_territory_hud = show_territory
         self._show_sheltered_hud = show_sheltered
@@ -103,13 +103,14 @@ class Renderer:
                 import pygame as _pg
 
                 mx, my = _pg.mouse.get_pos()
+                wx, wy = camera.screen_to_world(mx, my)
                 NestRenderer.draw_affiliation_access_placement_preview(
                     world,
                     self.screen,
                     camera,
                     affiliation_id,
-                    mx + camera.x,
-                    my + camera.y,
+                    wx,
+                    wy,
                 )
 
         for c in creatures:
@@ -132,13 +133,13 @@ class Renderer:
             for obj in wos.iter_field_pickups():
                 if obj.is_pickup_depleted():
                     continue
-                sx = int(obj.x - camera.x)
-                sy = int(obj.y - camera.y)
+                sx, sy = camera.world_to_screen(obj.x, obj.y)
                 ratio = obj.fill_ratio if obj.size_from_fill_ratio else 1.0
                 ratio = max(0.0, min(1.0, ratio))
-                radius = max(3, min(9, int(3 + math.sqrt(ratio) * 5)))
+                base_r = 3 + math.sqrt(ratio) * 5
+                radius = max(2, int(base_r * camera.zoom))
                 pygame.draw.circle(self.screen, obj.color, (sx, sy), radius)
-                pygame.draw.circle(self.screen, (40, 36, 32), (sx, sy), radius, 1)
+                pygame.draw.circle(self.screen, (40, 36, 32), (sx, sy), radius, max(1, int(camera.zoom)))
 
         if (
             world is not None
@@ -228,16 +229,12 @@ class Renderer:
                             f"インベントリ先頭枠上限: {inv.slot_max_mass(0):.1f}"
                         )
 
-            hunt_target = get_hunt_target(sc)
-            combat_target = get_combat_target(sc)
-            if combat_target is not None:
-                texts.append(
-                    f"戦闘対象: {describe_creature_short(combat_target)}"
-                )
-            elif hunt_target is not None:
-                texts.append(
-                    f"狩り対象: {describe_creature_short(hunt_target)}"
-                )
+            combat_view = client_api.get_combat_target_view(sc)
+            hunt_view = client_api.get_hunt_target_view(sc)
+            if combat_view is not None:
+                texts.append(f"戦闘対象: {combat_view.name}")
+            elif hunt_view is not None:
+                texts.append(f"狩り対象: {hunt_view.name}")
             elif sc.alive and sc.current_action is not None:
                 action_name = sc.current_action.__class__.__name__
                 if action_name == "CombatAction":
@@ -270,6 +267,14 @@ class Renderer:
             ),
             (15, 10),
         )
+
+        # シミュレーション時間と加速倍率表示（Game層から提供された値）
+        if world is not None:
+            sim_str = f"SimTime: {sim_time:.1f}s   Speed: x{sim_speed:.1f}"
+            self.screen.blit(
+                self.small_font.render(sim_str, True, (180, 255, 180)),
+                (15, 32),
+            )
 
         hud_extra = ""
         if world:
@@ -307,7 +312,7 @@ class Renderer:
 
         self.screen.blit(
             self.small_font.render(
-                "Space:停止/再開  R:リセット  T:テリトリー  I:巣内表示  1〜5:生態表示  右クリ:個体/巣  右下:表示パネル",
+                "Space:停止/再開  R:リセット  T:テリトリー  I:巣内表示  1〜5:生態表示  -:減速  +:加速  0:速度1x  右クリ:個体/巣  右下:表示パネル",
                 True,
                 (160, 200, 255),
             ),
@@ -468,9 +473,21 @@ class Renderer:
 
         visibility.set_toggle_rects(toggle_rects)
 
+    def _target_view_visible_for_overlay(
+        self, view: client_api.TargetView | None, species_visibility: SpeciesVisibilityManager | None
+    ) -> bool:
+        if view is None:
+            return False
+        if species_visibility is None:
+            return True
+        if not view.is_creature or view.species_name is None:
+            return True
+        return species_visibility.is_species_visible(view.species_name)
+
     def _creature_visible_for_overlay(
         self, creature, species_visibility: SpeciesVisibilityManager | None
     ) -> bool:
+        """攻撃者リストなど、常に creature のオーバーレイ用。"""
         if creature is None:
             return False
         if species_visibility is None:
@@ -486,18 +503,18 @@ class Renderer:
     ) -> None:
         """選択個体と狩り・戦闘関係の線・ターゲットマーカー。"""
         sc = selected_creature
-        combat_target = get_combat_target(sc)
-        hunt_target = get_hunt_target(sc)
-        if combat_target is not None and self._creature_visible_for_overlay(
-            combat_target, species_visibility
+        combat_view = client_api.get_combat_target_view(sc)
+        hunt_view = client_api.get_hunt_target_view(sc)
+        if combat_view is not None and self._target_view_visible_for_overlay(
+            combat_view, species_visibility
         ):
-            self._draw_hunt_link(sc, combat_target, camera, (120, 160, 255))
-            self._draw_prey_marker(combat_target, camera, (100, 140, 255))
-        elif hunt_target is not None and self._creature_visible_for_overlay(
-            hunt_target, species_visibility
+            self._draw_hunt_link_to_view(sc, combat_view, camera, (120, 160, 255))
+            self._draw_target_view_marker(combat_view, camera, (100, 140, 255))
+        elif hunt_view is not None and self._target_view_visible_for_overlay(
+            hunt_view, species_visibility
         ):
-            self._draw_hunt_link(sc, hunt_target, camera, (255, 90, 90))
-            self._draw_prey_marker(hunt_target, camera, (255, 120, 80))
+            self._draw_hunt_link_to_view(sc, hunt_view, camera, (255, 90, 90))
+            self._draw_target_view_marker(hunt_view, camera, (255, 120, 80))
 
         attackers = find_attackers_for_target(world, sc)
         for attacker in attackers:
@@ -506,34 +523,44 @@ class Renderer:
             link_color = (80, 120, 255) if get_combat_target(attacker) is sc else (255, 60, 60)
             self._draw_hunt_link(attacker, sc, camera, link_color)
             hx, hy = entity_xy(attacker)
-            hsx = int(hx - camera.x)
-            hsy = int(hy - camera.y)
+            hsx, hsy = camera.world_to_screen(hx, hy)
             hsize = int(attacker.traits.get("base_size", 8))
             pygame.draw.circle(
-                self.screen, (255, 100, 100), (hsx, hsy), hsize + 14, 2
+                self.screen, (255, 100, 100), (hsx, hsy), max(2, int((hsize + 14) * camera.zoom)), max(1, int(2 * camera.zoom))
             )
 
     def _draw_hunt_link(
         self, predator, prey, camera, color: tuple[int, int, int]
     ) -> None:
+        """クリーチャー同士のハントリンク描画（攻撃者→選択個体 など）。"""
         px, py = entity_xy(predator)
         tx, ty = entity_xy(prey)
-        sx1, sy1 = int(px - camera.x), int(py - camera.y)
-        sx2, sy2 = int(tx - camera.x), int(ty - camera.y)
-        pygame.draw.line(self.screen, color, (sx1, sy1), (sx2, sy2), 2)
+        sx1, sy1 = camera.world_to_screen(px, py)
+        sx2, sy2 = camera.world_to_screen(tx, ty)
+        lw = max(1, int(2 * camera.zoom))
+        pygame.draw.line(self.screen, color, (sx1, sy1), (sx2, sy2), lw)
         mid_x, mid_y = (sx1 + sx2) // 2, (sy1 + sy2) // 2
-        pygame.draw.circle(self.screen, color, (mid_x, mid_y), 4)
+        pygame.draw.circle(self.screen, color, (mid_x, mid_y), max(2, int(4 * camera.zoom)))
 
-    def _draw_prey_marker(self, prey, camera, color: tuple[int, int, int]) -> None:
-        tx, ty = entity_xy(prey)
-        sx = int(tx - camera.x)
-        sy = int(ty - camera.y)
-        size = int(prey.traits.get("base_size", 9))
-        pygame.draw.circle(self.screen, color, (sx, sy), size + 14, 2)
-        pygame.draw.circle(self.screen, (255, 240, 180), (sx, sy), size + 18, 1)
-        font = pygame.font.SysFont("msgothic", 12)
+    def _draw_hunt_link_to_view(
+        self, predator, target_view: client_api.TargetView, camera, color: tuple[int, int, int]
+    ) -> None:
+        # TargetView has .x/.y so entity_xy works on it (falls back to getattr x,y)
+        self._draw_hunt_link(predator, target_view, camera, color)
+
+    def _draw_target_view_marker(
+        self, target_view: client_api.TargetView, camera, color: tuple[int, int, int]
+    ) -> None:
+        sx, sy = camera.world_to_screen(target_view.x, target_view.y)
+        size = int(target_view.size)
+        r = max(2, int((size + 14) * camera.zoom))
+        pygame.draw.circle(self.screen, color, (sx, sy), r, max(1, int(2 * camera.zoom)))
+        pygame.draw.circle(self.screen, (255, 240, 180), (sx, sy), max(2, int((size + 18) * camera.zoom)), max(1, int(camera.zoom)))
+        font_size = max(8, int(12 * camera.zoom))
+        font = pygame.font.SysFont("msgothic", font_size)
         label = font.render("TARGET", True, (255, 220, 160))
-        self.screen.blit(label, (sx - 22, sy - size - 32))
+        off = max(4, int(32 * camera.zoom))
+        self.screen.blit(label, (sx - max(4, int(22 * camera.zoom)), sy - size * camera.zoom - off))
 
     def _draw_affiliation_detail_panel(self, affiliation_id: str, world, y: int = 130) -> int:
         """選択中のコロニー詳細 HUD。戻り値は次の描画 Y。"""
@@ -648,27 +675,38 @@ class Renderer:
         self._biome_surface_world_id = wid
 
     def _draw_world_rect(self, world, camera, color) -> None:
-        """ワールド範囲だけ単色で塗る（マップが画面より小さいときの余白は残す）。"""
-        cam_x = int(camera.x)
-        cam_y = int(camera.y)
-        dest = pygame.Rect(-cam_x, -cam_y, world.width, world.height)
-        visible = dest.clip(self.screen.get_rect())
+        """ワールド範囲だけ単色で塗る（マップが画面より小さいときの余白は残す、ズーム対応）。"""
+        # ズーム時は visible world rect を計算してスケール描画相当に
+        left, top = camera.screen_to_world(0, 0)
+        right, bottom = camera.screen_to_world(self.screen.get_width(), self.screen.get_height())
+        # ワールド矩形を画面にマップ
+        wx1, wy1 = camera.world_to_screen(0, 0)
+        wx2, wy2 = camera.world_to_screen(world.width, world.height)
+        rect = pygame.Rect(min(wx1, wx2), min(wy1, wy2), abs(wx2 - wx1), abs(wy2 - wy1))
+        visible = rect.clip(self.screen.get_rect())
         if visible.width > 0 and visible.height > 0:
             pygame.draw.rect(self.screen, color, visible)
 
     def _draw_biome_tiles(self, world, camera) -> None:
         self._ensure_biome_surface(world)
-        cam_x = int(camera.x)
-        cam_y = int(camera.y)
-        sw, sh = self.screen.get_width(), self.screen.get_height()
-
-        src = pygame.Rect(cam_x, cam_y, sw, sh)
-        src.clamp_ip(self._biome_surface.get_rect())
+        # ズーム対応: 見えるワールド範囲を計算し、サブサーフェスをスケールして描画
+        left, top = camera.screen_to_world(0, 0)
+        right, bottom = camera.screen_to_world(self.screen.get_width(), self.screen.get_height())
+        src = pygame.Rect(int(left), int(top), int(right - left), int(bottom - top))
+        biome_rect = self._biome_surface.get_rect()
+        src = src.clip(biome_rect)  # 確実に surface 内に収まる intersection を取る (clamp_ip だと oversized rect のサイズが残る問題を回避)
         if src.width <= 0 or src.height <= 0:
             return
 
-        dest = pygame.Rect(src.x - cam_x, src.y - cam_y, src.width, src.height)
-        self.screen.blit(self._biome_surface, dest, src)
+        sub = self._biome_surface.subsurface(src).copy()
+        if camera.zoom != 1.0:
+            new_w = max(1, int(src.width * camera.zoom))
+            new_h = max(1, int(src.height * camera.zoom))
+            sub = pygame.transform.smoothscale(sub, (new_w, new_h))
+
+        # 左上を正しい位置に (src は clip 後の intersection)
+        dest_x, dest_y = camera.world_to_screen(src.x, src.y)
+        self.screen.blit(sub, (dest_x, dest_y))
 
     def invalidate_biome_cache(self) -> None:
         """ワールドリセット時に呼ぶ（GameApp.reset_simulation から）。"""

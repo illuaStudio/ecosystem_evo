@@ -11,7 +11,7 @@ from src.game.ai.colony_actions import (
     ReturnToNestAction,
     ScavengeCarriedAction,
 )
-from src.game.ai.combat_actions import AttackHoleAction, CombatAction
+from src.game.ai.combat_actions import AttackHoleAction, CombatAction, RaidColonyAction
 from src.game.ai.flee_actions import FleeAction
 from src.game.ai.hunt_actions import HuntAction
 from src.game.ai.reproduction_actions import (
@@ -40,6 +40,7 @@ GAME_ACTIONS = {
     "SpawnWorkerAction": SpawnWorkerAction,
     "SeekShelterAction": SeekShelterAction,
     "AttackHoleAction": AttackHoleAction,
+    "RaidColonyAction": RaidColonyAction,
 }
 
 
