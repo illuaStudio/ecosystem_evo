@@ -163,6 +163,8 @@ def load_test_world(**overrides):
 
     world = World.from_json(build_test_world(**overrides))
     bind_colony(world)
+    from src.game.colony_session import ensure_creature_affiliations
+    ensure_creature_affiliations(world)
     return world
 
 

@@ -2,6 +2,7 @@
 import unittest
 
 from src.game.colony_session import get_colony_orchestrator
+from tests.sim.colony_binding import process_spawns_for_game_reactions
 from tests.sim.world_fixtures import colony
 
 from src.sim.entities.creature_factory import CreatureFactory
@@ -56,6 +57,7 @@ class TestAntNest(unittest.TestCase):
             y = 400 + i * 15
             p = factory.create("red_ant", world=world, x=x, y=y)
             world.add_creature(p)
+            process_spawns_for_game_reactions(world)
             preds.append(p)
         return preds
 
@@ -66,6 +68,7 @@ class TestAntNest(unittest.TestCase):
         for i, (x, y) in enumerate([(120, 120), (850, 850), (500, 200)]):
             p = factory.create("red_ant", world=world, x=x, y=y)
             world.add_creature(p)
+            process_spawns_for_game_reactions(world)
             preds.append(p)
         from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
 
@@ -98,6 +101,7 @@ class TestAntNest(unittest.TestCase):
         affiliation_cfg = config.get_species("red_ant").get("affiliation", {})
         first = factory.create("red_ant", world=world, x=300, y=300)
         world.add_creature(first)
+        process_spawns_for_game_reactions(world)
         nest = colony(world).get_creature_affiliation_root(first)
 
         x, y = colony(world).spawn_position("red_ant", affiliation_cfg)
@@ -110,12 +114,14 @@ class TestAntNest(unittest.TestCase):
         factory = CreatureFactory()
         first = factory.create("red_ant", world=world, x=300, y=300)
         world.add_creature(first)
+        process_spawns_for_game_reactions(world)
         from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
 
         affiliation_id = get_creature_affiliation_id(first)
 
         second = factory.create("red_ant", world=world, x=900, y=900)
         world.add_creature(second)
+        process_spawns_for_game_reactions(world)
         self.assertEqual(get_creature_affiliation_id(second), affiliation_id)
         self.assertEqual(len(colony(world).affiliation_roots), 1)
 
@@ -276,6 +282,7 @@ class TestAntNest(unittest.TestCase):
         factory = CreatureFactory()
         queen = factory.create("red_ant_queen", world=world, x=120, y=120)
         world.add_creature(queen)
+        process_spawns_for_game_reactions(world)
         nest = colony(world).get_creature_affiliation_root(queen)
         if stored_mass is not None:
             nest.stored_mass = stored_mass
@@ -283,6 +290,7 @@ class TestAntNest(unittest.TestCase):
         for i in range(workers):
             w = factory.create("red_ant", world=world, x=120 + i * 10, y=120)
             world.add_creature(w)
+            process_spawns_for_game_reactions(world)
             workers_list.append(w)
         return queen, nest, workers_list
 

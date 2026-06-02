@@ -107,10 +107,11 @@ class World:
         self._combat_pairs_this_tick: set[tuple] = set()
 
         self._sim_time = 0.0
-        self.on_creature_added = None
-        self.on_sim_tick = None
-        self.access_damage_handler = None
-        self.defeated_affiliation_checker = None
+        # NOTE: game-specific hooks removed for layer independence.
+        # Game logic (colony maintenance, affiliation assignment, access damage)
+        # is now driven from the game layer via explicit calls around sim ticks
+        # or through neutral events / data on World.
+        self._defeated_affiliations: set[str] = set()
 
         self.world_object_system = WorldObjectSystem(self)
         self.world_object_system.init_from_layout(layout)
@@ -175,6 +176,19 @@ class World:
         """種族のワールド個体数上限。未設定なら None。"""
         return self.population_limits.get(species_name)
 
+    # --- Neutral game-progression data exposed for sim behaviors (e.g. AI decisions) ---
+    # These are set/controlled by the game layer but are simple facts usable by sim
+    # without importing game code. This replaces previous direct hook injections.
+
+    def mark_affiliation_defeated(self, affiliation_id: str) -> None:
+        if affiliation_id:
+            self._defeated_affiliations.add(str(affiliation_id))
+
+    def is_affiliation_defeated(self, affiliation_id: str) -> bool:
+        if not affiliation_id:
+            return False
+        return str(affiliation_id) in self._defeated_affiliations
+
     def count_alive_by_species(self, species_name: str) -> int:
         """生存個体数（O(1) キャッシュ）。"""
         return self._alive_species_counts.get(species_name, 0)
@@ -209,9 +223,8 @@ class World:
         self._spatial_grid_valid = False
         if getattr(creature, "alive", True):
             self._adjust_alive_species_count(creature.species.name, 1)
-        hook = getattr(self, "on_creature_added", None)
-        if hook is not None and getattr(creature, "affiliation", None) is not None:
-            hook(creature)
+        # affiliation assignment is now handled from game layer (no direct hook)
+        # see GameController._ensure_affiliation_assignments and reproduction actions
         from src.sim.utils.spawn_helpers import apply_creature_spawn_state
 
         apply_creature_spawn_state(creature)
@@ -234,9 +247,8 @@ class World:
         self.sim_dt = float(dt)
         self._combat_pairs_this_tick = set()
         self._sim_time += float(dt)
-        tick_hook = getattr(self, "on_sim_tick", None)
-        if tick_hook is not None:
-            tick_hook(dt)
+        # Game tick logic (e.g. colony storage leak) is now invoked explicitly
+        # by the game layer around this call for clean separation.
         self.spawn_system.update(dt)
         self.world_object_system.update_field_objects(dt)
         self.rebuild_spatial_grid()

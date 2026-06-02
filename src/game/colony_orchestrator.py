@@ -263,6 +263,12 @@ class ColonyOrchestrator:
 
         message = f"勢力 {affiliation_id} が敗北しました"
         runtime.mark_defeated(affiliation_id, message)
+        # Also mark on World for neutral access from sim layer (no checker hook)
+        if hasattr(self.world, "mark_affiliation_defeated"):
+            try:
+                self.world.mark_affiliation_defeated(affiliation_id)
+            except Exception:
+                pass
         emit_affiliation_defeated(self.world, affiliation_id, message)
 
     def can_place_hole(self, affiliation_id, x: float, y: float) -> tuple[bool, str]:

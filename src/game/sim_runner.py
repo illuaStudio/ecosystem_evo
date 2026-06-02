@@ -41,4 +41,22 @@ class SimRunner:
         return True
 
     def tick(self, world: "World") -> None:
-        world.update(self.sim_dt())
+        dt = self.sim_dt()
+        # Run game maintenance (e.g. affiliation storage leaks) that used to be
+        # performed via direct hook injection (World.on_sim_tick). This keeps
+        # the sim layer (World) free of game-specific callbacks.
+        self._run_game_maintenance(world, dt)
+        world.update(dt)
+
+    @staticmethod
+    def _run_game_maintenance(world: "World", dt: float) -> None:
+        try:
+            from src.game.colony_session import get_colony_orchestrator
+
+            orch = get_colony_orchestrator(world)
+            orch.update(dt)
+        except RuntimeError:
+            # no orchestrator (e.g. test world without colony)
+            pass
+        except Exception:
+            pass

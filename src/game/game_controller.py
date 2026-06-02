@@ -12,6 +12,7 @@ from src.sim.bridge import SimBridge
 from src.game.colony_session import drain_game_events
 from src.game.events import AffiliationDefeatedEvent
 from src.sim.events import (
+    AffiliationAllAccessRemovedEvent,
     CombatStartedEvent,
     DeathEvent,
     ItemFoundEvent,
@@ -64,9 +65,13 @@ class GameController:
 
         orch = ColonyOrchestrator(world)
         attach_colony_orchestrator(world, orch)
-        world.on_sim_tick = orch.update
+        # No more direct hook injection into World for layer independence.
+        # Maintenance (leaks) and assignments are driven explicitly from game layer.
         self.director.on_world_start(world)
-        world.events.drain()
+        # Process initial spawn events so that game reactions (affiliation assignment
+        # etc.) happen in an event-driven way, even for creatures created during World init.
+        initial_events = world.events.drain()
+        self.director.on_sim_events(initial_events, world)
 
     def spawn_creature(
         self,
@@ -129,17 +134,34 @@ class GameController:
             mode=mode,
         )
 
+    def _ensure_affiliation_assignments(self, world: "World") -> None:
+        """Ensure creatures with affiliation_data in their species get assigned.
+
+        Delegates to the shared event-reaction logic in colony_session.
+        Called at game tick points.
+        """
+        from src.game.colony_session import ensure_creature_affiliations
+
+        ensure_creature_affiliations(world)
+
     def on_tick(self, world: "World") -> list[GameMessage]:
+        self._ensure_affiliation_assignments(world)
         events = world.events.drain()
-        game_events = drain_game_events(world)
         if self.debug_sim_events:
             for event in events:
                 self._log_sim_event(event)
-            for event in game_events:
-                self._log_game_event(event)
 
         tick_messages: list[GameMessage] = []
         tick_messages.extend(self.director.on_sim_events(events, world))
+
+        # Drain game events AFTER processing sim events, so that side-effects
+        # like emitting AffiliationDefeatedEvent from handling AllAccessRemoved
+        # are captured in the same tick.
+        game_events = drain_game_events(world)
+        if self.debug_sim_events:
+            for event in game_events:
+                self._log_game_event(event)
+
         tick_messages.extend(self.director.on_game_events(game_events, world))
 
         alerts = self.monitor.check(world, self.state)
@@ -178,6 +200,8 @@ class GameController:
                 f"[sim] {name} {event.attacker_species} -> {target_name}",
                 flush=True,
             )
+        elif isinstance(event, AffiliationAllAccessRemovedEvent):
+            print(f"[sim] {name} {event.affiliation_id}", flush=True)
         else:
             print(f"[sim] {name}", flush=True)
 

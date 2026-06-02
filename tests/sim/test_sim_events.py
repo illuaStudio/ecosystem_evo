@@ -1,4 +1,5 @@
 from src.game.colony_session import get_colony_orchestrator, try_get_colony_orchestrator
+from tests.sim.colony_binding import process_spawns_for_game_reactions
 
 def colony(world):
     return get_colony_orchestrator(world)
@@ -111,6 +112,7 @@ class TestSimEvents(unittest.TestCase):
         factory = CreatureFactory()
         queen = factory.create("red_ant_queen", world=world, x=120, y=120)
         world.add_creature(queen, spawn_source="initial")
+        process_spawns_for_game_reactions(world)
         nest = colony(world).get_creature_affiliation_root(queen)
         world.events.drain()
 
@@ -139,6 +141,7 @@ class TestSimEvents(unittest.TestCase):
         factory = CreatureFactory()
         worker = factory.create("red_ant", world=world, x=120, y=120)
         world.add_creature(worker, spawn_source="initial")
+        process_spawns_for_game_reactions(world)
         nest = colony(world).get_affiliation_root("red_ant")
         world.events.drain()
 

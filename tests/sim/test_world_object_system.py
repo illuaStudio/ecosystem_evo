@@ -1,4 +1,5 @@
 from src.game.colony_session import get_colony_orchestrator, try_get_colony_orchestrator
+from tests.sim.colony_binding import process_spawns_for_game_reactions
 
 def colony(world):
     return get_colony_orchestrator(world)
@@ -100,6 +101,7 @@ class TestWorldObjectSystem(unittest.TestCase):
         ant = factory.create("red_ant", world=world, x=200, y=200)
         set_creature_nest_parent_ids(ant, ("red_ant",))
         world.add_creature(ant)
+        process_spawns_for_game_reactions(world)
 
         from src.sim.components.inventory import BiomassItem
 

@@ -1,4 +1,5 @@
 from src.game.colony_session import get_colony_orchestrator, try_get_colony_orchestrator
+from tests.sim.colony_binding import process_spawns_for_game_reactions
 
 def colony(world):
     return get_colony_orchestrator(world)
@@ -105,6 +106,7 @@ class TestHoleCombat(unittest.TestCase):
         ant = factory.create("red_ant", world=world, x=100, y=100)
 
         world.add_creature(ant)
+        process_spawns_for_game_reactions(world)
 
         nest = colony(world).get_creature_affiliation_root(ant)
 
@@ -125,10 +127,12 @@ class TestHoleCombat(unittest.TestCase):
         red = factory.create("red_ant", world=world, x=100, y=100)
 
         world.add_creature(red)
+        process_spawns_for_game_reactions(world)
 
         blue = factory.create("rival_ant", world=world, x=500, y=500)
 
         world.add_creature(blue)
+        process_spawns_for_game_reactions(world)
 
         red_nest = colony(world).get_creature_affiliation_root(red)
 
@@ -157,6 +161,7 @@ class TestHoleCombat(unittest.TestCase):
         red = factory.create("red_ant", world=world, x=100, y=100)
 
         world.add_creature(red)
+        process_spawns_for_game_reactions(world)
 
         nest = colony(world).get_creature_affiliation_root(red)
 
@@ -179,6 +184,7 @@ class TestHoleCombat(unittest.TestCase):
         red = factory.create("red_ant", world=world, x=100, y=100)
 
         world.add_creature(red)
+        process_spawns_for_game_reactions(world)
 
         nest = colony(world).get_creature_affiliation_root(red)
 
@@ -205,6 +211,7 @@ class TestHoleCombat(unittest.TestCase):
         red = factory.create("red_ant", world=world, x=100, y=100)
 
         world.add_creature(red)
+        process_spawns_for_game_reactions(world)
 
         nest = colony(world).get_creature_affiliation_root(red)
 
@@ -245,10 +252,12 @@ class TestHoleCombat(unittest.TestCase):
         worker = factory.create("red_ant", world=world, x=200, y=200)
 
         world.add_creature(worker)
+        process_spawns_for_game_reactions(world)
 
         soldier = factory.create("red_ant_soldier", world=world, x=210, y=200)
 
         world.add_creature(soldier)
+        process_spawns_for_game_reactions(world)
 
         nest = colony(world).get_creature_affiliation_root(worker)
 
@@ -291,14 +300,17 @@ class TestHoleCombat(unittest.TestCase):
         red_w = factory.create("red_ant", world=world, x=100, y=100)
 
         world.add_creature(red_w)
+        process_spawns_for_game_reactions(world)
 
         red_s = factory.create("red_ant_soldier", world=world, x=105, y=100)
 
         world.add_creature(red_s)
+        process_spawns_for_game_reactions(world)
 
         blue_w = factory.create("rival_ant", world=world, x=150, y=100)
 
         world.add_creature(blue_w)
+        process_spawns_for_game_reactions(world)
 
 
 
@@ -325,14 +337,17 @@ class TestHoleCombat(unittest.TestCase):
         red = factory.create("red_ant", world=world, x=100, y=100)
 
         world.add_creature(red)
+        process_spawns_for_game_reactions(world)
 
         blue = factory.create("rival_ant", world=world, x=500, y=500)
 
         world.add_creature(blue)
+        process_spawns_for_game_reactions(world)
 
         soldier = factory.create("red_ant_soldier", world=world, x=110, y=100)
 
         world.add_creature(soldier)
+        process_spawns_for_game_reactions(world)
 
         blue_nest = colony(world).get_creature_affiliation_root(blue)
 
@@ -357,14 +372,17 @@ class TestHoleCombat(unittest.TestCase):
         red = factory.create("red_ant", world=world, x=100, y=100)
 
         world.add_creature(red)
+        process_spawns_for_game_reactions(world)
 
         blue = factory.create("rival_ant", world=world, x=500, y=500)
 
         world.add_creature(blue)
+        process_spawns_for_game_reactions(world)
 
         vanguard_far = factory.create("red_ant_vanguard", world=world, x=110, y=110)
 
         world.add_creature(vanguard_far)
+        process_spawns_for_game_reactions(world)
 
         blue_nest = colony(world).get_creature_affiliation_root(blue)
 
@@ -401,6 +419,7 @@ class TestHoleCombat(unittest.TestCase):
         vanguard_near = factory.create("red_ant_vanguard", world=world, x=480, y=480)
 
         world.add_creature(vanguard_near)
+        process_spawns_for_game_reactions(world)
 
         pair = find_nearest_attackable_access(
 
@@ -439,6 +458,7 @@ class TestHoleCombat(unittest.TestCase):
         vanguard = factory.create("red_ant_vanguard", world=world, x=300, y=100)
 
         world.add_creature(vanguard)
+        process_spawns_for_game_reactions(world)
 
         ns = colony(world)
 

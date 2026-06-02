@@ -242,8 +242,12 @@ class CompoundSystem:
             if on_access_removed is not None:
                 on_access_removed(str(parent_id), access)
             self.remove_access_point(access.id)
-            if self.access_exhausted(parent_id) and on_all_access_removed is not None:
-                on_all_access_removed(str(parent_id))
+            if self.access_exhausted(parent_id):
+                from src.sim.emitters import emit_affiliation_all_access_removed
+
+                emit_affiliation_all_access_removed(self.world, str(parent_id))
+                if on_all_access_removed is not None:
+                    on_all_access_removed(str(parent_id))
         return dealt
 
     def iter_access_xy(self, parent_id: str) -> list[tuple[float, float]]:

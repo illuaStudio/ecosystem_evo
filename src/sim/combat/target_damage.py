@@ -30,14 +30,24 @@ def apply_damage_to_target(
         if attacker.world is None or access is None or not affiliation_id:
             return 0.0
         cid = attacker_affiliation_id or get_creature_affiliation_id(attacker) or ""
-        handler = getattr(attacker.world, "access_damage_handler", None)
-        if handler is None:
+        # Perform rival/defeated checks using neutral sim utils (data provided by game layer).
+        # Then delegate directly to compound_system. Exhaustion will cause a neutral
+        # AffiliationAllAccessRemovedEvent which game layer reacts to for defeat logic.
+        from src.sim.utils.affiliation_group_helpers import (
+            is_affiliation_defeated,
+            is_rival_affiliation,
+        )
+
+        if is_affiliation_defeated(attacker.world, affiliation_id):
             return 0.0
-        dealt = handler(
+        if not is_rival_affiliation(attacker.world, cid, affiliation_id):
+            return 0.0
+
+        dealt = attacker.world.compound_system.damage_access(
             access,
             affiliation_id,
             float(amount),
-            attacker_affiliation_id=cid,
+            # callbacks omitted; game reacts to emitted event instead
         )
         if dealt > 0:
             from src.sim.emitters import maybe_emit_combat_from_damage

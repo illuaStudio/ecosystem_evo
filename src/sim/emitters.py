@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Optional
 
 from src.sim.events import (
+    AffiliationAllAccessRemovedEvent,
     CombatStartedEvent,
     CombatTargetKind,
     DeathCause,
@@ -171,3 +172,15 @@ def maybe_emit_combat_from_damage(
             target_affiliation_id=ref.affiliation_id or access.parent_id,
         )
         return
+
+
+def emit_affiliation_all_access_removed(world: "World", affiliation_id: str) -> None:
+    """勢力の全アクセスポイントが破壊されたことを通知する（中立イベント）。"""
+    if world is None or not affiliation_id:
+        return
+    world.events.emit(
+        AffiliationAllAccessRemovedEvent(
+            sim_time=_sim_time(world),
+            affiliation_id=str(affiliation_id),
+        )
+    )

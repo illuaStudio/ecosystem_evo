@@ -86,5 +86,6 @@
 **実施済み (2026-06)**
 
 - 敗北状態・`AffiliationDefeatedEvent` を Game 層（`colony_runtime` / `game/events`）へ移動。
-- `World.defeated_affiliation_checker` による Sim→Game 非 import の敗北判定。
+- `World.mark_affiliation_defeated` / `is_affiliation_defeated` による中立参照（直接フック注入を廃止）。
 - テスト: ルート `conftest` の全 World 自動 bind を廃止。`tests/sim/conftest.py`（`@pytest.mark.no_colony` で opt-out）、`tests/game/conftest.py`、明示的 `bind_colony` / `load_test_world`。
+- **2-AI 並行開発**: `docs/Layer_Interfaces.md` + `tests/contracts/test_layer_imports.py` + `src/game/client_api.py`（Client→Game 窓口）。

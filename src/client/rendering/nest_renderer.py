@@ -1,7 +1,7 @@
 # nest_renderer.py
 import pygame
 
-from src.game.colony_session import try_get_colony_orchestrator
+from src.game.client_api import try_get_colony_orchestrator
 from src.sim.utils.territory_helpers import get_territory_radius_for_affiliation, iter_territory_centers
 
 DEFAULT_FACTION_STYLE = {
@@ -310,9 +310,9 @@ class NestRenderer:
         from src.sim.utils.world_object_helpers import iter_active_affiliation_roots
 
         active = {root.id for root in iter_active_affiliation_roots(world)}
-        from src.game.colony_session import get_defeated_affiliations
+        from src.game.client_api import get_defeated_affiliation_ids
 
-        defeated = get_defeated_affiliations(world)
+        defeated = get_defeated_affiliation_ids(world)
 
         for root in ws.iter_roots():
             if root.id in active or root.id in defeated:

@@ -31,16 +31,6 @@ def attach_colony_config(world: "World") -> None:
     world.shelter_allowed_action_names = DEFAULT_SHELTER_ALLOWED_ACTION_NAMES
 
 
-def _make_defeated_checker(world: "World"):
-    def check(affiliation_id: str) -> bool:
-        runtime = _runtime_states.get(world)
-        if runtime is None:
-            return False
-        return runtime.is_defeated(affiliation_id)
-
-    return check
-
-
 def attach_colony_orchestrator(world: "World", orchestrator: "ColonyOrchestrator") -> None:
     from src.game.ai import register_game_actions
 
@@ -49,9 +39,10 @@ def attach_colony_orchestrator(world: "World", orchestrator: "ColonyOrchestrator
     _orchestrators[world] = orchestrator
     runtime = ColonyRuntimeState()
     _runtime_states[world] = runtime
-    world.defeated_affiliation_checker = _make_defeated_checker(world)  # type: ignore[attr-defined]
-    world.access_damage_handler = orchestrator.damage_access  # type: ignore[attr-defined]
-    world.on_creature_added = orchestrator.assign_creature_on_spawn  # type: ignore[attr-defined]
+    # No direct attribute injection on World (on_sim_tick / on_creature_added /
+    # access_damage_handler / defeated_affiliation_checker) for clean separation.
+    # See GameController for explicit maintenance and assignment, and neutral
+    # methods on World (mark/is_affiliation_defeated) + events.
     orchestrator.bootstrap_existing_creatures()
 
 
@@ -94,3 +85,27 @@ def drain_game_events(world: "World") -> List["GameEvent"]:
     events = list(runtime.pending_events)
     runtime.pending_events.clear()
     return events
+
+
+def ensure_creature_affiliations(world: "World") -> None:
+    """Game reaction to creature spawns: assign affiliations for any creatures
+    whose species declares affiliation_data but are not yet assigned.
+
+    This is called from SpawnEvent handling in the game director (event-driven path)
+    and from test helpers. Replaces the old synchronous on_creature_added hook.
+    """
+    try:
+        orch = get_colony_orchestrator(world)
+    except Exception:
+        return
+
+    for creature in list(world.creatures):
+        aff = getattr(creature, "affiliation", None)
+        if aff is None or getattr(aff, "affiliation_id", None):
+            continue
+        data = getattr(creature.species, "affiliation_data", None) or {}
+        if data:
+            try:
+                orch.assign_creature(creature, data)
+            except Exception:
+                pass

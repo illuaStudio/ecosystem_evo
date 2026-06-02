@@ -16,6 +16,7 @@ from src.game.game_state import GameState
 from src.game.progression import ProgressionEvaluator
 from src.game.events import AffiliationDefeatedEvent, GameEvent
 from src.sim.events import (
+    AffiliationAllAccessRemovedEvent,
     CombatStartedEvent,
     DeathEvent,
     ItemFoundEvent,
@@ -26,6 +27,7 @@ from src.sim.utils.affiliation_group_helpers import is_rival_affiliation as is_r
 
 if TYPE_CHECKING:
     from src.sim.bridge import SimBridge
+    from src.sim.events import AffiliationAllAccessRemovedEvent
     from src.sim.systems.world import World
 
 
@@ -122,6 +124,10 @@ class GameDirector:
 
     def _handle_sim_event(self, world: "World", event: SimEvent) -> list[GameMessage]:
         if isinstance(event, SpawnEvent):
+            # Event-driven game reaction: assign affiliation if this spawn needs it.
+            # This replaces direct hooks and the previous scan.
+            from src.game.colony_session import ensure_creature_affiliations
+            ensure_creature_affiliations(world)
             return self._on_spawn(world, event)
         if isinstance(event, DeathEvent):
             return self._on_death(world, event)
@@ -129,6 +135,8 @@ class GameDirector:
             return self._on_item_found(world, event)
         if isinstance(event, CombatStartedEvent):
             return self._on_combat_started(world, event)
+        if isinstance(event, AffiliationAllAccessRemovedEvent):
+            return self._on_affiliation_all_access_removed(world, event)
         return []
 
     @staticmethod
@@ -229,4 +237,18 @@ class GameDirector:
                     source="event",
                 )
             ]
+        return []
+
+    def _on_affiliation_all_access_removed(
+        self, world: "World", event: "AffiliationAllAccessRemovedEvent"
+    ) -> list[GameMessage]:
+        """When sim reports all accesses for an affiliation are gone, trigger defeat logic."""
+        _ = world
+        try:
+            from src.game.colony_session import get_colony_orchestrator
+
+            orch = get_colony_orchestrator(world)
+            orch.defeat_affiliation(event.affiliation_id)
+        except Exception:
+            pass
         return []

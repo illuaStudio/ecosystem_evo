@@ -29,6 +29,14 @@ class ReproductionAction(Action):
 
     def _register_offspring(self, parent, offspring, *, spawn_source: str = "reproduction") -> None:
         if parent.world:
+            # Assign BEFORE add_creature so the SpawnEvent emitted inside
+            # add_creature includes the affiliation_id (for _on_spawn message etc).
+            try:
+                from src.game.colony_session import get_colony_orchestrator
+
+                get_colony_orchestrator(parent.world).assign_creature_on_spawn(offspring)
+            except Exception:
+                pass
             parent.world.add_creature(
                 offspring, spawn_source=spawn_source, parent=parent
             )

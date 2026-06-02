@@ -52,3 +52,10 @@ class CombatStartedEvent(SimEvent):
     target_creature: Any = field(default=None, repr=False)
     target_affiliation_id: Optional[str] = None
     target_object_id: Optional[str] = None
+
+
+@dataclass(frozen=True, kw_only=True)
+class AffiliationAllAccessRemovedEvent(SimEvent):
+    """Sim層で中立に発火するイベント: ある勢力のアクセスポイント（接続点）が全て破壊された。"""
+
+    affiliation_id: str = ""

@@ -1,4 +1,5 @@
 from src.game.colony_session import get_colony_orchestrator, try_get_colony_orchestrator
+from tests.sim.colony_binding import process_spawns_for_game_reactions
 
 def colony(world):
     return get_colony_orchestrator(world)
@@ -42,8 +43,10 @@ class TestTerritoryAndCastes(unittest.TestCase):
         factory = CreatureFactory()
         worker = factory.create("red_ant", world=world, x=100, y=100)
         world.add_creature(worker)
+        process_spawns_for_game_reactions(world)
         soldier = factory.create("red_ant_soldier", world=world, x=110, y=100)
         world.add_creature(soldier)
+        process_spawns_for_game_reactions(world)
 
         worker_nest = colony(world).get_creature_affiliation_root(worker)
         soldier_nest = colony(world).get_creature_affiliation_root(soldier)
