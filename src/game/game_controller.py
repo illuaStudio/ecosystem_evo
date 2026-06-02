@@ -7,7 +7,10 @@ from src.game.game_director import GameDirector
 from src.game.game_message import GameMessage
 from src.game.game_monitor import GameMonitor
 from src.game.game_state import GameState
+from src.game.phase_controller import PhaseController
+from src.game.phases import GamePhase
 from src.game.sim_bridge_factory import make_sim_bridge
+from src.game.wave_director import WaveDirector
 from src.sim.bridge import SimBridge
 from src.game.colony_session import drain_game_events
 from src.game.events import AffiliationDefeatedEvent
@@ -42,6 +45,10 @@ class GameController:
         self.monitor = GameMonitor(self._config.get("monitor"))
         self.bridge = bridge
         self.director = GameDirector(self.state, bridge)
+        self.phase_controller = PhaseController.from_config(self._config)
+        self.wave_director = WaveDirector.from_json(
+            player_affiliation_id=self.state.player_affiliation_id
+        )
         self.pending_messages: list[GameMessage] = []
         self.user_message: str = ""
         self.debug_sim_events: bool = False
@@ -55,6 +62,12 @@ class GameController:
         affiliation_id = str(self._config.get("player_affiliation_id", "red_ant"))
         self.state = GameState(player_affiliation_id=affiliation_id)
         self.director = GameDirector(self.state, self.bridge)
+        self.phase_controller = PhaseController.from_config(self._config)
+        self.wave_director = WaveDirector.from_json(
+            player_affiliation_id=affiliation_id
+        )
+        self.phase_controller.reset()
+        self.wave_director.reset()
         self.pending_messages.clear()
         self.user_message = ""
         self.director.reset()
@@ -144,14 +157,34 @@ class GameController:
 
         ensure_creature_affiliations(world)
 
+    def should_run_sim(self) -> bool:
+        return self.phase_controller.should_run_sim()
+
+    def request_start_defense(self) -> bool:
+        if not self.phase_controller.request_start_defense(self.wave_director):
+            return False
+        msgs = self.phase_controller.start_defense_wave(self.wave_director)
+        self.pending_messages.extend(msgs)
+        return True
+
+    def acknowledge_story(self) -> None:
+        self.phase_controller.acknowledge_story()
+
+    @property
+    def phase(self) -> GamePhase:
+        return self.phase_controller.phase
+
     def on_tick(self, world: "World") -> list[GameMessage]:
         self._ensure_affiliation_assignments(world)
+        tick_messages: list[GameMessage] = []
+        tick_messages.extend(
+            self.phase_controller.on_tick(world, self.bridge, self.wave_director)
+        )
         events = world.events.drain()
         if self.debug_sim_events:
             for event in events:
                 self._log_sim_event(event)
 
-        tick_messages: list[GameMessage] = []
         tick_messages.extend(self.director.on_sim_events(events, world))
 
         # Drain game events AFTER processing sim events, so that side-effects

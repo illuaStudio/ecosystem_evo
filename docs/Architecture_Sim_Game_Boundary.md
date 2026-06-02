@@ -81,8 +81,9 @@
 
 **実施済み (2026-06)**
 
-- 敗北状態・`AffiliationDefeatedEvent` を Game 層（`colony_runtime` / `game/events`）へ移動。
-- `World.mark_affiliation_defeated` / `is_affiliation_defeated` による中立参照（直接フック注入を廃止）。
-- テスト: ルート `conftest` の全 World 自動 bind を廃止。`tests/sim/conftest.py`（`@pytest.mark.no_colony` で opt-out）、`tests/game/conftest.py`、明示的 `bind_colony` / `load_test_world`。
-- **2-AI 並行開発**: `docs/Layer_Interfaces.md` + `tests/contracts/test_layer_imports.py` + `src/game/client_api.py`（Client→Game 窓口）。
-- **境界分離凍結 (2026-06-03)**: 詳細は `docs/REVIEW_Sim_Game_Layer_Independence_Problems.md` §0。
+- 敗北状態・`AffiliationDefeatedEvent` を Game 層へ移動。
+- `World.mark_affiliation_defeated` / `is_affiliation_defeated` による中立参照。
+- テスト: `tests/sim/conftest.py`（`@pytest.mark.no_colony`）、`tests/game/conftest.py`。
+- **2-AI 並行開発**: `docs/Layer_Interfaces.md` + `tests/contracts/test_layer_imports.py` + `src/game/client_api.py`。
+- **境界分離凍結 (2026-06-03)**: `docs/REVIEW_Sim_Game_Layer_Independence_Problems.md` §0。
+- **ゲーム企画確定**: `docs/Game_Vision.md`。

@@ -7,7 +7,7 @@ from src.client.game_message_feed import GameMessageFeed
 from src.client.input_handler import InputHandler
 from src.client.rendering.renderer import Renderer
 from src.client.species_visibility import SpeciesVisibilityManager
-from src.game.colony_session import get_colony_orchestrator
+from src.game import client_api
 from src.game.game_controller import GameController
 from src.game.sim_runner import SimRunner
 from src.sim.bridge import SimBridge
@@ -15,6 +15,8 @@ from src.sim.systems.world import World
 
 
 def colony(world):
+    from src.game.colony_session import get_colony_orchestrator
+
     return get_colony_orchestrator(world)
 
 
@@ -141,6 +143,15 @@ class GameApp:
         if self.paused or self.world is None:
             return
         if not self.sim_runner.should_run_sim_tick():
+            return
+        if not client_api.should_advance_sim(self.game_controller):
+            tick_messages = self.game_controller.on_tick(self.world)
+            self.message_feed.push(tick_messages)
+            if self.debug_game_messages or self.show_debug:
+                for msg in tick_messages:
+                    print(f"[game:{msg.source}] {msg.text}", flush=True)
+            if self.game_controller.user_message:
+                self.user_message = self.game_controller.user_message
             return
         self.sim_runner.tick(self.world)
         tick_messages = self.game_controller.on_tick(self.world)

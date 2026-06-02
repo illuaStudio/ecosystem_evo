@@ -142,6 +142,7 @@ python -m pytest tests/game/ -q
 | 用途 | パス |
 |------|------|
 | 層契約 | `docs/Layer_Interfaces.md` |
+| ゲーム企画 | `docs/Game_Vision.md` |
 | 設計思想 | `docs/Architecture_Sim_Game_Boundary.md` |
 | Bridge | `docs/SimBridge.md` |
 | イベント | `docs/Simulation_Events.md` |

@@ -29,6 +29,7 @@
         "name": "CombatAction",
         "weight": 5.0,
         "params": {
+          "hostile_species": [],
           "hostile_affiliation_ids": [
             "red_ant"
           ],

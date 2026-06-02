@@ -1,0 +1,16 @@
+{
+  "waves": [
+    {
+      "id": "wave_1",
+      "label": "第一波",
+      "story_on_clear": "ライバル蟻の先遣隊を撃退しました。開発フェーズに戻り、コロニーを整えましょう。",
+      "spawns": [
+        {
+          "species": "rival_ant_soldier",
+          "count": 3,
+          "interval_ticks": 25
+        }
+      ]
+    }
+  ]
+}

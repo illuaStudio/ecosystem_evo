@@ -1,5 +1,11 @@
 {
   "player_affiliation_id": "red_ant",
+  "phases": {
+    "development_ticks_before_defense": 400,
+    "story_ticks_before_resume": 90,
+    "auto_start_defense": true,
+    "auto_resume_after_story": true
+  },
   "monitor": {
     "low_fill_ratio": 0.1,
     "high_fill_ratio": 0.24,
