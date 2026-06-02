@@ -19,9 +19,9 @@ from src.sim.utils.creature_helpers import (
 from src.sim.utils.position_helpers import entity_xy
 from src.sim.utils.field_effect_cache import invalidate_field_effect_cache
 from src.sim.utils.world_object_helpers import (
-    affiliation_fill_ratio,
     affiliation_stored_mass,
     get_affiliation_root,
+    get_compound_root,
     get_creature_affiliation_root,
     owner_species_for_affiliation,
 )
@@ -182,7 +182,18 @@ class ColonyOrchestrator:
         root.storage.stored_mass = min(amount, cap) if cap > 0 else amount
 
     def affiliation_fill_ratio(self, affiliation_id: str) -> float:
-        return affiliation_fill_ratio(self.world, affiliation_id)
+        """備蓄率 0..1 (game 解釈)。defeated や root 不在時は 0。"""
+        # Game 層での affiliation 解釈（ISSUE-001 分離）。Sim の affiliation_fill_ratio には依存せず、
+        # 中立の get_compound_root + game の defeated 情報を使用。
+        if is_affiliation_defeated(self.world, affiliation_id):
+            return 0.0
+        root = get_compound_root(self.world, affiliation_id)
+        if root is None or root.storage is None:
+            return 0.0
+        cap = float(root.storage.capacity)
+        if cap <= 0:
+            return 0.0
+        return max(0.0, min(1.0, float(root.storage.stored_mass) / cap))
 
     def _affiliation_settings(self) -> dict:
         from src.game.colony_config import get_affiliation_settings
@@ -260,6 +271,8 @@ class ColonyOrchestrator:
             if is_creature_sheltered(creature):
                 creature.become_corpse(cause="defeat")
                 clear_creature_shelter(creature)
+                from src.game.shelter_helpers import _restore_mind_after_shelter
+                _restore_mind_after_shelter(creature)
 
         message = f"勢力 {affiliation_id} が敗北しました"
         runtime.mark_defeated(affiliation_id, message)

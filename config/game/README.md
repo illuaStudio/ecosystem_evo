@@ -67,4 +67,4 @@ sim は **PostLife のパーツ列**だけ実行する。種 JSON に `death_pol
 ## テスト
 
 - `tests/sim/world_fixtures.load_test_world()` — affiliation 付きワールド＋`bind_colony`
-- `tests/conftest.py` — 素の `World()` でもコロニー未接続なら自動 `bind_colony`（sim 本体に pytest 依存を置かないため）
+- `tests/sim/conftest.py` / `tests/game/conftest.py` — テスト用 World 生成時に monkeypatch で bind_colony を自動適用（`@pytest.mark.no_colony` で opt-out）。ルート `tests/conftest.py` は action レジストリ登録のみ。

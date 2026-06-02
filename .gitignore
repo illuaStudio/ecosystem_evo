@@ -11,3 +11,7 @@ venv/
 dist/
 build/
 .editor_shared_state.json
+
+# pygame_ui 同梱フォント（大容量）— scripts/download_ui_font.py で取得
+pygame_ui/assets/fonts/*.otf
+pygame_ui/assets/fonts/*.ttf

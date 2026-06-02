@@ -4,7 +4,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from src.game.caste_helpers import creature_matches_affiliation_caste, normalize_caste
-from src.game.shelter_helpers import resolve_creature_shelter
+from src.game.shelter_helpers import (
+    _restrict_mind_for_shelter,
+    resolve_creature_shelter,
+)
 from src.sim.commands import (
     EnterCreatureShelter,
     SetAffiliationCasteMind,
@@ -60,9 +63,7 @@ def set_affiliation_caste_mind(bridge: "SimBridge", cmd: SetAffiliationCasteMind
 
 
 def enter_creature_shelter(bridge: "SimBridge", cmd: EnterCreatureShelter) -> SimCommandResult:
-    from src.sim.bridge import _creature_by_id
-
-    creature = _creature_by_id(bridge.world, cmd.creature_id)
+    creature = bridge.creature_by_id(cmd.creature_id)
     if creature is None:
         return SimCommandResult(
             False,
@@ -79,6 +80,7 @@ def enter_creature_shelter(bridge: "SimBridge", cmd: EnterCreatureShelter) -> Si
     creature.pos[0] = ref.x
     creature.pos[1] = ref.y
     attach_creature_shelter_ref(creature, ref)
+    _restrict_mind_for_shelter(creature)
     return SimCommandResult(
         True,
         "EnterCreatureShelter",

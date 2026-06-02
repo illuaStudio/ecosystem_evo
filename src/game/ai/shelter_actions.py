@@ -2,9 +2,12 @@
 from __future__ import annotations
 
 from src.sim.ai.actions.base import Action
-from src.game.shelter_helpers import resolve_creature_shelter
-from src.sim.shelter.helpers import (
+from src.game.shelter_helpers import (
+    _restore_mind_after_shelter,
     enter_creature_shelter,
+    resolve_creature_shelter,
+)
+from src.sim.shelter.helpers import (
     get_hide_radius,
     is_at_shelter,
     move_toward_shelter_avoiding_threat,
@@ -40,6 +43,7 @@ class SeekShelterAction(Action):
         if is_flee_latch_active(creature):
             return
         clear_creature_shelter(creature)
+        _restore_mind_after_shelter(creature)
         self._target_ref = None
 
     def execute(self, creature) -> bool:
@@ -107,6 +111,7 @@ class SeekShelterAction(Action):
         if not is_flee_latch_active(creature):
             if is_creature_sheltered(creature):
                 clear_creature_shelter(creature)
+                _restore_mind_after_shelter(creature)
             return 0.0
 
         if is_creature_sheltered(creature):

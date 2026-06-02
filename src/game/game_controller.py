@@ -193,9 +193,7 @@ class GameController:
             )
         elif isinstance(event, CombatStartedEvent):
             target = event.target_creature
-            target_name = (
-                target.species.name if target is not None else event.target_affiliation_id
-            )
+            target_name = target.species.name if target is not None else None
             print(
                 f"[sim] {name} {event.attacker_species} -> {target_name}",
                 flush=True,

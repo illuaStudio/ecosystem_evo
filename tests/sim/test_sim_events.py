@@ -4,7 +4,7 @@ from tests.sim.colony_binding import process_spawns_for_game_reactions
 def colony(world):
     return get_colony_orchestrator(world)
 
-"""??????????????????????"""
+"""Sim 層ドメインイベントの発火テスト。"""
 import unittest
 
 from src.game.ai.reproduction_actions import AffiliationReproduceAction

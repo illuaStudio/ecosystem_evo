@@ -1,4 +1,4 @@
-# Simulation Events（Phase 1）
+# Simulation Events（Sim 層事実イベント）
 
 生態系シミュレーション層が発行する**離散イベント**の契約。ゲーム層は `World.events` を購読または `drain()` で取り出して解釈する。
 
@@ -12,11 +12,13 @@
 
 | イベント | 発火タイミング | 主なフィールド |
 |---------|---------------|---------------|
-| `DeathEvent` | 個体が死骸化したとき | `creature`, `species_name`, `colony_id`, `cause` |
-| `SpawnEvent` | 個体がワールドに追加されたとき | `creature`, `source`, `parent` |
-| `ItemFoundEvent` | 死骸からバイオマスを拾ったとき | `carrier`, `item_kind`, `amount` |
-| `CombatStartedEvent` | 個体同士／巣穴への初回攻撃 | `attacker`, `target_kind`, `target_creature` 等 |
-| `AffiliationDefeatedEvent` | 勢力の全巣穴が破壊されたとき | `colony_id`, `message` |
+| `DeathEvent` | 個体が死骸化したとき | `creature`, `species_name`, `cause` |
+| `SpawnEvent` | 個体がワールドに追加されたとき | `creature`, `species_name`, `source`, `parent` |
+| `ItemFoundEvent` | 死骸/アイテムを拾ったとき | `carrier`, `species_name`, `item_kind`, `amount` |
+| `CombatStartedEvent` | 個体同士またはアクセスポイントへの初回攻撃 | `attacker`, `attacker_species`, `target_kind`, `target_creature` / `target_object_id` |
+| `AffiliationAllAccessRemovedEvent` | ある affiliation の全アクセスポイント（接続点）が破壊されたとき | `affiliation_id` |
+
+**注**: `AffiliationDefeatedEvent`（`affiliation_id`, `message`）は **Game 層** (`src/game/events.py`) のイベント。Sim 層の `AffiliationAllAccessRemovedEvent`（事実）に対する game 側の反応として生成される。
 
 ### DeathEvent.cause
 
@@ -33,8 +35,12 @@
 | 値 | 意味 |
 |----|------|
 | `initial` | ワールド初期配置 |
-| `reproduction` | `AffiliationReproduceAction`（女王など） |
+| `reproduction` | 繁殖行動による追加 |
 | `spawn` | その他（既定） |
+| `game` | ゲーム進行・脚本からのスポーン |
+| `debug` | デバッグ操作からのスポーン |
+
+`source` は `SpawnCreature` コマンドの source や world.add_creature から引き継がれる。
 
 ## API
 
@@ -48,25 +54,40 @@ events = world.events.drain()     # キューを取り出してクリア
 
 ## 発火箇所（コード）
 
-| イベント | ファイル |
+イベントの発火は `src/sim/emitters.py` に集約されている（直接 emit せずヘルパー経由が推奨）。
+
+| イベント | 呼び出し元ファイル |
 |---------|---------|
-| Death | `src/components/corpse.py` |
-| Spawn | `src/systems/world.py` (`add_creature`) |
-| ItemFound | `src/utils/inventory_helpers.py` |
-| CombatStarted | `src/utils/combat_helpers.py`, `src/combat/target_damage.py` |
-| ColonyDefeated | `src/systems/nest_system.py` |
+| Death | `src/sim/components/death.py` (`emit_death`) |
+| Spawn | `src/sim/systems/world.py` (`add_creature` → `emit_spawn`) |
+| ItemFound | `src/sim/utils/loot_helpers.py` (`emit_item_found`) |
+| CombatStarted | `src/sim/utils/combat_helpers.py`, `src/sim/combat/target_damage.py` (`emit_*` / `maybe_emit_combat_from_damage`) |
+| AffiliationAllAccessRemoved | `src/sim/systems/compound_system.py` (`emit_affiliation_all_access_removed`) |
 
 ## ゲーム層での利用（例）
 
+Sim イベントは事実のみ。Game 層（`GameDirector`）が受け取り、**creature / world_object から affiliation を解決**し、必要に応じて game イベントを生成する。
+
+接続点（`world_object`）への攻撃では `target_object_id` → access の `parent_id` で所属勢力を判定する。
+
 ```python
-for event in world.events.drain():
-    if isinstance(event, SpawnEvent) and event.source == "reproduction":
+# GameController / Director 側での典型処理
+for event in world.events.drain():  # Sim 事実イベント
+    if isinstance(event, SpawnEvent):
+        # event-driven: 所属付与など game 反応
         ...
-    if isinstance(event, AffiliationDefeatedEvent):
-        ui.show_message(event.message)
+    if isinstance(event, AffiliationAllAccessRemovedEvent):
+        # → defeat 処理 → AffiliationDefeatedEvent (game event) 発火
+        ...
+
+# 別途 game イベント
+game_events = drain_game_events(world)
+for ev in game_events:
+    if isinstance(ev, AffiliationDefeatedEvent):
+        ui.show_message(ev.message)
 ```
 
-`GameApp` は `AffiliationDefeatedEvent` を `drain()` して UI メッセージを表示する（Phase 1）。
+`GameDirector.on_sim_events(events, world)` と `on_game_events(...)` がこれらを一元的にハンドルする。
 
 ## 戦闘開始の重複抑制
 

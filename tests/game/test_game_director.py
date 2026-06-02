@@ -12,7 +12,10 @@ from src.game.game_state import GameState
 from src.sim.bridge import SimBridge
 from src.game.colony_session import drain_game_events
 from src.game.emitters import emit_affiliation_defeated
-from src.sim.emitters import emit_combat_started_creature
+from src.sim.emitters import (
+    emit_combat_started_affiliation_access,
+    emit_combat_started_creature,
+)
 from src.sim.systems.world import World
 from src.sim.entities.creature_factory import CreatureFactory
 from tests.sim.world_fixtures import affiliation_settings
@@ -53,6 +56,33 @@ class TestGameDirector(unittest.TestCase):
         world.add_creature(worker, spawn_source="initial")
         world.add_creature(soldier, spawn_source="initial")
         emit_combat_started_creature(world, soldier, worker)
+        events = world.events.drain()
+
+        director = self._director(world)
+        msgs = director.on_sim_events(events, world)
+        combat_msgs = [m for m in msgs if "外敵" in m.text]
+        self.assertEqual(len(combat_msgs), 1)
+        self.assertTrue(director.state.has_flag("first_enemy_contact"))
+
+    def test_first_enemy_contact_on_player_access(self):
+        world = _player_world()
+        factory = CreatureFactory()
+        queen = factory.create("red_ant_queen", world=world, x=120, y=120)
+        soldier = factory.create("rival_ant_soldier", world=world, x=125, y=120)
+        world.add_creature(queen, spawn_source="initial")
+        world.add_creature(soldier, spawn_source="initial")
+        world.events.drain()
+
+        access_list = list(world.world_object_system.iter_access_points("red_ant"))
+        self.assertGreater(len(access_list), 0)
+        access = access_list[0]
+
+        emit_combat_started_affiliation_access(
+            world,
+            soldier,
+            access_id=access.id,
+            target_affiliation_id="red_ant",
+        )
         events = world.events.drain()
 
         director = self._director(world)

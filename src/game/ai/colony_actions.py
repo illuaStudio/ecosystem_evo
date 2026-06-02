@@ -233,11 +233,10 @@ class FeedAtAffiliationSiteAction(Action):
             return 0.0
         if at_site and usable:
             from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
-            from src.sim.utils.world_object_helpers import affiliation_fill_ratio
 
             cid = get_creature_affiliation_id(creature)
             if cid:
-                fill = affiliation_fill_ratio(creature.world, cid)
+                fill = colony.affiliation_fill_ratio(cid)
             else:
                 ws = creature.world.world_object_system
                 parent_ids = get_creature_compound_parent_ids(creature)

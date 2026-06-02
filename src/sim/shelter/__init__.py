@@ -10,7 +10,6 @@ from src.sim.shelter.helpers import (
 from src.sim.shelter.state import (
     clear_creature_shelter,
     is_creature_sheltered,
-    shelter_allowed_action_names,
 )
 
 __all__ = [
@@ -22,6 +21,5 @@ __all__ = [
     "is_creature_sheltered",
     "move_toward_shelter_avoiding_threat",
     "nearest_shelter_threat",
-    "shelter_allowed_action_names",
     "shelter_distance",
 ]

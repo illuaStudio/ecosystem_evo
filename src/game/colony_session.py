@@ -18,17 +18,15 @@ _runtime_states: weakref.WeakKeyDictionary["World", ColonyRuntimeState] = (
     weakref.WeakKeyDictionary()
 )
 
-DEFAULT_SHELTER_ALLOWED_ACTION_NAMES = frozenset({
-    "SeekShelterAction",
-    "FeedAtNestAction",
-    "FeedAtAffiliationSiteAction",
-    "AffiliationReproduceAction",
-})
-
-
 def attach_colony_config(world: "World") -> None:
-    """コロニー用の避難所許可行動などを World に載せる（レイアウトは sim が既に解析済み）。"""
-    world.shelter_allowed_action_names = DEFAULT_SHELTER_ALLOWED_ACTION_NAMES
+    """コロニー用の避難所許可行動などを World に載せる（レイアウトは sim が既に解析済み）。
+
+    Note: shelter action whitelist is now managed in game layer (shelter_helpers,
+    bridge_handlers) via mind restriction on enter/exit, not by injecting on World.
+    """
+    # No longer inject shelter_allowed_action_names on world for independence.
+    # The sim mind no longer filters using it.
+    pass
 
 
 def attach_colony_orchestrator(world: "World", orchestrator: "ColonyOrchestrator") -> None:

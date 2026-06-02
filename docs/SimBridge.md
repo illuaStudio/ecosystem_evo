@@ -14,9 +14,15 @@
 |------|------|
 | `SpawnCreature` | 指定種をスポーン。`x`/`y` 省略時はランダム座標 |
 | `SetCreatureMind` | 個体の AI actions を replace / merge / reset |
-| `SetSpeciesMind` | 種名一致の全個体に AI 適用（`colony_id` で絞り可） |
+| `SetSpeciesMind` | 種名一致の全個体に AI 適用（`affiliation_id` で絞り可） |
 | `SetAffiliationCasteMind` | **同一コロニー内の種別**全個体に AI 適用 |
 | `EnterCreatureShelter` | 個体を巣穴 shelter へ |
+
+### SimBridge の公開アクセサ（コマンド以外）
+
+| メソッド | 用途 |
+|----------|------|
+| `creature_by_id(creature_id)` | ID から Creature を取得（game 層が SpawnEvent などから個体を解決するための公式窓口。旧 private `_creature_by_id` の置き換え） |
 
 ### SetAffiliationCasteMind.caste
 

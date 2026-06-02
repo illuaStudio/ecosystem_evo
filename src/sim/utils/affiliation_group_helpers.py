@@ -86,22 +86,13 @@ def is_affiliation_defeated(world, affiliation_id: str) -> bool:
 
         return False
 
-    # Prefer the neutral method on World (set by game layer, no direct hooks)
+    # Use the neutral method on World (set by game layer via mark_affiliation_defeated).
+    # No more direct hooks or private layout access for this in sim.
     if hasattr(world, "is_affiliation_defeated"):
         try:
             return bool(world.is_affiliation_defeated(affiliation_id))
         except Exception:
             pass
-
-    # Fallback for legacy checker injection (being phased out)
-    checker = getattr(world, "defeated_affiliation_checker", None)
-    if checker is not None:
-        return bool(checker(str(affiliation_id)))
-
-    # Legacy layout fallback
-    defeated = getattr(world, "defeated_affiliations", None)
-    if defeated is not None:
-        return str(affiliation_id) in defeated
 
     return False
 

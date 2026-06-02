@@ -539,7 +539,6 @@ class Renderer:
         )
         from src.sim.utils.world_object_helpers import (
             affiliation_access_count,
-            affiliation_fill_ratio,
             affiliation_site_xy,
             affiliation_stored_mass,
             affiliation_capacity,
@@ -568,7 +567,7 @@ class Renderer:
         owner = owner_species_for_affiliation(world, affiliation_id)
         stored = affiliation_stored_mass(world, affiliation_id)
         cap = affiliation_capacity(world, affiliation_id)
-        ratio = affiliation_fill_ratio(world, affiliation_id)
+        ratio = ns.affiliation_fill_ratio(affiliation_id)
 
         texts = [
             f"勢力:{affiliation_id}  種:{owner}",

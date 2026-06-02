@@ -45,6 +45,7 @@
 - `utils/affiliation_site_helpers.py` — 拠点への距離・座標（ゲーム意味なし）
 - **ゲーム層** `game/colony_orchestrator.py` — コロニー進行（敗北・接続点・備蓄漏れ・所属付与）
 - **ゲーム層** `game/colony_runtime.py` + `colony_session.py` — 敗北集合・ゲームイベント（`AffiliationDefeatedEvent`）
-- **中立** `World.mark_affiliation_defeated / is_affiliation_defeated` — Game が設定する敗北状態を Sim が中立に参照（直接フック注入を廃止）
+- **中立** `World.mark_affiliation_defeated / is_affiliation_defeated` — Game が設定する敗北状態を Sim が中立に参照
+- **ゲーム層** `game/shelter_helpers.py` + `bridge_handlers.py` — 避難時の mind 制限（旧 shelter_allowed whitelist の game 側管理）
 - **ゲーム層** `game/ai/` — 意味のある行動すべて（狩り・戦闘・逃走・捕食・コロニー・避難等）。`register_game_actions()` でレジストリ登録
 - **シミュ層** `sim/ai/actions/` — `Action` 基底・`IdleLocomotionAction`（フォールバック専用）・レジストリ・`UtilityMind`

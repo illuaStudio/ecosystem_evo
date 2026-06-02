@@ -33,7 +33,7 @@ Game は Client を import しない
 | シンボル | モジュール | 用途 |
 |----------|------------|------|
 | `World` | `src.sim.systems.world` | シミュレーション世界 |
-| `SimBridge` | `src.sim.bridge` | Game → Sim 命令の唯一の実行窓口 |
+| `SimBridge` | `src.sim.bridge` | Game → Sim 命令の唯一の実行窓口（+ `creature_by_id` 公開アクセサ） |
 | `SimCommand` 各種 | `src.sim.commands` | 命令データ（`SpawnCreature`, `SetCreatureMind`, …） |
 | `SimEvent` 各種 | `src.sim.events` | 事実イベント（下表） |
 | `EventBus` | `src.sim.event_bus` | `emit` / `drain` / `subscribe` |
@@ -50,6 +50,8 @@ Game は Client を import しない
 
 **Game 専用の意味**（プレイヤー敗北メッセージ等）は Sim に置かない。`AffiliationDefeatedEvent` は **Game 層**（`src.game.events`）。
 
+**コア SimEvent（Death/Spawn/ItemFound/CombatStarted）は事実のみ**（affiliation_id / colony_id 等の game 解釈 ID は持たない。game 側が creature から解決）。
+
 ### World 上の「中立データ」（Game が書き、Sim が読む）
 
 | API | 説明 |
@@ -57,7 +59,6 @@ Game は Client を import しない
 | `world.mark_affiliation_defeated(id)` | 敗北フラグ（Game が設定） |
 | `world.is_affiliation_defeated(id)` | 敗北判定（Sim AI・戦闘が参照） |
 | `world.events` | イベントバス |
-| `world.shelter_allowed_action_names` | 避難所で許可する action 名集合（Game が `attach_colony_config` で設定） |
 
 **禁止（Sim 内部に閉じる）**: `ColonyOrchestrator`, `register_game_actions`, `colony_session` への参照。
 
@@ -100,6 +101,7 @@ Game は Client を import しない
 2. **イベント処理**: `world.events.drain()` → `GameDirector.on_sim_events`
 3. **tick 補完**: `ensure_creature_affiliations`, `SimRunner._run_game_maintenance`
 4. **敗北**: `AffiliationAllAccessRemovedEvent` → `defeat_affiliation` → `AffiliationDefeatedEvent`
+5. **個体解決**: `SimBridge.creature_by_id(creature_id)`（イベントから creature 取得用公開アクセサ）
 
 ---
 
@@ -158,25 +160,42 @@ GameApp.update (毎 sim tick):
 ### 結合確認（どちらかがマージ前に）
 
 ```bash
-python -m pytest tests/contracts tests/game tests/sim tests/client -q
+python -m pytest tests/contracts -q
+python -m pytest tests/sim/ -m no_colony -q
+python -m pytest tests/game/ -q
 ```
+
+（`-m no_colony` を `tests/game` に付けないこと — game テストが deselect されます。）
 
 ---
 
+## 汎用 UI（pygame_ui）
+
+ゲーム非依存の Pygame ウィジェットは **`pygame_ui/`** パッケージ（`src` 外）。
+
+- デモ: `python -m pygame_ui.demo`
+- フォント: `python scripts/download_ui_font.py`
+- テスト: `tests/test_pygame_ui.py`
+
+ecosystem_evo の Client は将来 `pygame_ui` + 薄い `ui_adapter` で接続。
+
 ## ロードマップ（契約の強化）
 
-| 優先度 | 項目 | 効果 |
+| 優先度 | 項目 | 状態 |
 |--------|------|------|
-| 高 | import 契約テスト（実施済み） | 層違反を即検知 |
-| 高 | `client_api` への Client 依存集約 | Client AI が Sim を触らない |
-| 中 | `Simulation_Events.md` と本書の同期 | ドキュメント単一真実源 |
-| 中 | Sim 公開面の `src/sim/public.py` 再エクスポート | import 先を 1 モジュールに |
-| 低 | `WorldView` DTO（Client 専用スナップショット） | Renderer の Sim 依存ゼロ |
+| 高 | import 契約テスト | ✅ 実施済み |
+| 高 | `client_api` への Client 依存集約 | 随時（Client 変更時） |
+| 中 | `Simulation_Events.md` と本書の同期 | ✅ 同期済み |
+| 中 | Sim 公開面 `public.py` | ⏸ 凍結（任意） |
+| 低 | `WorldView` DTO | ⏸ 凍結（任意） |
+
+**境界分離プロジェクト**: 2026-06-03 凍結。詳細は `docs/REVIEW_Sim_Game_Layer_Independence_Problems.md` §0。
 
 ---
 
 ## 関連ドキュメント
 
 - `docs/Architecture_Sim_Game_Boundary.md` — 設計思想
+- `docs/REVIEW_Sim_Game_Layer_Independence_Problems.md` — 境界分離の記録・凍結判断（**完了**）
 - `docs/SimBridge.md` — Game → Sim 命令
 - `docs/Simulation_Events.md` — イベント詳細（要: Game イベントとの区分を追記）

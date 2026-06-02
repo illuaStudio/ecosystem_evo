@@ -1,0 +1,37 @@
+{
+  "name": "pixel",
+  "images": {
+    "button_idle": "button_idle.png",
+    "button_hover": "button_hover.png",
+    "button_pressed": "button_pressed.png",
+    "checkbox_off": "checkbox_off.png",
+    "checkbox_on": "checkbox_on.png",
+    "slider_track": "slider_track.png",
+    "slider_fill": "slider_fill.png",
+    "slider_thumb": "slider_thumb.png",
+    "menu_row_hover": "menu_row_hover.png"
+  },
+  "nine_slice": {
+    "panel": {
+      "image": "panel.png",
+      "left": 8,
+      "top": 8,
+      "right": 8,
+      "bottom": 8
+    },
+    "menu": {
+      "image": "panel.png",
+      "left": 8,
+      "top": 8,
+      "right": 8,
+      "bottom": 8
+    },
+    "slider_track": {
+      "image": "slider_track.png",
+      "left": 4,
+      "top": 2,
+      "right": 4,
+      "bottom": 2
+    }
+  }
+}

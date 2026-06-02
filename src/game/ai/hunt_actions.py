@@ -283,17 +283,17 @@ class HuntAction(AffiliationLeashMixin, TerritoryOnlyMixin, CreatureTargetMixin,
             return 1.0
         from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
         from src.sim.utils.affiliation_site_helpers import distance_to_affiliation_site
-        from src.sim.utils.world_object_helpers import (
-            affiliation_fill_ratio,
-            get_affiliation_root,
-        )
+        from src.sim.utils.world_object_helpers import get_affiliation_root
+        from src.game.colony_session import get_colony_orchestrator
 
         affiliation_id = get_creature_affiliation_id(creature)
         if not affiliation_id or get_affiliation_root(creature.world, affiliation_id) is None:
             return 1.0
         if distance_to_affiliation_site(creature) > self._hunt_dampen_radius():
             return 1.0
-        if affiliation_fill_ratio(creature.world, affiliation_id) < self._hunt_dampen_fill_ratio():
+        orch = get_colony_orchestrator(creature.world)
+        fill = orch.affiliation_fill_ratio(affiliation_id) if orch else 0.0
+        if fill < self._hunt_dampen_fill_ratio():
             return 1.0
         return self._hunt_dampen_factor()
 

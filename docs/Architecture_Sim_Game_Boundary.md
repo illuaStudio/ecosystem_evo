@@ -1,7 +1,8 @@
 # Architecture: Sim Layer vs Game Layer Boundary
 
-**Date**: 2026-06
-**Status**: Guiding principle for future refactoring (especially Phase D and beyond)
+**Date**: 2026-06  
+**Status**: **並行開発に必要な境界分離は達成済み（2026-06-03 凍結）**  
+追加の意味論的分離（Sim 内 affiliation 解釈の全移管等）は意図的に行わない。
 
 ## Core Philosophy (User Directive)
 
@@ -30,16 +31,15 @@
 - Eventの発生（Death, Spawn, Item interaction, Combat started など、事実のみ）
 - SimBridgeを通じた最小限の命令実行（SpawnCreature, SetMind など）
 
-## Sim Layer が持つべきでないもの（現在漏れている主なもの）
+## Sim Layer が持つべきでないもの（理想。現状は部分残留・凍結）
 
-- Colony / Faction / 勢力の概念
-- Nest / ColonySite の意味とロジック（備蓄管理、敗北判定、接続点管理）
-- Zoneの効果解釈（毒、クリアリングなど）
-- ゲーム進行関連（population controlの意味、reproductionのルール、progression unlock）
-- `colony.profiles` 由来の設定の解釈
-- `assign_creature` で「個体位置から巣を作る」ようなゲーム特有の生成ロジック
+以下は **長期理想** として記録する。2026-06-03 時点で **全面移管は凍結**（過剰分離のデメリットが大きいと判断）。
 
-これらはすべて **Game Layer** がイベントを解釈して Bridge 経由で指示を出す形にすべき。
+- Colony / Faction / 勢力の概念（Sim 内ヘルパーに一部残留 — 触らなくてよい）
+- Nest / ColonySite の意味解釈の Game 完全移管
+- `colony.profiles` 由来設定の Sim 外への移動
+
+**凍結後のルール**: 新規のゲーム固有ロジックは Game 層に書く。既存 Sim 内コードは動かさなくてよい。
 
 ## WorldObject の位置づけ（汎化に関する判断）
 
@@ -77,11 +77,7 @@
 
 ---
 
-**Next Actions (提案)**
-
-- 現在の World クラスから、明らかにゲーム寄りの属性（affiliation_profiles, faction_* など）を洗い出す。
-- WorldObject の「薄い版」と「意味を持たせた解釈レイヤー」の境界を明確にする設計案を作成。
-- イベントの種類を整理し、「Sim が事実だけを通知する」形に近づける。
+**Next Actions**: なし（境界分離プロジェクト凍結）。日常開発は [Layer_Interfaces.md](./Layer_Interfaces.md) の契約に従う。
 
 **実施済み (2026-06)**
 
@@ -89,3 +85,4 @@
 - `World.mark_affiliation_defeated` / `is_affiliation_defeated` による中立参照（直接フック注入を廃止）。
 - テスト: ルート `conftest` の全 World 自動 bind を廃止。`tests/sim/conftest.py`（`@pytest.mark.no_colony` で opt-out）、`tests/game/conftest.py`、明示的 `bind_colony` / `load_test_world`。
 - **2-AI 並行開発**: `docs/Layer_Interfaces.md` + `tests/contracts/test_layer_imports.py` + `src/game/client_api.py`（Client→Game 窓口）。
+- **境界分離凍結 (2026-06-03)**: 詳細は `docs/REVIEW_Sim_Game_Layer_Independence_Problems.md` §0。

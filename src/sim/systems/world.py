@@ -102,15 +102,11 @@ class World:
         self._affiliation_layout = AffiliationLayoutState.from_block(
             self._affiliation_layout_raw
         )
-        self.shelter_allowed_action_names: frozenset[str] = frozenset()
         self.events = EventBus()
         self._combat_pairs_this_tick: set[tuple] = set()
 
         self._sim_time = 0.0
-        # NOTE: game-specific hooks removed for layer independence.
-        # Game logic (colony maintenance, affiliation assignment, access damage)
-        # is now driven from the game layer via explicit calls around sim ticks
-        # or through neutral events / data on World.
+        # Neutral game-progression data (set by Game, readable by Sim behaviors).
         self._defeated_affiliations: set[str] = set()
 
         self.world_object_system = WorldObjectSystem(self)

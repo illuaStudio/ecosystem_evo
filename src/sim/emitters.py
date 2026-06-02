@@ -1,7 +1,7 @@
 """ドメインイベントの発火ヘルパー（シミュレーション層専用）。"""
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from src.sim.events import (
     AffiliationAllAccessRemovedEvent,
@@ -24,12 +24,6 @@ def _sim_time(world: "World") -> float:
     return float(getattr(world, "_sim_time", 0.0))
 
 
-def _affiliation_id_from_creature(creature) -> Optional[str]:
-    from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
-
-    return get_creature_affiliation_id(creature)
-
-
 def emit_death(world: "World", creature, *, cause: DeathCause = "unknown") -> None:
     if world is None or creature is None:
         return
@@ -38,7 +32,6 @@ def emit_death(world: "World", creature, *, cause: DeathCause = "unknown") -> No
             sim_time=_sim_time(world),
             creature=creature,
             species_name=creature.species.name,
-            affiliation_id=_affiliation_id_from_creature(creature),
             cause=cause,
         )
     )
@@ -58,7 +51,6 @@ def emit_spawn(
             sim_time=_sim_time(world),
             creature=creature,
             species_name=creature.species.name,
-            affiliation_id=_affiliation_id_from_creature(creature),
             source=source,
             parent=parent,
         )
@@ -79,7 +71,6 @@ def emit_item_found(
             sim_time=_sim_time(world),
             carrier=carrier,
             species_name=carrier.species.name,
-            affiliation_id=_affiliation_id_from_creature(carrier),
             item_kind=item_kind,
             amount=float(amount),
         )
@@ -110,10 +101,8 @@ def emit_combat_started_creature(world: "World", attacker, target_creature) -> N
             sim_time=_sim_time(world),
             attacker=attacker,
             attacker_species=attacker.species.name,
-            attacker_affiliation_id=_affiliation_id_from_creature(attacker),
             target_kind="creature",
             target_creature=target_creature,
-            target_affiliation_id=_affiliation_id_from_creature(target_creature),
         )
     )
 
@@ -137,9 +126,7 @@ def emit_combat_started_affiliation_access(
             sim_time=_sim_time(world),
             attacker=attacker,
             attacker_species=attacker.species.name,
-            attacker_affiliation_id=_affiliation_id_from_creature(attacker),
             target_kind="world_object",
-            target_affiliation_id=target_affiliation_id,
             target_object_id=str(access_id),
         )
     )

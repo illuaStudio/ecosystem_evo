@@ -28,6 +28,10 @@ def _creature_by_id(world: "World", creature_id: int) -> Any | None:
     return None
 
 
+# Note: _creature_by_id remains internal for module use.
+# Public access is via SimBridge.creature_by_id (see class below).
+
+
 def _apply_mind(creature, actions: tuple[dict, ...], mode: str) -> bool:
     mind = getattr(creature, "mind", None)
     if mind is None or not hasattr(mind, "action_defs"):
@@ -60,6 +64,12 @@ class SimBridge:
         self._factory = CreatureFactory()
         self._game_hooks = dict(game_hooks or {})
 
+    def creature_by_id(self, creature_id: int) -> Any | None:
+        """公開ヘルパー: creature_id で Creature を検索（Game hook から利用）。
+        内部実装は _creature_by_id を使用。
+        """
+        return _creature_by_id(self.world, creature_id)
+
     def execute(self, command: SimCommand) -> SimCommandResult:
         if isinstance(command, SpawnCreature):
             return self._spawn_creature(command)
@@ -84,7 +94,7 @@ class SimBridge:
         world = self.world
         parent = None
         if cmd.parent_creature_id is not None:
-            parent = _creature_by_id(world, cmd.parent_creature_id)
+            parent = self.creature_by_id(cmd.parent_creature_id)
 
         try:
             creature = self._factory.create(
@@ -120,7 +130,7 @@ class SimBridge:
         )
 
     def _set_creature_mind(self, cmd: SetCreatureMind) -> SimCommandResult:
-        creature = _creature_by_id(self.world, cmd.creature_id)
+        creature = self.creature_by_id(cmd.creature_id)
         if creature is None:
             return SimCommandResult(
                 False,
@@ -168,7 +178,7 @@ class SimBridge:
         return handler(self, command)
 
     def _issue_creature_directive(self, cmd: IssueCreatureDirective) -> SimCommandResult:
-        creature = _creature_by_id(self.world, cmd.creature_id)
+        creature = self.creature_by_id(cmd.creature_id)
         if creature is None:
             return SimCommandResult(
                 False,
@@ -205,7 +215,7 @@ class SimBridge:
         )
 
     def _clear_creature_directive(self, cmd: ClearCreatureDirective) -> SimCommandResult:
-        creature = _creature_by_id(self.world, cmd.creature_id)
+        creature = self.creature_by_id(cmd.creature_id)
         if creature is None:
             return SimCommandResult(
                 False,

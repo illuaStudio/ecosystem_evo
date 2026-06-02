@@ -151,7 +151,11 @@ class GameDirector:
         _ = world
         if event.source != "reproduction":
             return []
-        if event.affiliation_id != self.state.player_affiliation_id:
+        aff_id = None
+        if event.creature is not None:
+            from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
+            aff_id = get_creature_affiliation_id(event.creature)
+        if aff_id != self.state.player_affiliation_id:
             return []
         if not self.state.set_flag("first_reproduction"):
             return []
@@ -164,7 +168,11 @@ class GameDirector:
 
     def _on_death(self, world: "World", event: DeathEvent) -> list[GameMessage]:
         _ = world
-        if event.affiliation_id != self.state.player_affiliation_id:
+        aff_id = None
+        if event.creature is not None:
+            from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
+            aff_id = get_creature_affiliation_id(event.creature)
+        if aff_id != self.state.player_affiliation_id:
             return []
         if event.species_name.endswith("_queen"):
             return [
@@ -178,7 +186,11 @@ class GameDirector:
 
     def _on_item_found(self, world: "World", event: ItemFoundEvent) -> list[GameMessage]:
         _ = world
-        if event.affiliation_id != self.state.player_affiliation_id:
+        aff_id = None
+        if event.carrier is not None:
+            from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
+            aff_id = get_creature_affiliation_id(event.carrier)
+        if aff_id != self.state.player_affiliation_id:
             return []
         if not self.state.set_flag("first_item_found"):
             return []
@@ -193,7 +205,10 @@ class GameDirector:
         self, world: "World", event: CombatStartedEvent
     ) -> list[GameMessage]:
         player_id = self.state.player_affiliation_id
-        attacker_cid = event.attacker_affiliation_id
+        attacker_cid = None
+        if event.attacker is not None:
+            from src.sim.utils.affiliation_helpers import get_creature_affiliation_id
+            attacker_cid = get_creature_affiliation_id(event.attacker)
         if not attacker_cid or not is_rival_affiliation(world, player_id, attacker_cid):
             return []
 
@@ -203,8 +218,11 @@ class GameDirector:
 
             target_cid = get_creature_affiliation_id(event.target_creature)
             player_attacked = target_cid == player_id
-        elif event.target_kind == "world_object":
-            player_attacked = event.target_affiliation_id == player_id
+        elif event.target_kind == "world_object" and event.target_object_id:
+            ws = getattr(world, "world_object_system", None)
+            access = ws.get(str(event.target_object_id)) if ws is not None else None
+            parent_id = str(getattr(access, "parent_id", "") or "") if access else ""
+            player_attacked = parent_id == player_id
 
         if not player_attacked:
             return []

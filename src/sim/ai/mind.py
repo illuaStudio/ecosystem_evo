@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from src.sim.shelter.state import is_creature_sheltered, shelter_allowed_action_names
+from src.sim.shelter.state import is_creature_sheltered
 from src.sim.utils.inventory_helpers import inventory_is_loaded
 from src.sim.ai.action_config import expand_action_params
 from src.sim.ai.actions.registry import ACTION_BY_NAME
@@ -51,8 +51,8 @@ class UtilityMind(Mind):
         action_cls = ACTION_BY_NAME.get(name)
         if action_cls is None:
             raise KeyError(
-                f"{creature.species.name}: fallback_action {name!r} が未登録です。"
-                f" sim の {_DEFAULT_FALLBACK_ACTION} か register_game_actions() を確認してください。"
+                f"{creature.species.name}: fallback_action {name!r} が ACTION_BY_NAME に未登録です。"
+                f" 種 JSON の actions 定義、または {_DEFAULT_FALLBACK_ACTION} の登録を確認してください。"
             )
         if self._fallback_params is not None:
             raw_params = dict(self._fallback_params)
@@ -78,13 +78,8 @@ class UtilityMind(Mind):
         best_action = None
         best_score = -1.0
 
-        sheltered = is_creature_sheltered(creature)
-        allowed = shelter_allowed_action_names(creature.world) if creature.world else frozenset()
-
         for action_def in self.action_defs:
             action_name = action_def["name"]
-            if sheltered and action_name not in allowed:
-                continue
             params = action_def.get("params", {})
             weight = action_def.get("weight", 1.0)
 
@@ -104,25 +99,7 @@ class UtilityMind(Mind):
                 best_action = action
 
         if best_action is None:
-            if sheltered:
-                for action_def in self.action_defs:
-                    name = action_def.get("name")
-                    if name not in allowed:
-                        continue
-                    action_cls = ACTION_BY_NAME.get(name)
-                    if action_cls is None:
-                        continue
-                    best_action = action_cls.from_config(
-                        action_def.get("params", {}),
-                        source=f"{creature.species.name}/{name}",
-                    )
-                    break
-                if best_action is None:
-                    raise KeyError(
-                        f"{creature.species.name}: 避難中だが許可された行動が未定義です"
-                    )
-            else:
-                best_action = self._fallback_action(creature)
+            best_action = self._fallback_action(creature)
 
         if (
             current is not None

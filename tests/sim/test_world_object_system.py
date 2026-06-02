@@ -15,7 +15,6 @@ from src.sim.utils.world_object_helpers import (
     resolve_shelter_from_parents,
     set_creature_nest_parent_ids,
     iter_affiliation_access_xy,
-    affiliation_fill_ratio,
     affiliation_access_count,
 )
 from tests.sim.test_hole_combat_helpers import damage_colony_access, list_colony_access, primary_access
@@ -196,7 +195,7 @@ class TestWorldObjectSystem(unittest.TestCase):
 
         pts = iter_affiliation_access_xy(world, "red_ant")
         self.assertEqual(len(pts), 1)
-        self.assertAlmostEqual(affiliation_fill_ratio(world, "red_ant"), 0.5)
+        self.assertAlmostEqual(colony(world).affiliation_fill_ratio("red_ant"), 0.5)
         self.assertEqual(affiliation_access_count(world, "red_ant"), 1)
 
     def test_obstacle_instances_load_geometry(self):

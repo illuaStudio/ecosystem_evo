@@ -21,7 +21,6 @@ class SimEvent:
 class DeathEvent(SimEvent):
     creature: Any = field(repr=False)
     species_name: str = ""
-    affiliation_id: Optional[str] = None
     cause: DeathCause = "unknown"
 
 
@@ -29,7 +28,6 @@ class DeathEvent(SimEvent):
 class SpawnEvent(SimEvent):
     creature: Any = field(repr=False)
     species_name: str = ""
-    affiliation_id: Optional[str] = None
     source: SpawnSource = "spawn"
     parent: Any = field(default=None, repr=False)
 
@@ -38,7 +36,6 @@ class SpawnEvent(SimEvent):
 class ItemFoundEvent(SimEvent):
     carrier: Any = field(repr=False)
     species_name: str = ""
-    affiliation_id: Optional[str] = None
     item_kind: ItemKind = "biomass"
     amount: float = 0.0
 
@@ -47,10 +44,8 @@ class ItemFoundEvent(SimEvent):
 class CombatStartedEvent(SimEvent):
     attacker: Any = field(repr=False)
     attacker_species: str = ""
-    attacker_affiliation_id: Optional[str] = None
     target_kind: CombatTargetKind = "creature"
     target_creature: Any = field(default=None, repr=False)
-    target_affiliation_id: Optional[str] = None
     target_object_id: Optional[str] = None
 
 

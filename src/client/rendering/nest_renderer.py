@@ -214,7 +214,6 @@ class NestRenderer:
     @staticmethod
     def draw(world, screen, camera, selected_affiliation_id: str | None = None) -> None:
         from src.sim.utils.world_object_helpers import (
-            affiliation_fill_ratio,
             affiliation_site_xy,
             iter_active_affiliation_roots,
             iter_affiliation_access_for_display,
@@ -236,7 +235,9 @@ class NestRenderer:
             ):
                 continue
 
-            fill = affiliation_fill_ratio(world, affiliation_id)
+            from src.game.client_api import try_get_affiliation_fill_ratio
+
+            fill = try_get_affiliation_fill_ratio(world, affiliation_id) or 0.0
             faction = get_faction_style(world, affiliation_id)
             outer = _rgb_tuple(faction.get("nest_outer"), DEFAULT_FACTION_STYLE["nest_outer"])
             ib = _rgb_tuple(

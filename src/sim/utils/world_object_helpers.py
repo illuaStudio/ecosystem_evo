@@ -337,17 +337,6 @@ def affiliation_site_xy(world, affiliation_id: str) -> tuple[float, float]:
     return 0.0, 0.0
 
 
-def affiliation_fill_ratio(world, affiliation_id: str) -> float:
-    """備蓄率 0..1。"""
-    root = get_affiliation_root(world, affiliation_id)
-    if root is not None and root.storage is not None and root.storage.capacity > 0:
-        return max(
-            0.0,
-            min(1.0, root.storage.stored_mass / root.storage.capacity),
-        )
-    return 0.0
-
-
 def access_count(world, compound_id: str) -> int:
     cs = _compound_system(world)
     if cs is not None and cs.has_root(compound_id):

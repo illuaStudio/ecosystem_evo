@@ -84,12 +84,15 @@ def move_toward_shelter_avoiding_threat(
 
 
 def collect_threat_species_from_mind(creature) -> tuple[str, ...]:
+    """Collect threat_species from any actions in mind_data that declare them.
+    Action names are game-defined, but we look for the param generically.
+    """
     threats: list[str] = []
     for action_def in creature.species.mind_data.get("actions", []):
-        if action_def.get("name") not in ("FleeAction", "SeekShelterAction"):
-            continue
-        raw = action_def.get("params", {}).get("threat_species") or ()
-        threats.extend(raw)
+        params = action_def.get("params", {}) or {}
+        if "threat_species" in params:
+            raw = params.get("threat_species") or ()
+            threats.extend(raw)
     return tuple(dict.fromkeys(threats))
 
 
