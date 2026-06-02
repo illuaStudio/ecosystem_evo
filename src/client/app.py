@@ -143,23 +143,13 @@ class GameApp:
     def update(self):
         if self.paused or self.world is None:
             return
-        if not self.sim_runner.should_run_sim_tick():
+        from src.game.sim_tick_pipeline import advance_render_frame
+
+        sim_steps, tick_messages = advance_render_frame(
+            self.sim_runner, self.world, self.game_controller
+        )
+        if sim_steps < 0 or not tick_messages:
             return
-        if not client_api.should_advance_sim(self.game_controller):
-            tick_messages = self.game_controller.on_tick(self.world)
-            self.message_feed.push(tick_messages)
-            if self.debug_game_messages or self.show_debug:
-                for msg in tick_messages:
-                    print(f"[game:{msg.source}] {msg.text}", flush=True)
-            if self.game_controller.user_message:
-                self.user_message = self.game_controller.user_message
-            return
-        sim_steps = self.sim_runner.tick(self.world)
-        if sim_steps <= 0:
-            return
-        tick_messages = []
-        for _ in range(sim_steps):
-            tick_messages.extend(self.game_controller.on_tick(self.world))
         self.message_feed.push(tick_messages)
         if self.debug_game_messages or self.show_debug:
             for msg in tick_messages:

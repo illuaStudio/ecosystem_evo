@@ -3,8 +3,8 @@
   "description": "防衛ウェーブの侵入蟻。コロニーに所属せず、赤アリの個体と巣のみを襲う。",
   "color": [40, 60, 200],
   "traits": {
-    "base_size": 18.0,
-    "base_speed": 0.58,
+    "base_size": 12.0,
+    "base_speed": 0.30,
     "base_vision": 220.0,
     "max_hp": 160.0,
     "max_satiety": 100.0,
@@ -29,7 +29,7 @@
           "hostile_affiliation_ids": [],
           "speed_multiplier": 1.35,
           "contact_padding": 8.0,
-          "attack_power": 1.45,
+          "attack_power": 0.2,
           "territory_only": false,
           "nest_leash_radius": null
         }

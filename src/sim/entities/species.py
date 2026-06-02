@@ -229,7 +229,8 @@ def sample_individual_traits(
     rng: random.Random | None = None,
 ) -> dict:
     """種テンプレートから個体ごとの traits を独立サンプル（進化・継承なし）。"""
-    rng = rng or random.Random()
+    if rng is None:
+        rng = random
     traits = dict(template_traits)
     for key, spec in variance_spec.items():
         if key not in traits:

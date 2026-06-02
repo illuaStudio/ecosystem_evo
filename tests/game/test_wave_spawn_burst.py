@@ -3,9 +3,25 @@ from __future__ import annotations
 
 import unittest
 
-from src.game.wave_director import WaveDirector, WaveNestDef, WaveNestHoleDef, WaveNestSpawnDef, WaveDef
+from src.game.wave_director import WaveDef, WaveDirector, WaveHoleDef, WaveNestDef
 from src.sim.bridge import SimBridge
 from tests.sim.world_fixtures import load_test_world
+
+
+def _single_hole(**overrides) -> WaveHoleDef:
+    base = dict(
+        x=840.0,
+        y=170.0,
+        max_alive=12,
+        initial_burst_size=12,
+        spawn_burst_size=4,
+        spawn_interval_ticks=50,
+        spawn_radius=0.0,
+        species="invader_ant",
+        budget=40,
+    )
+    base.update(overrides)
+    return WaveHoleDef(**base)
 
 
 class TestWaveSpawnBurst(unittest.TestCase):
@@ -18,16 +34,7 @@ class TestWaveSpawnBurst(unittest.TestCase):
                     id="t",
                     label="test",
                     story_on_clear="",
-                    nests=(
-                        WaveNestDef(
-                            holes=(WaveNestHoleDef(840.0, 170.0),),
-                            max_alive=12,
-                            initial_burst_size=12,
-                            spawn_burst_size=4,
-                            spawn_interval_ticks=50,
-                            spawns=(WaveNestSpawnDef("invader_ant", 40),),
-                        ),
-                    ),
+                    nests=(WaveNestDef(holes=(_single_hole(),)),),
                 ),
             ),
             player_affiliation_id="red_ant",
@@ -48,12 +55,16 @@ class TestWaveSpawnBurst(unittest.TestCase):
                     story_on_clear="",
                     nests=(
                         WaveNestDef(
-                            holes=(WaveNestHoleDef(840.0, 170.0),),
-                            max_alive=8,
-                            initial_burst_size=8,
-                            spawn_burst_size=8,
-                            spawn_interval_ticks=0,
-                            spawns=(WaveNestSpawnDef("invader_ant", 30),),
+                            holes=(
+                                _single_hole(
+                                    max_alive=8,
+                                    initial_burst_size=8,
+                                    spawn_burst_size=8,
+                                    spawn_interval_ticks=0,
+                                    species="invader_ant",
+                                    budget=30,
+                                ),
+                            ),
                         ),
                     ),
                 ),
@@ -73,6 +84,40 @@ class TestWaveSpawnBurst(unittest.TestCase):
         world.spawn_system.update(1.0)
         wd.tick(world, bridge)
         self.assertEqual(wd.enemies_alive(world), 8)
+
+    def test_spawn_radius_spreads_positions(self):
+        world = load_test_world(name="Spread", world_width=1200, world_height=800)
+        bridge = SimBridge(world)
+        wd = WaveDirector(
+            waves=(
+                WaveDef(
+                    id="t",
+                    label="",
+                    story_on_clear="",
+                    nests=(
+                        WaveNestDef(
+                            holes=(
+                                _single_hole(
+                                    max_alive=6,
+                                    initial_burst_size=6,
+                                    spawn_radius=80.0,
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+        wd.begin_wave(0)
+        wd.tick(world, bridge)
+        positions = [
+            (c.position.x, c.position.y)
+            for c in world.creatures
+            if id(c) in wd._spawned_ids
+        ]
+        self.assertGreaterEqual(len(positions), 4)
+        xs = {round(p[0], 1) for p in positions}
+        self.assertGreater(len(xs), 1, "expected spread within spawn_radius")
 
 
 if __name__ == "__main__":

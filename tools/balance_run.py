@@ -30,6 +30,7 @@ from src.game.game_controller import GameController
 from src.game.phase_ai import count_alive_soldiers
 from src.game.sim_bridge_factory import make_sim_bridge
 from src.game.sim_runner import SimRunner
+from src.game.sim_tick_pipeline import advance_sim_gate
 from src.sim.systems.world import World
 from tools.dev_launcher_fields import default_sim_rate_context
 
@@ -255,13 +256,7 @@ def run_balance(
     prev_soldiers = _soldier_count(world, affiliation_id, soldier_species)
 
     for step in range(1, max_steps + 1):
-        if client_api.should_advance_sim(controller):
-            sim_steps = runner.tick(world)
-            messages = []
-            for _ in range(sim_steps):
-                messages.extend(controller.on_tick(world))
-        else:
-            messages = controller.on_tick(world)
+        _, messages = advance_sim_gate(runner, world, controller)
 
         phase_now = controller.phase.value
         if phase_now != prev_phase:

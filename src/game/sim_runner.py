@@ -10,9 +10,9 @@ if TYPE_CHECKING:
 class SimRunner:
     """レンダー tick とシミュ tick の比率を管理し、World を進める。
 
-    加速は「等倍の1ステップ」を整数回だけ繰り返す。dt を巨大化したり端数 dt
-    で update したりしないので、早送りしてもシミュ結果は等倍と同型になる。
-  （描画・入力はフレームごとに1回のまま。）
+    加速は「等倍の1ステップ」を整数回だけ繰り返す。dt を巨大化しない。
+    Game の on_tick は各 step_once の直後に1回（sim_tick_pipeline.advance_sim_gate）。
+    同じ回数だけ進めれば加速倍率に関係なく結果は一致する（試験は test_sim_determinism）。
     """
 
     def __init__(self, sim_config: dict | None = None) -> None:
@@ -65,8 +65,11 @@ class SimRunner:
         self._run_game_maintenance(world, base_dt)
         world.update(base_dt)
 
-    def tick(self, world: "World") -> int:
-        """速度倍率ぶんの等倍ステップを実行。戻り値は実行したステップ数。"""
+    def consume_steps(self, limit: int | None = None) -> int:
+        """速度倍率に応じて今ゲートで進める等倍ステップ数（step_once は呼ばない）。
+
+        limit を指定した場合、その回は最大 limit まで（クレジットは実行分だけ減る）。
+        """
         speed = float(self.simulation_speed)
         if speed <= 0:
             return 0
@@ -75,8 +78,17 @@ class SimRunner:
         steps = int(self._step_credit)
         if steps <= 0:
             return 0
+        if limit is not None:
+            steps = min(steps, max(0, int(limit)))
         self._step_credit -= float(steps)
+        return steps
 
+    def tick(self, world: "World") -> int:
+        """速度倍率ぶんの等倍ステップを実行（Sim のみ、Game on_tick なし）。
+
+        Client / 試験では sim_tick_pipeline.advance_sim_gate を使うこと。
+        """
+        steps = self.consume_steps()
         for _ in range(steps):
             self.step_once(world)
         return steps

@@ -21,26 +21,29 @@ _WAVES_PATH = (
 
 
 @dataclass(frozen=True)
-class WaveNestSpawnDef:
-    species: str
-    budget: int = 1
+class WaveHoleDef:
+    """巣穴1つ分: 座標・耐久・スポーン種／上限は 1:1。"""
 
-
-@dataclass(frozen=True)
-class WaveNestHoleDef:
     x: float
     y: float
-
-
-@dataclass(frozen=True)
-class WaveNestDef:
-    holes: tuple[WaveNestHoleDef, ...] = ()
+    species: str = "invader_ant"
+    budget: int = 1
     hole_max_hp: float = 180.0
     max_alive: int = 12
     spawn_interval_ticks: int = 20
     spawn_burst_size: int = 8
     initial_burst_size: int | None = None
-    spawns: tuple[WaveNestSpawnDef, ...] = ()
+    spawn_radius: float = 48.0
+
+
+@dataclass(frozen=True)
+class WaveNestDef:
+    """複数穴のグループ（各穴の性質は holes 内で個別指定）。"""
+
+    holes: tuple[WaveHoleDef, ...] = ()
+
+
+WaveNestHoleDef = WaveHoleDef
 
 
 @dataclass(frozen=True)
@@ -67,6 +70,47 @@ class WaveDirector:
     _burst_announced: bool = False
     _profile_applied_ids: set[int] = field(default_factory=set)
 
+    @staticmethod
+    def _parse_hole_species_budget(merged: dict[str, Any]) -> tuple[str, int] | None:
+        species = str(merged.get("species", "")).strip()
+        budget_raw = merged.get("budget", merged.get("count"))
+        if not species:
+            legacy = merged.get("spawns") or []
+            if legacy and isinstance(legacy[0], dict):
+                first = legacy[0]
+                species = str(first.get("species", "")).strip()
+                if budget_raw is None:
+                    budget_raw = first.get("budget", first.get("count"))
+        if not species:
+            return None
+        return species, max(0, int(budget_raw if budget_raw is not None else 0))
+
+    @staticmethod
+    def _parse_hole(raw: dict[str, Any]) -> WaveHoleDef | None:
+        merged = dict(raw)
+        parsed = WaveDirector._parse_hole_species_budget(merged)
+        if parsed is None:
+            return None
+        species, budget = parsed
+        max_alive = max(0, int(merged.get("max_alive", 12)))
+        burst = max(1, int(merged.get("spawn_burst_size", max_alive or 8)))
+        raw_initial = merged.get("initial_burst_size")
+        initial_burst = (
+            max(0, int(raw_initial)) if raw_initial is not None else None
+        )
+        return WaveHoleDef(
+            x=float(merged.get("x", 0.0)),
+            y=float(merged.get("y", 0.0)),
+            species=species,
+            budget=budget,
+            hole_max_hp=float(merged.get("hole_max_hp", 180.0)),
+            max_alive=max_alive,
+            spawn_interval_ticks=max(0, int(merged.get("spawn_interval_ticks", 20))),
+            spawn_burst_size=burst,
+            initial_burst_size=initial_burst,
+            spawn_radius=max(0.0, float(merged.get("spawn_radius", 48.0))),
+        )
+
     @classmethod
     def from_json(
         cls,
@@ -82,45 +126,15 @@ class WaveDirector:
             for raw in data.get("waves") or []:
                 nests: list[WaveNestDef] = []
                 for nest_raw in raw.get("nests") or []:
-                    holes = tuple(
-                        WaveNestHoleDef(
-                            x=float(h.get("x", 0.0)),
-                            y=float(h.get("y", 0.0)),
-                        )
-                        for h in (nest_raw.get("holes") or [])
-                        if h is not None
-                    )
-                    spawns = tuple(
-                        WaveNestSpawnDef(
-                            species=str(s.get("species", "")),
-                            budget=max(0, int(s.get("budget", s.get("count", 0)))),
-                        )
-                        for s in (nest_raw.get("spawns") or [])
-                        if s.get("species")
-                    )
-                    if not holes or not spawns:
-                        continue
-                    max_alive = max(0, int(nest_raw.get("max_alive", 12)))
-                    burst = max(1, int(nest_raw.get("spawn_burst_size", max_alive or 8)))
-                    raw_initial = nest_raw.get("initial_burst_size")
-                    initial_burst = (
-                        max(0, int(raw_initial))
-                        if raw_initial is not None
-                        else None
-                    )
-                    nests.append(
-                        WaveNestDef(
-                            holes=holes,
-                            hole_max_hp=float(nest_raw.get("hole_max_hp", 180.0)),
-                            max_alive=max_alive,
-                            spawn_interval_ticks=max(
-                                0, int(nest_raw.get("spawn_interval_ticks", 20))
-                            ),
-                            spawn_burst_size=burst,
-                            initial_burst_size=initial_burst,
-                            spawns=spawns,
-                        )
-                    )
+                    holes_list: list[WaveHoleDef] = []
+                    for h in nest_raw.get("holes") or []:
+                        if not isinstance(h, dict):
+                            continue
+                        hole = cls._parse_hole(h)
+                        if hole is not None:
+                            holes_list.append(hole)
+                    if holes_list:
+                        nests.append(WaveNestDef(holes=tuple(holes_list)))
                 if not nests:
                     continue
                 waves.append(
@@ -260,27 +274,29 @@ class WaveDirector:
         return messages, False
 
     def _spawn_config_for_hole(
-        self, nest: WaveNestDef, *, species: str, lifetime_budget: int
+        self, hole: WaveHoleDef, *, species: str, lifetime_budget: int
     ) -> dict[str, Any]:
-        burst = nest.initial_burst_size
+        burst = hole.initial_burst_size
         if burst is None:
-            burst = nest.max_alive if nest.max_alive > 0 else nest.spawn_burst_size
+            burst = hole.max_alive if hole.max_alive > 0 else hole.spawn_burst_size
+        radius = max(0.0, float(hole.spawn_radius))
+        spawn_at_center = radius <= 0.0
         return {
             "mode": "point",
             "species_pool": [species],
-            "target_population": max(0, nest.max_alive),
+            "target_population": max(0, hole.max_alive),
             "initial_burst_count": max(0, int(burst)),
             "lifetime_budget": int(lifetime_budget),
-            "replenish_batch_size": max(1, nest.spawn_burst_size),
-            "replenish_cooldown_ticks": max(0, nest.spawn_interval_ticks),
+            "replenish_batch_size": max(1, hole.spawn_burst_size),
+            "replenish_cooldown_ticks": max(0, hole.spawn_interval_ticks),
             "spawn_rate_per_dt": 0.0,
-            "max_spawns_per_tick": max(1, nest.spawn_burst_size),
+            "max_spawns_per_tick": max(1, hole.spawn_burst_size),
             "start_trigger": "on_enable",
             "enabled_at_load": False,
-            "spawn_at_center": True,
+            "spawn_at_center": spawn_at_center,
             "use_biome_weight": False,
             "nest_exclusion_radius": 0.0,
-            "radius": 16.0,
+            "radius": radius if radius > 0.0 else 16.0,
             "creature_spawn_source": "game",
         }
 
@@ -299,12 +315,9 @@ class WaveDirector:
         from src.game.command_builder import place_spawn_emitter
 
         for nest_idx, nest in enumerate(wave.nests):
-            total_budget = sum(s.budget for s in nest.spawns if s.budget > 0)
-            species = nest.spawns[0].species if nest.spawns else "invader_ant"
-            n_holes = max(1, len(nest.holes))
-            per_hole_budget = max(1, total_budget // n_holes)
-
             for hole_idx, hole in enumerate(nest.holes):
+                lifetime_budget = max(1, int(hole.budget))
+
                 root_id = f"enemy_wave_{wave.id}_n{nest_idx}_h{hole_idx}"
                 world.compound_system.ensure_root(
                     root_id,
@@ -321,7 +334,7 @@ class WaveDirector:
                     float(hole.x),
                     float(hole.y),
                     type_ref="enemy_nest_hole",
-                    max_hp=float(nest.hole_max_hp),
+                    max_hp=float(hole.hole_max_hp),
                     shelter=False,
                     deposit_access=False,
                     withdraw_access=False,
@@ -336,7 +349,9 @@ class WaveDirector:
                     float(hole.x),
                     float(hole.y),
                     self._spawn_config_for_hole(
-                        nest, species=species, lifetime_budget=per_hole_budget
+                        hole,
+                        species=hole.species,
+                        lifetime_budget=lifetime_budget,
                     ),
                     label=f"wave_{wave.id}_spawner",
                 )
